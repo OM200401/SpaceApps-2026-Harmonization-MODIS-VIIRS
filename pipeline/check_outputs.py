@@ -15,19 +15,23 @@ def stage_clean():
     p = Path("data/cleaned_canada.parquet"); m = Path("data/monthly.parquet")
     if not p.exists(): return fail("data/cleaned_canada.parquet missing")
     d = pd.read_parquet(p)
-    need = {"lat","lon","acq_date","sensor","frp","confidence"}
+    need = {"cell_lat", "cell_lon", "year", "month", "sensor", "satellite", "hotspots", "frp_sum", "mean_frp"}
     rc |= ok("cleaned rows: "+f"{len(d):,}") if len(d) > 0 else fail("cleaned is empty")
     rc |= ok("schema complete") if need <= set(d.columns) else fail(f"missing columns: {need - set(d.columns)}")
-    rc |= ok("sensors: "+str(sorted(d['sensor'].unique()))) if set(d["sensor"].unique()) <= {"MODIS","VIIRS_SNPP","VIIRS_NOAA20","VIIRS_NOAA21"} else fail(f"bad sensor labels: {sorted(d['sensor'].unique())}")
-    rc |= ok("all 4 sensors present") if len(set(d["sensor"].unique())) == 4 else fail("not all 4 sensors present")
-    rc |= ok("confidence nominal/high only") if set(d["confidence"].unique()) <= {"nominal","high"} else fail(f"confidence values: {set(d['confidence'].unique())}")
-    inb = d["lon"].between(-140,-52).all() and d["lat"].between(42,72).all()
+    rc |= ok("sensors: "+str(sorted(d['sensor'].unique()))) if set(d["sensor"].unique()) == {"MODIS", "VIIRS_SNPP"} else fail(f"unexpected grid sensors: {sorted(d['sensor'].unique())}")
+    rc |= ok("satellites Terra/Aqua/SNPP only") if set(d["satellite"].unique()) == {"Terra", "Aqua", "SNPP"} else fail(f"unexpected satellites: {sorted(d['satellite'].unique())}")
+    inb = d["cell_lon"].between(-140,-52).all() and d["cell_lat"].between(42,72).all()
     rc |= ok("all rows inside Canada bbox") if inb else fail("rows outside Canada bbox - slice did not run first")
-    yrs = pd.to_datetime(d["acq_date"]).dt.year
+    yrs = d["year"]
     rc |= ok(f"date span {yrs.min()}-{yrs.max()}") if yrs.min() <= 2001 and yrs.max() >= 2025 else fail(f"date span {yrs.min()}-{yrs.max()} - coverage gate failed")
     if not m.exists(): rc |= fail("data/monthly.parquet missing")
     else:
-        mm = pd.read_parquet(m); rc |= ok(f"monthly rows: {len(mm):,}") if len(mm) > 0 else fail("monthly is empty")
+        mm = pd.read_parquet(m)
+        required = {"cell_id", "cell_lat", "cell_lon", "year", "month", "modis_count", "viirs_count", "total_count", "mean_frp", "harmonized_count"}
+        rc |= ok(f"monthly rows: {len(mm):,}") if len(mm) > 0 else fail("monthly is empty")
+        rc |= ok("monthly UI schema complete") if required <= set(mm.columns) else fail(f"monthly missing: {required - set(mm.columns)}")
+        rc |= ok("total_count equals MODIS plus SNPP") if (mm["total_count"] == mm["modis_count"] + mm["viirs_count"]).all() else fail("bad monthly total_count")
+        rc |= ok("partial November 2026 excluded") if not ((mm["year"] == 2026) & (mm["month"] == 11)).any() else fail("partial November 2026 present")
     return rc
 
 def stage_calibrate():
