@@ -4,7 +4,9 @@ from pathlib import Path
 import pandas as pd
 
 KEYS = ["cell_lat", "cell_lon", "year", "month"]
-STRATA = ["frp_bin", "season", "daynight"]
+# Mean FRP bins differ materially by sensor in the grid aggregate, so the
+# shipped grid variant uses only the stable season × day/night strata.
+STRATA = ["season", "daynight"]
 
 def frp_bin(x):
     if x < 10: return "0-10"
