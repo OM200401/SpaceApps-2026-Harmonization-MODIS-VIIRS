@@ -2,7 +2,7 @@
 
 ## Estimator definition
 Harmonized count (S-NPP VIIRS-equivalent units) per 0.25° cell-month:
-- From Feb 2012: harmonized = observed S-NPP count, zeros included (reference sensor; the zero handling is fixed in #3 / PR #18).
+- From Feb 2012: harmonized = observed S-NPP count, zeros included (reference sensor; zero handling fixed in #3).
 - Before that: harmonized = MODIS count × ratio for its season × day/night stratum. Terra-only ratios apply before Aqua's July 2002 start.
 - Ratios are region-wide S-NPP / MODIS detection ratios over the 2012–2020 overlap (`pipeline/grid_calibrate.py`).
 
@@ -45,10 +45,10 @@ Error is lowest in fire season, where most detections are. Off-season, especiall
 
 ### 2011→2012 sensor jump
 - Raw (MODIS + S-NPP stitched): **+785.4%**
-- Harmonized: **+62.2%**
+- Harmonized: **+59.1%** (+62.2% before #3 kept observed zero S-NPP counts)
 - MODIS alone (same sensor both years, 48,859 → 78,438): **+60.5%**
 
-So the harmonized change matches the real change measured by one consistent sensor, and the fake sensor-switch jump is gone. After #3 (PR #18) merges, the harmonized jump is **+59.1%**.
+So the harmonized change matches the real change measured by one consistent sensor, and the fake sensor-switch jump is gone.
 
 ### Not yet done
 - [ ] Coverage check per sensor-year (NRT vs standard-processing months, see #14)
