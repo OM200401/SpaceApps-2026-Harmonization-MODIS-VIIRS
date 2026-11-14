@@ -3,8 +3,15 @@
 Every hotspot is snapped to a square grid cell (0.25 deg by default) and counted
 per month, sensor, satellite, day/night, confidence class and vegetation flag.
 
+With --cell-days FINE, `hotspots` instead counts fire cell-days: each FINE-degree cell
+counts at most once per day, per day/night and per satellite. Repeat passes and VIIRS's
+smaller pixels then stop inflating counts. That output is pre-filtered to vegetation
+fires with nominal/high confidence and to Terra/Aqua/S-NPP, so its `confidence` is 'n'
+and `is_vegetation` is true on every row (the downstream filters still pass).
+
 Usage:
     python summarise/build_monthly_grid.py
+    python summarise/build_monthly_grid.py --cell-days 0.05         --output data/derived/monthly_celldays_025.parquet
     python summarise/build_monthly_grid.py --input data/firms --cell 0.25 \
         --output data/derived/monthly_grid_025.parquet
 """
@@ -25,7 +32,7 @@ MODIS_HIGH_MIN = 80
 MASK_RES = 0.01
 
 
-def build(input_dir: Path, output: Path, cell: float, temp_dir: Path) -> None:
+def build(input_dir: Path, output: Path, cell: float, temp_dir: Path, fine: float | None = None) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -62,6 +69,19 @@ def build(input_dir: Path, output: Path, cell: float, temp_dir: Path) -> None:
     """)
 
     # 3. Clean, classify and aggregate in one pass.
+    keys = "cell_lat, cell_lon, year, month, sensor, satellite, daynight"
+    if fine is None:
+        final = f"""SELECT {keys}, confidence, is_vegetation,
+                   CAST(count(*) AS INTEGER) AS hotspots,
+                   CAST(round(sum(frp), 1) AS FLOAT) AS frp_sum
+            FROM cls GROUP BY ALL ORDER BY cell_lat, cell_lon, year, month, sensor"""
+    else:
+        final = f"""SELECT {keys}, 'n' AS confidence, true AS is_vegetation,
+                   CAST(count(DISTINCT (floor(latitude / {fine}), floor(longitude / {fine}), acq_date)) AS INTEGER) AS hotspots,
+                   CAST(round(sum(frp), 1) AS FLOAT) AS frp_sum
+            FROM cls
+            WHERE is_vegetation AND confidence IN ('n', 'h') AND satellite IN ('Terra', 'Aqua', 'SNPP')
+            GROUP BY ALL ORDER BY cell_lat, cell_lon, year, month, sensor"""
     con.execute(f"""
         COPY (
             WITH pts AS (
@@ -74,7 +94,7 @@ def build(input_dir: Path, output: Path, cell: float, temp_dir: Path) -> None:
                    OR a.last_archive_date IS NULL
                    OR r.acq_date > a.last_archive_date
             )
-            SELECT
+            , cls AS (SELECT
                 round(floor(latitude  / {cell}) * {cell}, 4) AS cell_lat,
                 round(floor(longitude / {cell}) * {cell}, 4) AS cell_lon,
                 CAST(year(acq_date)  AS INTEGER) AS year,
@@ -93,12 +113,10 @@ def build(input_dir: Path, output: Path, cell: float, temp_dir: Path) -> None:
                     WHEN source = 'archive' THEN type = 0
                     ELSE m.mlat IS NULL
                 END AS is_vegetation,
-                CAST(count(*) AS INTEGER) AS hotspots,
-                CAST(round(sum(frp), 1) AS FLOAT) AS frp_sum
+                acq_date, latitude, longitude, frp
             FROM pts
-            LEFT JOIN static_mask m USING (mlat, mlon)
-            GROUP BY ALL
-            ORDER BY cell_lat, cell_lon, year, month, sensor
+            LEFT JOIN static_mask m USING (mlat, mlon))
+            {final}
         ) TO '{output.as_posix()}'
         (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 250000)
     """)
@@ -116,13 +134,15 @@ def main() -> None:
     p.add_argument("--cell", type=float, default=0.25, help="grid cell size in degrees")
     p.add_argument("--output", type=Path, default=None)
     p.add_argument("--temp", type=Path, default=Path("data/tmp"))
+    p.add_argument("--cell-days", type=float, default=None, metavar="FINE",
+                   help="count fire cell-days on a FINE-degree grid instead of detections")
     args = p.parse_args()
 
     output = args.output or Path(
         f"data/derived/monthly_grid_{str(args.cell).replace('.', '')}.parquet"
     )
     t0 = time.time()
-    build(args.input, output, args.cell, args.temp)
+    build(args.input, output, args.cell, args.temp, args.cell_days)
     size_mb = output.stat().st_size / 1e6
     print(f"Wrote {output} ({size_mb:.1f} MB) in {time.time() - t0:.0f}s")
 
