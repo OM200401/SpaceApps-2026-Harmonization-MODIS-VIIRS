@@ -123,6 +123,21 @@ Publish a new version as a new release (`data-v3`, ...) so nobody's code breaks 
 - **Never commit secrets.** FIRMS MAP_KEY and Hugging Face tokens go in `.env`, which is ignored.
 - **Commit messages are one short line.**
 
+## Use of AI
+
+We used AI assistants to speed up building this project. The team directed and reviewed all of it.
+
+| Tool | Used for |
+|---|---|
+| Claude (Anthropic) | Code (`summarise/build_monthly_grid.py`, parts of `pipeline/` and `app/`), data checks on the FIRMS tables, and documentation (READMEs, `docs/`) |
+| Codex (OpenAI) | Code in `pipeline/` |
+| Quill | Code and documentation |
+| GitHub Copilot Autofix | One fix in `app/index.html` (median calculation) |
+
+- **Ideas and method:** choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, season × day/night ratios, and the 2012–2020 calibration with 2021–2023 holdout.
+- **Data:** every result comes from NASA FIRMS data run through this repo's scripts. `pipeline/make_synthetic.py` generates AI-assisted **synthetic** test data, used only to check that the pipeline recovers a planted ratio. It is labelled as synthetic everywhere it appears (`data/synthetic/`, the "Pipeline test" section of `docs/VALIDATION.md`) and is never shown as a result.
+- **Images and video:** none in the app or demo are AI-generated. If any are added, they will carry a visible watermark, as the Space Apps rules require.
+
 ## Deadline
 
 Project submission closes **Sunday, November 15, 11:59 p.m.** local event time.
