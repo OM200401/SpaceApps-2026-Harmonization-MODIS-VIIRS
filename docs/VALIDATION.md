@@ -4,9 +4,11 @@
 Harmonized count (S-NPP VIIRS-equivalent units) per 0.25° cell-month:
 - From Feb 2012: harmonized = observed S-NPP count, zeros included (reference sensor; zero handling fixed in #3).
 - Before that: harmonized = MODIS count × ratio for its season × day/night stratum. Terra-only ratios apply before Aqua's July 2002 start.
-- Ratios are region-wide S-NPP / MODIS detection ratios over the 2012–2020 overlap (`pipeline/grid_calibrate.py`).
+- Ratios are region-wide S-NPP / MODIS detection ratios over the 2012–2020 overlap. Each region uses its own ratios, or the global ones where those score better in the holdout. Canada ships with global ratios (`pipeline/build_regions.py`, see Per-region results).
 
-## Real-data results (2026-11-14, data-v2, Canada)
+## Real-data results (2026-11-14, data-v2, Canada, own ratios)
+> **Superseded for the shipped data.** This section fits Canada's own ratios. Canada now ships with global ratios, which give a lower holdout error (16.9% vs 19.5%); see Per-region results below.
+
 Input: `monthly_grid_025.parquet` (data-v2) → `build_monthly_from_grid.py` → 565,295 staging rows, 308,806 cell-months (vegetation fires, confidence n/h, Terra/Aqua/S-NPP, Nov 2026 excluded as partial).
 Commands: `python pipeline/grid_calibrate.py` then `python pipeline/grid_validate.py`.
 
@@ -57,7 +59,7 @@ Command: `python pipeline/build_regions.py` (writes `data/monthly_harmonized_all
 ### Ratios (S-NPP / MODIS, 2012–2020)
 | Region (W,S,E,N) | Fire day | Fire night | Off day | Off night | Fallback strata |
 |---|---:|---:|---:|---:|---:|
-| Canada (−140,42,−52,72) | 3.69 | 8.42 | 2.28 | 13.93 | 0 |
+| Canada (−140,42,−52,72), own; ships with global | 3.69 | 8.42 | 2.28 | 13.93 | 0 |
 | Amazon (−75,−15,−45,5) | 3.16 | 6.56 | 3.53 | 5.62 | 0 |
 | Mediterranean (−10,35,30,45) | 2.90 | 6.01 | 2.86 | 10.76 | 0 |
 | Global (fallback) | 3.46 | 8.53 | 3.55 | 9.47 | — |
@@ -65,22 +67,34 @@ Command: `python pipeline/build_regions.py` (writes `data/monthly_harmonized_all
 Every regional stratum had at least 6,307 MODIS detections, so no fallback was needed. "Fire" is May–Sep for every region. That matches the northern-hemisphere seasons; for the Amazon it is just a fixed split of the year, still learned and applied consistently.
 
 ### Holdout (calibrate 2012–2020, predict S-NPP 2021–2023 from MODIS only)
-| Region | Cells | MAPE, own ratios | Bias, own ratios | MAPE, global ratios only | Top-5 months |
-|---|---:|---:|---:|---:|---:|
-| Canada | 18,060 | **19.5%** | −10.0% | 16.9% | 5/5 |
-| Amazon | 8,400 | **17.9%** | +14.9% | 32.9% | 5/5 |
-| Mediterranean | 3,861 | **20.6%** | −1.1% | 26.9% | 4/5 |
+| Region | Cells | MAPE, own ratios | MAPE, global ratios | **Shipped** | Shipped bias | Top-5 months |
+|---|---:|---:|---:|---|---:|---:|
+| Canada | 18,060 | 19.5% | 16.9% | **global, 16.9%** | −1.0% | 5/5 |
+| Amazon | 8,400 | 17.9% | 32.9% | **own, 17.9%** | +14.9% | 5/5 |
+| Mediterranean | 3,861 | 20.6% | 26.9% | **own, 20.6%** | −1.1% | 4/5 |
 
-Regional ratios matter: global ratios alone nearly double the Amazon error. Canada is the exception: global ratios do slightly better there than its own (16.9% vs 19.5%), even though Canada's own ratios come from 659k MODIS detections.
+Each region ships with whichever ratios gave the lower holdout error. Regional ratios matter: global ratios alone nearly double the Amazon error. Canada is the exception, so it ships with global ratios (`RATIO_SOURCE` in `build_regions.py`).
+
+Canada with global ratios, by stratum:
+
+| Season | Day/night | n | MAPE | Bias |
+|---|---|---:|---:|---:|
+| Fire | Day | 15 | 15.9% | +2.5% |
+| Fire | Night | 15 | 16.2% | +2.5% |
+| Off | Day | 21 | 23.6% | +22.6% |
+| Off | Night | 21 | 50.6% | −50.6% |
+
+Fire-season error and bias both improve over Canada's own ratios. Off-season nights get worse, because the global off-night ratio (9.47) is lower than Canada's (13.93), but those months carry few detections. The top-5 months still match 5/5: Aug 2023, Jul 2023, Jul 2021, Sep 2023, Jun 2023.
+Check: `python pipeline/grid_validate.py --ratios data/calibration_regions.json`.
 
 ### 2011→2012 sensor jump by region
 | Region | Raw | Harmonized | MODIS alone |
 |---|---:|---:|---:|
-| Canada | +785.4% | +59.1% | +60.5% |
+| Canada (shipped, global ratios) | +785.4% | +55.9% | +60.5% |
 | Amazon | +656.2% | +60.5% | +55.8% |
 | Mediterranean | +496.0% | +29.0% | +33.8% |
 
-In every region the harmonized change is within 5 points of the single-sensor MODIS change, and the fake sensor-switch jump is gone.
+In every region the harmonized change is within 5 points of the single-sensor MODIS change, and the fake sensor-switch jump is gone. (Canada with its own ratios: +59.1%.)
 
 ### Not yet done
 - [ ] Coverage check per sensor-year (NRT vs standard-processing months, see #14)

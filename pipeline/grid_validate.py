@@ -1,5 +1,6 @@
 """Comparable grid-path holdout: region-month MAPE and bias."""
-import argparse, pandas as pd
+import argparse, json, pandas as pd
+from pathlib import Path
 from grid_calibrate import KEYS, STRATA, add_strata, ratios, converted
 def holdout(s, r, years=(2021, 2023)):
  """Predict S-NPP for the holdout years from MODIS alone. Returns all months, months with S-NPP (with ape/bias), MODIS rows, S-NPP rows."""
@@ -11,8 +12,8 @@ def top5(allm):
  top_a=allm.actual.nlargest(5); top_p=allm.pred.nlargest(5)
  return top_a,top_p,len(set(top_a.index)&set(top_p.index))
 def main():
- ap=argparse.ArgumentParser(); ap.add_argument("--staging",default="data/cleaned_canada.parquet"); ap.add_argument("--monthly",default="data/monthly_harmonized.parquet"); a=ap.parse_args()
- s=pd.read_parquet(a.staging); r=ratios(s); allm,x,p,actual=holdout(s,r)
+ ap=argparse.ArgumentParser(); ap.add_argument("--staging",default="data/cleaned_canada.parquet"); ap.add_argument("--monthly",default="data/monthly_harmonized.parquet"); ap.add_argument("--ratios",help="calibration_regions.json: validate its shipped Canada ratios instead of refitting"); a=ap.parse_args()
+ s=pd.read_parquet(a.staging); r=pd.DataFrame(json.loads(Path(a.ratios).read_text())["regions"]["canada"]["strata"]) if a.ratios else ratios(s); allm,x,p,actual=holdout(s,r)
  print(f"REGION-MONTH MAPE={x.ape.mean():.6f} bias={x.bias.mean():+.6f} n={len(x)}")
  top_a,top_p,hits=top5(allm); fmt=lambda i: f"{i[0]}-{i[1]:02d}"
  print(f"TOP-5 months matched {hits}/5"); print(pd.DataFrame({"actual_month":[fmt(i) for i in top_a.index],"actual":top_a.values.round(0),"pred_month":[fmt(i) for i in top_p.index],"pred":top_p.values.round(0)}).to_string(index=False))
