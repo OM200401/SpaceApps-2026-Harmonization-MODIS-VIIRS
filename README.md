@@ -34,13 +34,80 @@ The intended users are emergency responders, fire managers, land managers and sc
 ## Repository layout
 
 ```
-summarise/          builds the monthly grid summary table from raw FIRMS data
+index.html              redirects the Pages root URL to app/
+app/                    the web app (static HTML/JS, no build step)
+  index.html
+  data/monthly.json     harmonized data the app reads (made by pipeline/export_json.py)
+pipeline/               harmonization: summary table -> calibrated monthly data -> app JSON
+  build_regions.py        production path: harmonizes every preset region, prints holdout scores
+  build_monthly_from_grid.py, grid_calibrate.py, grid_validate.py
+                          slicing, ratio and holdout code that build_regions.py uses
+  export_json.py          writes app/data/monthly.json
+  verify_all.py           checks the harmonized data and the app JSON agree
+  check_outputs.py        stage-by-stage output checks
+  clean_firms.py, calibrate.py, validate_holdout.py
+                          earlier path that works from raw FIRMS detections
+  make_synthetic.py       synthetic test data (pipeline tests only, never results)
+  validate_nbac.py        optional check against Canada's NBAC burned area
+summarise/              builds the monthly grid summary table from raw FIRMS data
   build_monthly_grid.py
-  README.md         full column reference and caveats
+  README.md             full column reference and caveats
+docs/                   validation results, UI data contract, demo script, project page draft
+SPEC.md                 product spec and decisions log
 requirements.txt
 ```
 
-More folders (harmonization, backend, frontend) will be added as the work starts.
+The app is live at https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/.
+To run it locally, serve the repo root with any static server (for example
+`python -m http.server`) and open `/app/`.
+
+## Running the pipeline
+
+This rebuilds `app/data/monthly.json` from the published summary table, in about a minute.
+Run every command from the repo root.
+
+**1. Install the dependencies**
+
+```bash
+pip install -r requirements.txt
+```
+
+**2. Download the summary table** into `data/derived/`
+
+```bash
+gh release download data-v2 --repo OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS --dir data/derived
+```
+
+**3. Calibrate and harmonize each preset region**
+
+```bash
+python pipeline/build_regions.py
+```
+
+This writes `data/regions/`, `data/monthly_harmonized.parquet` (Canada, the app's region),
+`data/monthly_harmonized_all.parquet` (all regions) and `data/calibration_regions.json`.
+It also prints each region's ratios and holdout scores. They should match `docs/VALIDATION.md`.
+
+**4. Export the app data**
+
+```bash
+python pipeline/export_json.py --monthly data/monthly_harmonized.parquet
+```
+
+**5. Check the result**
+
+```bash
+python pipeline/verify_all.py
+```
+
+It should print `PASS`. If you rebuilt from `data-v2` without changing any code,
+`git status` should also show `app/data/monthly.json` unchanged.
+
+**Optional: rerun the Canada holdout on its own**
+
+```bash
+python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet --ratios data/calibration_regions.json
+```
 
 ## Data
 
