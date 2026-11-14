@@ -50,9 +50,41 @@ Error is lowest in fire season, where most detections are. Off-season, especiall
 
 So the harmonized change matches the real change measured by one consistent sensor, and the fake sensor-switch jump is gone.
 
+## Per-region results (2026-11-14, data-v2)
+Each app preset region is calibrated on its own 2012–2020 overlap. A stratum with fewer than 50 MODIS detections falls back to the global ratio for that stratum. "Canada core fires" lies inside the Canada box, so it uses Canada's ratios.
+Command: `python pipeline/build_regions.py` (writes `data/monthly_harmonized_all.parquet` and `data/calibration_regions.json`).
+
+### Ratios (S-NPP / MODIS, 2012–2020)
+| Region (W,S,E,N) | Fire day | Fire night | Off day | Off night | Fallback strata |
+|---|---:|---:|---:|---:|---:|
+| Canada (−140,42,−52,72) | 3.69 | 8.42 | 2.28 | 13.93 | 0 |
+| Amazon (−75,−15,−45,5) | 3.16 | 6.56 | 3.53 | 5.62 | 0 |
+| Mediterranean (−10,35,30,45) | 2.90 | 6.01 | 2.86 | 10.76 | 0 |
+| Global (fallback) | 3.46 | 8.53 | 3.55 | 9.47 | — |
+
+Every regional stratum had at least 6,307 MODIS detections, so no fallback was needed. "Fire" is May–Sep for every region. That matches the northern-hemisphere seasons; for the Amazon it is just a fixed split of the year, still learned and applied consistently.
+
+### Holdout (calibrate 2012–2020, predict S-NPP 2021–2023 from MODIS only)
+| Region | Cells | MAPE, own ratios | Bias, own ratios | MAPE, global ratios only | Top-5 months |
+|---|---:|---:|---:|---:|---:|
+| Canada | 18,060 | **19.5%** | −10.0% | 16.9% | 5/5 |
+| Amazon | 8,400 | **17.9%** | +14.9% | 32.9% | 5/5 |
+| Mediterranean | 3,861 | **20.6%** | −1.1% | 26.9% | 4/5 |
+
+Regional ratios matter: global ratios alone nearly double the Amazon error. Canada is the exception: global ratios do slightly better there than its own (16.9% vs 19.5%), even though Canada's own ratios come from 659k MODIS detections.
+
+### 2011→2012 sensor jump by region
+| Region | Raw | Harmonized | MODIS alone |
+|---|---:|---:|---:|
+| Canada | +785.4% | +59.1% | +60.5% |
+| Amazon | +656.2% | +60.5% | +55.8% |
+| Mediterranean | +496.0% | +29.0% | +33.8% |
+
+In every region the harmonized change is within 5 points of the single-sensor MODIS change, and the fake sensor-switch jump is gone.
+
 ### Not yet done
 - [ ] Coverage check per sensor-year (NRT vs standard-processing months, see #14)
-- [ ] Per-region holdout error (#16)
+- [ ] Export the extra regions to the app (#11): all three regions make `monthly.json` 17.9 MB instead of 4.2 MB
 - [ ] Cell-day counting, kept only if it lowers the MAPE above (#15)
 - [ ] NBAC 2023 correlation (`validate_nbac.py`, skips until the NBAC file is present)
 
