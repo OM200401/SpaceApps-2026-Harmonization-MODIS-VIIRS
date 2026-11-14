@@ -9,6 +9,7 @@ KEYS = ["cell_lat", "cell_lon", "year", "month"]
 STRATA = ["season", "daynight"]
 # Aqua's first detections are July 2002; earlier months are Terra-only and use ratio_terra.
 AQUA_START = (2002, 7)
+SNPP_START = (2012, 2)  # first full month of S-NPP VIIRS
 
 def frp_bin(x):
     if x < 10: return "0-10"
@@ -49,7 +50,10 @@ def main():
     actual=s[s.satellite.eq("SNPP")].groupby(KEYS,as_index=False).hotspots.sum().rename(columns={"hotspots":"snpp_observed"})
     m=pd.read_parquet(a.monthly).drop(columns=["harmonized_count"],errors="ignore").merge(conv,on=KEYS,how="left").merge(actual,on=KEYS,how="left")
     m[["modis_converted","snpp_observed"]]=m[["modis_converted","snpp_observed"]].fillna(0.0)
-    m["harmonized_count"]=m.snpp_observed.where(m.snpp_observed.gt(0),m.modis_converted)
+    # From SNPP_START, observed SNPP is the record, zeros included; MODIS fills only months with no SNPP data region-wide.
+    snpp_era = m.year * 100 + m.month >= SNPP_START[0] * 100 + SNPP_START[1]
+    snpp_has_data = m.groupby(["year", "month"]).snpp_observed.transform("sum").gt(0)
+    m["harmonized_count"]=m.snpp_observed.where(snpp_era & snpp_has_data, m.modis_converted)
     m.drop(columns=["modis_converted","snpp_observed"]).to_parquet(a.out,index=False)
     Path(a.calibration_out).write_text(json.dumps({"reference":"SNPP only","calib_years":[2012,2020],"min_modis_hotspots":50,"strata":r.round(6).to_dict("records")},indent=2))
     print(r[[*STRATA,"modis","terra","snpp","ratio","ratio_terra","fallback"]].to_string(index=False)); print(f"Wrote {a.out} ({len(m):,} rows)")
