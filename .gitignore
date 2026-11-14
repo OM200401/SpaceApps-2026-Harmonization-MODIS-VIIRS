@@ -36,3 +36,17 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# Pipeline staging data; final calibration and UI data remain versioned.
+data/raw/
+data/synthetic/
+data/*.parquet
+data/external/
+!data/calibration.json
+
+# Local AI working papers, not published
+AGENTS.md
+BOOTSTRAP.md
+TASKS.md
+PLAN.md
+STATUS.md
