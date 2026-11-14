@@ -7,6 +7,8 @@ KEYS = ["cell_lat", "cell_lon", "year", "month"]
 # Mean FRP bins differ materially by sensor in the grid aggregate, so the
 # shipped grid variant uses only the stable season × day/night strata.
 STRATA = ["season", "daynight"]
+# Aqua's first detections are July 2002; earlier months are Terra-only and use ratio_terra.
+AQUA_START = (2002, 7)
 
 def frp_bin(x):
     if x < 10: return "0-10"
@@ -37,7 +39,7 @@ def converted(staging, ratio_table):
     d = add_strata(staging[staging.sensor.eq("MODIS")])
     d = d.merge(ratio_table[STRATA+["ratio","ratio_terra"]], on=STRATA, how="left")
     d["weight"] = d.hotspots * d.ratio
-    early = d.year <= 2002
+    early = d.year * 100 + d.month < AQUA_START[0] * 100 + AQUA_START[1]
     d.loc[early, "weight"] = d.loc[early, "hotspots"] * d.loc[early, "ratio_terra"]
     return d
 def main():
