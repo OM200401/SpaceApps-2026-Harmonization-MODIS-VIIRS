@@ -1,12 +1,12 @@
 # Monthly grid summary
 
-`build_monthly_grid.py` turns the raw FIRMS hotspots (640M rows, ~9.8 GB, on
+`build_monthly_grid.py` turns the raw FIRMS hotspots (660M rows, ~10 GB, on
 Hugging Face at `undeadphoenix/firms-fire-data`) into one small table: hotspot
 counts per **0.25° grid cell per month**. The calendar, the API, the
 harmonization work and the charts all read this table instead of the raw data.
 
-Current build (`monthly_grid_025.parquet`): about 54M rows, 202k grid cells, 204 MB.
-It covers Nov 2000 to Nov 2026 and accounts for all 640,592,366 raw detections.
+Current build (`monthly_grid_025.parquet`): about 55M rows, 203k grid cells, 208 MB.
+It covers Nov 2000 to Nov 2026 and accounts for all 660,744,059 raw detections.
 The build takes about 3 minutes on a laptop.
 
 ## Columns

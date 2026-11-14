@@ -43,8 +43,8 @@ More folders (harmonization, backend, frontend) will be added as the work starts
 
 | Dataset | What it is | Size | Where |
 |---|---|---|---|
-| Raw FIRMS hotspots | All 640M detections, every sensor, Nov 2000 to Nov 2026, Parquet | ~9.8 GB | Hugging Face: [`undeadphoenix/firms-fire-data`](https://huggingface.co/datasets/undeadphoenix/firms-fire-data) |
-| **Monthly grid summary** | Hotspot counts per 0.25° cell per month | 204 MB | GitHub Release: [`data-v1`](https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/releases/tag/data-v1) |
+| Raw FIRMS hotspots | All 660M detections, every sensor, Nov 2000 to Nov 2026, Parquet | ~10 GB | Hugging Face: [`undeadphoenix/firms-fire-data`](https://huggingface.co/datasets/undeadphoenix/firms-fire-data) |
+| **Monthly grid summary** | Hotspot counts per 0.25° cell per month | 208 MB | GitHub Release: [`data-v2`](https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/releases/tag/data-v2) |
 
 **Use the monthly grid summary for almost everything:** the calendar,
 harmonization, anomalies and charts. Only the CSV export of individual
@@ -67,7 +67,7 @@ DuckDB reads only the parts of the file it needs, so this takes about a second:
 ```python
 import duckdb
 
-GRID = "https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/releases/download/data-v1/monthly_grid_025.parquet"
+GRID = "https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/releases/download/data-v2/monthly_grid_025.parquet"
 
 duckdb.sql(f"""
     SELECT year, month, sum(hotspots) AS hotspots
@@ -84,13 +84,13 @@ duckdb.sql(f"""
 **2b. Or download it once and work locally**
 
 ```bash
-gh release download data-v1 --repo OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS --dir data/derived
+gh release download data-v2 --repo OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS --dir data/derived
 ```
 
 Without the GitHub CLI, download `monthly_grid_025.parquet` from the
-[release page](https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/releases/tag/data-v1)
+[release page](https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/releases/tag/data-v2)
 into `data/derived/`. Then query `'data/derived/monthly_grid_025.parquet'` the same way.
-pandas works too: `pd.read_parquet(path)`. The file has 54M rows, though, so it's usually faster to filter in DuckDB first.
+pandas works too: `pd.read_parquet(path)`. The file has 55M rows, though, so it's usually faster to filter in DuckDB first.
 
 ### Columns at a glance
 
@@ -115,7 +115,7 @@ python -c "from huggingface_hub import snapshot_download; snapshot_download('und
 python summarise/build_monthly_grid.py --cell 0.25
 ```
 
-Publish a new version as a new release (`data-v2`, ...) so nobody's code breaks underneath them.
+Publish a new version as a new release (`data-v3`, ...) so nobody's code breaks underneath them.
 
 ## Ground rules
 
