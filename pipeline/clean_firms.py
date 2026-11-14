@@ -74,7 +74,11 @@ RENAME = {
 }
 
 CLEAN_COLS = ["lat", "lon", "acq_date", "acq_time", "acq_datetime",
-              "sensor", "satellite", "frp", "confidence", "brightness_k"]
+              "sensor", "satellite", "daynight", "frp", "confidence", "brightness_k"]
+
+# Harmonization uses ONE VIIRS satellite (S-NPP, 2012-01-20 to 2026-11-02).
+# Adding NOAA-20 (2018+) and NOAA-21 (2023+) on top would fake an upward trend.
+REFERENCE_VIIRS = "VIIRS_SNPP"
 
 
 def parse_bbox(text):
@@ -88,13 +92,15 @@ def sensor_from_row(instrument, satellite):
     sat = str(satellite).strip() if pd.notna(satellite) else ""
     if "MODIS" in inst:
         return "MODIS"
-    if "VIIRS" in inst:
+    # Real FIRMS archive values: S-NPP rows have instrument "SNPP" (not "VIIRS"),
+    # NOAA-20/21 rows have satellite "N20"/"N21".
+    if "VIIRS" in inst or inst == "SNPP":
         s = sat.upper()
-        if sat in ("N",) or "SUOMI" in s or "SNPP" in s or "S-NPP" in s:
+        if s in ("N", "SNPP", "S-NPP") or "SUOMI" in s:
             return "VIIRS_SNPP"
-        if sat in ("1",) or "NOAA-20" in s or "NOAA 20" in s or "JPSS-1" in s:
+        if s in ("1", "N20") or "NOAA-20" in s or "NOAA 20" in s or "JPSS-1" in s:
             return "VIIRS_NOAA20"
-        if sat in ("2",) or "NOAA-21" in s or "NOAA 21" in s or "JPSS-2" in s:
+        if s in ("2", "N21") or "NOAA-21" in s or "NOAA 21" in s or "JPSS-2" in s:
             return "VIIRS_NOAA21"
         return "VIIRS_UNKNOWN"
     return "UNKNOWN"
@@ -175,11 +181,13 @@ def clean_chunk(df, bbox, counts):
     if df.empty:
         return df.iloc[0:0]
 
-    # Sensor label: a `sensor` column already in the input (e.g. re-running on
-    # cleaned Parquet) is preserved; otherwise derive it per row from
-    # instrument/satellite, falling back to the filename.
-    if "sensor" in df.columns and df["sensor"].notna().any():
+    # Sensor label: a cleaned `sensor` column already in the input (re-running on
+    # cleaned Parquet) is preserved; then the file path (HF layout sensor=SV-C2/...,
+    # most reliable); then per row from instrument/satellite.
+    if "sensor" in df.columns and df["sensor"].astype(str).str.match(r"^(MODIS|VIIRS_)").all():
         df["sensor"] = df["sensor"].astype(str)
+    elif counts.get("_file_sensor"):
+        df["sensor"] = counts["_file_sensor"]
     elif "instrument" in df.columns or "satellite" in df.columns:
         inst = df.get("instrument", pd.Series([None] * len(df), index=df.index))
         sat = df.get("satellite", pd.Series([None] * len(df), index=df.index))
@@ -219,6 +227,9 @@ def clean_chunk(df, bbox, counts):
         + df["acq_time"].str.slice(2, 4), utc=True, errors="coerce")
     df = df.dropna(subset=["acq_datetime"])
 
+    # Day/night matters a lot: VIIRS/MODIS ratio is ~4x by day but ~17x at night.
+    df["daynight"] = (df["daynight"].astype(str).str.strip().str.upper().str[:1]
+                      if "daynight" in df.columns else "D")
     df["frp"] = pd.to_numeric(df["frp"], errors="coerce") if "frp" in df.columns else None
     df["brightness_k"] = (pd.to_numeric(df["brightness_k"], errors="coerce")
                           if "brightness_k" in df.columns else None)
@@ -258,12 +269,14 @@ def monthly_aggregate(cleaned, grid):
     d["year"] = pd.to_datetime(d["acq_date"]).dt.year
     d["month"] = pd.to_datetime(d["acq_date"]).dt.month
     d["is_modis"] = (d["sensor"] == "MODIS").astype(int)
-    d["is_viirs"] = d["sensor"].str.startswith("VIIRS").astype(int)
+    # viirs_count = S-NPP only (the reference satellite), never the sum of all VIIRS.
+    d["is_viirs"] = (d["sensor"] == REFERENCE_VIIRS).astype(int)
     g = (d.groupby(["cell_lat", "cell_lon", "year", "month"], as_index=False)
            .agg(modis_count=("is_modis", "sum"),
                 viirs_count=("is_viirs", "sum"),
-                total_count=("lat", "size"),
                 mean_frp=("frp", "mean")))
+    g["total_count"] = g["modis_count"] + g["viirs_count"]
+    g = g[g["total_count"] > 0]  # drop cell-months seen only by NOAA-20/21
     g["cell_id"] = (g["cell_lat"].astype(str) + "_" + g["cell_lon"].astype(str))
     g["harmonized_count"] = pd.NA  # filled by the calibration step, not here
     return g[["cell_id", "cell_lat", "cell_lon", "year", "month",

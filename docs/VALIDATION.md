@@ -15,6 +15,12 @@ Synthetic data planted: VIIRS/MODIS ratio 2.8, 2023 = 3× normal, random locatio
 - Raw 2011→2012 jump +255.4% → harmonized +99.0% on synthetic. Direction correct, magnitude will change on real data.
 - May 2023 anomaly on synthetic: 5.9× the 2001–2020 May median.
 
+## Calibration v3 on the same synthetic data (2026-11-14, pipeline verification, NOT science results)
+Changes: S-NPP only as VIIRS reference, day/night strata, per-detection weights, Terra-only ratios before Aqua, era rule (S-NPP observed from Feb 2012).
+- Global ratio 2.664 vs planted 2.8; Terra-only ratios ~5.6 (synthetic Terra is about half of MODIS, as expected)
+- Holdout region-month MAPE 0.210, bias +0.046; top-5 busiest months matched 4/5
+- Raw 2011->2012 jump +255.4% -> harmonized -7.2%
+
 ## Real-data validation (PENDING — runs when Ishan's HF Parquet lands)
 - [ ] Coverage check per sensor-year (SPEC D1, NRT vs SP gate)
 - [ ] Cleaning validation report (rows in / after bbox / after confidence / type / dupes)
