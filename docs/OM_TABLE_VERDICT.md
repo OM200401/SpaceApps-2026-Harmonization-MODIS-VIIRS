@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use Om's GitHub Release `data-v1` asset, `monthly_grid_025.parquet`, as the
+Use Om's GitHub Release `data-v2` asset, `monthly_grid_025.parquet`, as the
 pipeline source. Download it to `data/derived/`. This workflow does not begin
 from the raw Hugging Face FIRMS dataset.
 
