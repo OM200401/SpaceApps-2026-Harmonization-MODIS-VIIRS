@@ -23,6 +23,8 @@ button.ghost{background:#fff;color:var(--accent)}
 table{border-collapse:collapse}td,th{border:1px solid #e5e8e8;width:54px;height:27px;text-align:center;font-size:11px}
 th{background:#f4f6f6;font-weight:600}
 .legend{font-size:12px;color:var(--mut);margin-top:8px}
+.busy{display:flex;gap:28px;flex-wrap:wrap}.busy ol{margin:4px 0 0;padding-left:22px;line-height:1.7;font-size:14px}.busy h3{font-size:13px;color:var(--mut);margin:0;font-weight:600}
+td.partial{background:repeating-linear-gradient(45deg,#f4f6f6,#f4f6f6 4px,#fff 4px,#fff 8px);color:var(--mut);font-style:italic}
 .note{background:#fef9e7;border:1px solid #f0d97a;border-radius:8px;padding:10px 14px;line-height:1.45}
 canvas{max-width:100%}
 footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;margin:auto;line-height:1.5}
@@ -34,7 +36,7 @@ footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;ma
 <main>
 <div class="cards">
 <div class="card"><b id="c-peak">—</b><span>Peak harmonized month (region total)</span></div>
-<div class="card"><b id="c-anom">—</b><span>May 2023 vs 2001–2020 May median</span></div>
+<div class="card"><b id="c-anom">—</b><span id="c-anom-label">Latest full month vs 2003–2020 median</span></div>
 <div class="card"><b id="c-jump">—</b><span>2011→2012 jump: raw vs harmonized</span></div>
 <div class="card"><b id="c-years">—</b><span>Years in the harmonized record</span></div>
 </div>
@@ -43,7 +45,7 @@ footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;ma
 <label>View<div class="seg" id="mode">
 <button data-m="harmonized" class="on">Harmonized</button><button data-m="total">Raw</button><button data-m="anomaly">Anomaly</button></div></label>
 <label>From year<input id="y0" type="number" value="2001" style="width:84px"></label>
-<label>To year<input id="y1" type="number" value="2025" style="width:84px"></label>
+<label>To year<input id="y1" type="number" value="2026" style="width:84px"></label>
 <label>Region bbox W,S,E,N<input id="bbox" value="-140,42,-52,72" style="width:170px"></label>
 <label>Presets<select id="preset"><option value="-140,42,-52,72">Canada boreal (showcase)</option><option value="-125,49,-60,65">Canada core fires</option><option value="-75,-15,-45,5">Amazon (generality)</option><option value="-10,35,30,45">Mediterranean</option></select></label>
 <button id="apply">Apply filters</button>
@@ -53,7 +55,12 @@ footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;ma
 <h2>Burning-activity calendar — region total per month</h2>
 <div id="grid" style="overflow-x:auto">Loading data…</div>
 <div class="legend" id="legend"></div>
-<p class="note"><strong>The proof moment:</strong> switch to <em>Raw</em> and look at 2012 — the record jumps because the satellite changed, not the fires. Switch back to <em>Harmonized</em>: the jump shrinks. Then open <em>Anomaly</em>: May 2023 stands out against the 20-year median — Canada's record season, only trustworthy once the sensors agree.</p>
+<p class="note"><strong>The proof moment:</strong> switch to <em>Raw</em> and look at 2012 — the record jumps because the satellite changed, not the fires. Switch back to <em>Harmonized</em>: the jump shrinks. Then open <em>Anomaly</em>: May 2023 stands out against the 2003–2020 median — Canada's record season, only trustworthy once the sensors agree.</p>
+</div>
+
+<div class="panel">
+<h2>Busiest periods — harmonized, selected region</h2>
+<div class="busy"><div><h3>Top 5 months</h3><ol id="busy-months"></ol></div><div><h3>Top 5 years</h3><ol id="busy-years"></ol></div></div>
 </div>
 
 <div class="panel">
@@ -67,36 +74,50 @@ footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;ma
 </div>
 
 <div class="panel">
-<h2>Season shape — selected year vs 2001–2020 median month</h2>
+<h2>Season shape — selected year vs 2003–2020 median month</h2>
 <canvas id="chart" width="1040" height="300"></canvas>
-<div class="legend">Bars: harmonized region total for the map year above. Line: median for that month, 2001–2020.</div>
+<div class="legend">Bars: harmonized region total for the map year above. Line: median for that month, 2003–2020.</div>
 </div>
 </main>
 <footer>Data: NASA FIRMS via NASA Earthdata — MODIS M-C61 (2000+), VIIRS SV-C2 (2012+), J1V-C2 (2018+), J2V-C2 (2023+). Independent validation reference: Canada NBAC / National Fire Database. Method: shared-schema cleaning (nominal+high confidence, vegetation fires, deduped), 0.25° cell × month aggregation, FRP-bin × season calibration from the sensor overlap, holdout-tested. Team Murphy — NASA Space Apps Challenge 2026.</footer>
 
 <script>
 let DATA=null, CELLS=[], MODE="harmonized";
+const BASE=[2003,2020]; // both MODIS satellites flying all year
+let END={year:0,month:12}; // last full month in the export (the partial month is dropped upstream); set on load
+const isPartial=(y,m)=>y*12+m>END.year*12+END.month;
 const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 document.getElementById("mm").innerHTML=MO.map((m,i)=>`<option value="${i+1}"${i===4?" selected":""}>${m}</option>`).join("");
 function ramp(t){t=Math.min(1,Math.max(0,t));const stops=[[255,255,204],[254,204,92],[253,141,60],[240,59,32],[189,0,38]];const x=t*(stops.length-1),i=Math.min(stops.length-2,Math.floor(x)),f=x-i;const c=stops[i].map((v,j)=>Math.round(v+(stops[i+1][j]-v)*f));return `rgb(${c[0]},${c[1]},${c[2]})`}
 function decodeCells(c){const out=[];let i=0;c.n_months.forEach((n,k)=>{for(const end=i+n;i<end;i++){const t=c.t[i],modis=c.modis_count[i],viirs=c.viirs_count[i];out.push({cell_lat:c.cell_lat[k],cell_lon:c.cell_lon[k],year:c.t0_year+Math.floor(t/12),month:t%12+1,modis_count:modis,viirs_count:viirs,total_count:modis+viirs,harmonized_count:c.harmonized_count[i]})}});return out}
 function series(cells){const k={};cells.forEach(c=>{const key=c.year+"-"+c.month;k[key]=k[key]||{year:+c.year,month:+c.month,total:0,harmonized:0};k[key].total+=+c.total_count;k[key].harmonized+=+c.harmonized_count});return Object.values(k)}
-function medians(s){const med={};for(let m=1;m<=12;m++){const v=s.filter(r=>r.month===m&&r.year>=2001&&r.year<=2020).map(r=>r.harmonized).sort((a,b)=>a-b);med[m]=v.length?v[Math.floor(v.length/2)]:0}return med}
+function medians(s){const med={};for(let m=1;m<=12;m++){const v=s.filter(r=>r.month===m&&r.year>=BASE[0]&&r.year<=BASE[1]).map(r=>r.harmonized).sort((a,b)=>a-b);med[m]=v.length?(v[Math.floor((v.length-1)/2)]+v[Math.floor(v.length/2)])/2:0}return med}
 function filteredCells(){const[w,so,e,n]=document.getElementById("bbox").value.split(",").map(Number);return CELLS.filter(c=>+c.cell_lon>=w&&+c.cell_lon<=e&&+c.cell_lat>=so&&+c.cell_lat<=n)}
 function renderAll(){
  const cells=filteredCells(), s=series(cells), med=medians(s), by={}; s.forEach(r=>by[r.year+"-"+r.month]=r);
  const y0=+document.getElementById("y0").value, y1=+document.getElementById("y1").value;
  let max=0; s.forEach(r=>{const v=MODE==="anomaly"?(med[r.month]?r.harmonized/med[r.month]:0):(MODE==="total"?r.total:r.harmonized); if(v>max)max=v});
  let h="<table><tr><th>Year</th>"+MO.map(m=>"<th>"+m+"</th>").join("")+"</tr>";
- for(let y=y0;y<=y1;y++){h+="<tr><th>"+y+"</th>";for(let m=1;m<=12;m++){const r=by[y+"-"+m];let txt="·",bg="#f8f9f9";if(r){let v;if(MODE==="anomaly"){v=med[m]?r.harmonized/med[m]:0;txt=v.toFixed(1)+"×"}else{v=MODE==="total"?r.total:r.harmonized;txt=Math.round(v).toLocaleString()}bg=ramp(MODE==="anomaly"?Math.min(1,(v-1)/4):Math.pow(v/max,0.35))}h+=`<td style="background:${bg}" title="${MO[m-1]} ${y}: ${txt}">${txt}</td>`}h+="</tr>"}
+ for(let y=y0;y<=y1;y++){h+="<tr><th>"+y+"</th>";for(let m=1;m<=12;m++){if(isPartial(y,m)){if(y*12+m===END.year*12+END.month+1)h+=`<td class="partial" title="${MO[m-1]} ${y}: partial month, not shown">partial</td>`;else h+="<td></td>";continue}const r=by[y+"-"+m];let txt="·",bg="#f8f9f9";if(r){let v;if(MODE==="anomaly"){v=med[m]?r.harmonized/med[m]:0;txt=v.toFixed(1)+"×"}else{v=MODE==="total"?r.total:r.harmonized;txt=Math.round(v).toLocaleString()}bg=ramp(MODE==="anomaly"?Math.min(1,(v-1)/4):Math.pow(v/max,0.35))}h+=`<td style="background:${bg}" title="${MO[m-1]} ${y}: ${txt}">${txt}</td>`}h+="</tr>"}
  document.getElementById("grid").innerHTML=h+"</table>";
- document.getElementById("legend").textContent=MODE==="anomaly"?"Value = × the 2001–2020 median for that month. 1.0× = a typical month.":"Value = "+(MODE==="total"?"raw detections (MODIS + VIIRS, uncorrected)":"harmonized detections (VIIRS-equivalent)")+". Colour scale is square-root compressed so ordinary months stay readable next to extremes.";
+ document.getElementById("legend").textContent=MODE==="anomaly"?"Value = × the 2003–2020 median for that month. 1.0× = a typical month. The current month is partial and not shown.":"Value = "+(MODE==="total"?"raw detections (MODIS + VIIRS, uncorrected)":"harmonized detections (VIIRS-equivalent)")+". Colour scale is square-root compressed so ordinary months stay readable next to extremes.";
  const peak=s.reduce((a,r)=>r.harmonized>(a?a.harmonized:-1)?r:a,null);
  if(peak)document.getElementById("c-peak").textContent=MO[peak.month-1]+" "+peak.year+" · "+Math.round(peak.harmonized).toLocaleString();
- const m23=by["2023-5"]; if(m23&&med[5])document.getElementById("c-anom").textContent=(m23.harmonized/med[5]).toFixed(1)+"×";
+ const full=s.filter(r=>!isPartial(r.year,r.month)), latest=full.reduce((a,r)=>!a||r.year*12+r.month>a.year*12+a.month?r:a,null);
+ document.getElementById("c-anom").textContent=latest&&med[latest.month]?(latest.harmonized/med[latest.month]).toFixed(1)+"×":"—";
+ document.getElementById("c-anom-label").textContent=latest?`${MO[latest.month-1]} ${latest.year} (latest full month) vs ${BASE[0]}–${BASE[1]} ${MO[latest.month-1]} median`:"Latest full month vs 2003–2020 median";
+ renderBusy(full.filter(r=>r.year>=y0&&r.year<=y1));
  const t11=by["2011-1"], rawJump=(()=>{const a=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.total,0),b=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.total,0),c=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.harmonized,0),d=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.harmonized,0);return a&&c?`${((b-a)/a*100).toFixed(0)}% → ${((d-c)/c*100).toFixed(0)}%`:"—"})(); document.getElementById("c-jump").textContent=rawJump;
  const yrs=s.map(r=>r.year); document.getElementById("c-years").textContent=Math.min(...yrs)+"–"+Math.max(...yrs);
  drawMap(cells); drawChart(s,med);
+}
+function renderBusy(full){
+ const li=(t,v)=>`<li>${t} · ${Math.round(v).toLocaleString()}</li>`, none="<li>No data for this selection</li>";
+ const months=[...full].sort((a,b)=>b.harmonized-a.harmonized).slice(0,5);
+ document.getElementById("busy-months").innerHTML=months.length?months.map(r=>li(MO[r.month-1]+" "+r.year,r.harmonized)).join(""):none;
+ const yr={};full.forEach(r=>yr[r.year]=(yr[r.year]||0)+r.harmonized);
+ const years=Object.entries(yr).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ document.getElementById("busy-years").innerHTML=years.length?years.map(([y,v])=>li(+y===END.year&&END.month<12?`${y} (to ${MO[END.month-1]}, partial)`:y,v)).join(""):none;
 }
 function drawMap(cells){
  const y=+document.getElementById("my").value,m=+document.getElementById("mm").value,[w,so,e,n]=document.getElementById("bbox").value.split(",").map(Number);
@@ -112,12 +133,12 @@ function drawChart(s,med){
  const max=Math.max(1,...vals,...Object.values(med)); const bw=cv.width/14;
  vals.forEach((v,i)=>{const bh=(v/max)*(cv.height-50);x.fillStyle="#e67e22";x.fillRect((i+0.7)*bw,cv.height-30-bh,bw*0.6,bh);x.fillStyle="#17202a";x.font="11px sans-serif";x.fillText(MO[i],(i+0.8)*bw,cv.height-12)});
  x.strokeStyle="#b03a2e";x.lineWidth=2;x.beginPath();for(let m=1;m<=12;m++){const px=(m+0.0)*bw,py=cv.height-30-(med[m]/max)*(cv.height-50);m===1?x.moveTo(px,py):x.lineTo(px,py)}x.stroke();x.lineWidth=1;
- x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(y+" monthly harmonized totals (bars) vs 2001–2020 median (line)",12,18);
+ x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(y+" monthly harmonized totals (bars) vs "+BASE[0]+"–"+BASE[1]+" median (line)",12,18);
 }
 document.getElementById("mode").addEventListener("click",e=>{if(e.target.dataset.m){MODE=e.target.dataset.m;document.querySelectorAll("#mode button").forEach(b=>b.classList.toggle("on",b.dataset.m===MODE));renderAll()}});
 document.getElementById("preset").onchange=e=>{document.getElementById("bbox").value=e.target.value;renderAll()};
 document.getElementById("apply").onclick=renderAll; document.getElementById("mapgo").onclick=renderAll;
 document.getElementById("csv").onclick=()=>{const cells=filteredCells();const rows=[["cell_lat","cell_lon","year","month","modis_count","viirs_count","total_count","harmonized_count"],...cells.map(c=>[c.cell_lat,c.cell_lon,c.year,c.month,c.modis_count,c.viirs_count,c.total_count,c.harmonized_count])];const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"}));a.download="murphy_hotspots_selection.csv";a.click()};
 document.getElementById("png").onclick=()=>{const src=document.getElementById("chart");const a=document.createElement("a");a.href=src.toDataURL("image/png");a.download="murphy_chart.png";a.click()};
-fetch("data/monthly.json").then(r=>r.json()).then(d=>{DATA=d;CELLS=decodeCells(d.cells);renderAll()}).catch(()=>{document.getElementById("grid").textContent="Could not load data/monthly.json — the pipeline export must produce it (see docs/UI_DATA_CONTRACT.md)."});
+fetch("data/monthly.json").then(r=>r.json()).then(d=>{DATA=d;CELLS=decodeCells(d.cells);END=d.region_monthly.reduce((a,r)=>r.year*12+r.month>a.year*12+a.month?{year:r.year,month:r.month}:a,{year:0,month:1});renderAll()}).catch(()=>{document.getElementById("grid").textContent="Could not load data/monthly.json — the pipeline export must produce it (see docs/UI_DATA_CONTRACT.md)."});
 </script></body></html>
