@@ -106,7 +106,7 @@ function renderAll(){
  const full=s.filter(r=>!isPartial(r.year,r.month)), latest=full.reduce((a,r)=>!a||r.year*12+r.month>a.year*12+a.month?r:a,null);
  document.getElementById("c-anom").textContent=latest&&med[latest.month]?(latest.harmonized/med[latest.month]).toFixed(1)+"×":"—";
  document.getElementById("c-anom-label").textContent=latest?`${MO[latest.month-1]} ${latest.year} (latest full month) vs ${BASE[0]}–${BASE[1]} ${MO[latest.month-1]} median`:"Latest full month vs 2003–2020 median";
- renderBusy(full);
+ renderBusy(full.filter(r=>r.year>=y0&&r.year<=y1));
  const t11=by["2011-1"], rawJump=(()=>{const a=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.total,0),b=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.total,0),c=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.harmonized,0),d=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.harmonized,0);return a&&c?`${((b-a)/a*100).toFixed(0)}% → ${((d-c)/c*100).toFixed(0)}%`:"—"})(); document.getElementById("c-jump").textContent=rawJump;
  const yrs=s.map(r=>r.year); document.getElementById("c-years").textContent=Math.min(...yrs)+"–"+Math.max(...yrs);
  drawMap(cells); drawChart(s,med);
