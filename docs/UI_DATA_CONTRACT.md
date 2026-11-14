@@ -12,7 +12,9 @@ Path: app/data/monthly.json  (regenerate with pipeline/export_json.py, or any co
     "modis_count":      [3, 4, ...],
     "viirs_count":      [0, 0, ...],
     "harmonized_count": [4.78, 6.37, ...]
-  }
+  },
+  "archive_end": {"Terra": "2026-08-31", "Aqua": "2026-08-31", "SNPP": "2026-07-31"},
+  "provisional_from": {"year": 2026, "month": 8}
 }
 
 Decoding: walk the cells in order; cell k owns the next n_months[k] entries of t / modis_count /
@@ -25,4 +27,5 @@ Rules:
 - Years: MODIS era from 2000/2001 through 2026; months 1-12; missing month = omit the entry (UI shows "·").
 - total_count is not stored: the UI derives it as modis_count + viirs_count (raw, uncorrected) — the Raw view and the 2012-jump card depend on it.
 - mean_frp is not stored per cell (only in region_monthly), to keep the file small.
+- archive_end = last standard-processing (archive) date per satellite; later data is near-real-time. provisional_from = the first month containing any near-real-time day (earliest archive_end + 1 day). The UI marks that month and every later one "provisional". Update ARCHIVE_END in export_json.py whenever the grid is rebuilt.
 - Keep the file under 5 MB (check_outputs.py json enforces it). Write JSON with compact separators.
