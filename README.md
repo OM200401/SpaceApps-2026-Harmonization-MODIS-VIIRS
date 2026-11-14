@@ -2,6 +2,9 @@
 
 NASA Space Apps Challenge 2026. Team: Om, Ishan, Sparsh, Pratham.
 
+**Live app:** https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/
+(GitHub Pages, published from the root of `main` and rebuilt on every merge.)
+
 ## The challenge
 
 Satellites have recorded active fire hotspots for more than 20 years, but the
