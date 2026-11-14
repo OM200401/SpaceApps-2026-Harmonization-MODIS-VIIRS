@@ -68,7 +68,7 @@ def stage_json():
     size = p.stat().st_size
     rc |= ok(f"monthly.json size {size/1e6:.2f} MB") if size < 5_000_000 else fail(f"monthly.json {size/1e6:.1f} MB > 5 MB")
     d = json.loads(p.read_text())
-    rc |= ok(f"cells {len(d.get('cells',[])):,}, region months {len(d.get('region_monthly',[]))}") if d.get("cells") and d.get("region_monthly") else fail("json missing cells or region_monthly")
+    rc |= ok(f"cells {len(d['cells']['t']):,}, region months {len(d.get('region_monthly',[]))}") if d.get("cells") and d.get("region_monthly") else fail("json missing cells or region_monthly")
     may = [r for r in d["region_monthly"] if r["year"] == 2023 and r["month"] == 5]
     rc |= ok(f"May 2023 harmonized region total: {may[0]['harmonized']:.0f}") if may else fail("May 2023 missing from region_monthly")
     return rc
