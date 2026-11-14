@@ -11,38 +11,49 @@ import pyarrow.parquet as pq
 CANADA = (-140.0, 42.0, -52.0, 72.0)
 
 
-def grid_rows(path):
+def grid_rows(path, bboxes=None, global_totals=False):
+    """One pass over the grid. Returns {name: rows inside bbox}, read count, kept count, and
+    (if global_totals) worldwide sums per year/month/satellite/daynight for fallback ratios."""
+    bboxes = bboxes or {"canada": CANADA}
     pf = pq.ParquetFile(path)
     cols = ["cell_lat", "cell_lon", "year", "month", "satellite",
             "daynight", "confidence", "is_vegetation", "hotspots", "frp_sum"]
-    parts = []
+    parts = {name: [] for name in bboxes}
+    world = []
     read_rows = kept_rows = 0
     for batch in pf.iter_batches(batch_size=262_144, columns=cols):
         read_rows += batch.num_rows
-        mask = pc.and_(batch.column("is_vegetation"), pc.is_in(
+        base = pc.and_(batch.column("is_vegetation"), pc.is_in(
             batch.column("confidence"), value_set=pa.array(["n", "h"])))
-        mask = pc.and_(mask, pc.greater_equal(batch.column("cell_lon"), CANADA[0]))
-        mask = pc.and_(mask, pc.less_equal(batch.column("cell_lon"), CANADA[2]))
-        mask = pc.and_(mask, pc.greater_equal(batch.column("cell_lat"), CANADA[1]))
-        mask = pc.and_(mask, pc.less_equal(batch.column("cell_lat"), CANADA[3]))
-        mask = pc.and_(mask, pc.is_in(batch.column("satellite"),
+        base = pc.and_(base, pc.is_in(batch.column("satellite"),
                                       value_set=pa.array(["Terra", "Aqua", "SNPP"])))
-        filtered = batch.filter(mask)
-        kept_rows += filtered.num_rows
-        if filtered.num_rows:
-            parts.append(filtered.to_pandas())
-    return (pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=cols),
-            read_rows, kept_rows)
+        if global_totals:
+            world.append(pa.Table.from_batches([batch.filter(base)]).group_by(["year", "month", "satellite", "daynight"])
+                         .aggregate([("hotspots", "sum"), ("frp_sum", "sum")]).to_pandas())
+        for name, (w, s, e, n) in bboxes.items():
+            mask = pc.and_(base, pc.greater_equal(batch.column("cell_lon"), w))
+            mask = pc.and_(mask, pc.less_equal(batch.column("cell_lon"), e))
+            mask = pc.and_(mask, pc.greater_equal(batch.column("cell_lat"), s))
+            mask = pc.and_(mask, pc.less_equal(batch.column("cell_lat"), n))
+            filtered = batch.filter(mask)
+            kept_rows += filtered.num_rows
+            if filtered.num_rows:
+                parts[name].append(filtered.to_pandas())
+    rows = {name: pd.concat(p, ignore_index=True) if p else pd.DataFrame(columns=cols)
+            for name, p in parts.items()}
+    if global_totals:
+        g = (pd.concat(world, ignore_index=True)
+               .rename(columns={"hotspots_sum": "hotspots", "frp_sum_sum": "frp_sum"})
+               .groupby(["year", "month", "satellite", "daynight"], as_index=False)
+               [["hotspots", "frp_sum"]].sum())
+        g["sensor"] = g["satellite"].map({"Terra": "MODIS", "Aqua": "MODIS", "SNPP": "VIIRS_SNPP"})
+        g["mean_frp"] = g["frp_sum"] / g["hotspots"]
+        return rows, read_rows, kept_rows, g
+    return rows, read_rows, kept_rows
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--input", default="data/derived/monthly_grid_025.parquet")
-    ap.add_argument("--staging", default="data/cleaned_canada.parquet")
-    ap.add_argument("--monthly", default="data/monthly.parquet")
-    args = ap.parse_args()
-
-    rows, read_rows, kept_rows = grid_rows(args.input)
+def build(rows):
+    """Grid rows for one region -> (staging rows, monthly cell table without the partial month)."""
     if rows.empty:
         raise SystemExit("No rows passed the required grid filters")
     rows = (rows.groupby(["cell_lat", "cell_lon", "year", "month", "satellite", "daynight"],
@@ -73,6 +84,18 @@ def main():
 
     # November 2026 is incomplete in the source release and is not emitted.
     monthly = monthly.loc[~((monthly["year"] == 2026) & (monthly["month"] == 11))]
+    return rows, monthly
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--input", default="data/derived/monthly_grid_025.parquet")
+    ap.add_argument("--staging", default="data/cleaned_canada.parquet")
+    ap.add_argument("--monthly", default="data/monthly.parquet")
+    args = ap.parse_args()
+
+    rows, read_rows, kept_rows = grid_rows(args.input)
+    rows, monthly = build(rows["canada"])
     for output, frame in ((args.staging, rows), (args.monthly, monthly)):
         Path(output).parent.mkdir(parents=True, exist_ok=True)
         frame.to_parquet(output, index=False)

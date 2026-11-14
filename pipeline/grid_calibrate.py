@@ -1,4 +1,6 @@
-"""Grid-path S-NPP calibration; leaves raw-detection calibrate.py untouched."""
+"""Grid-path S-NPP calibration; leaves raw-detection calibrate.py untouched.
+Run standalone it fits Canada's own ratios. The shipped data comes from build_regions.py,
+which uses global ratios for Canada (lower holdout error); pass --ratios to reuse them."""
 import argparse, json
 from pathlib import Path
 import pandas as pd
@@ -20,21 +22,33 @@ def season(month): return "fire" if 5 <= month <= 9 else "off"
 def add_strata(d):
     d = d.copy(); d["frp_bin"] = d["mean_frp"].map(frp_bin); d["season"] = d["month"].map(season)
     return d
-def ratios(staging, years=(2012, 2020)):
+MIN_MODIS = 50  # below this many MODIS detections a stratum's own ratio is too noisy
+def ratios(staging, years=(2012, 2020), fallback=None):
+    """S-NPP/MODIS ratios per stratum. Thin strata use `fallback` (e.g. global ratios) if given,
+    else this region's pooled day/night ratio."""
     d = add_strata(staging[staging.year.between(*years)])
     def sums(frame):
         return frame.groupby(STRATA, as_index=False).hotspots.sum()
     modis = sums(d[d.sensor == "MODIS"]).rename(columns={"hotspots":"modis"})
     terra = sums(d[d.satellite == "Terra"]).rename(columns={"hotspots":"terra"})
     snpp = sums(d[d.satellite == "SNPP"]).rename(columns={"hotspots":"snpp"})
-    out = modis.merge(terra, on=STRATA, how="outer").merge(snpp, on=STRATA, how="outer").fillna(0)
-    dn = d.groupby("daynight").apply(lambda x: pd.Series({"modis_dn": x.loc[x.sensor.eq("MODIS"),"hotspots"].sum(), "terra_dn": x.loc[x.satellite.eq("Terra"),"hotspots"].sum(), "snpp_dn": x.loc[x.satellite.eq("SNPP"),"hotspots"].sum()}), include_groups=False).reset_index()
+    out = modis.merge(terra, on=STRATA, how="outer").merge(snpp, on=STRATA, how="outer")
+    # Every stratum gets a row, even with no overlap detections, so converted() never meets a missing ratio.
+    every = pd.MultiIndex.from_product([["fire", "off"], ["D", "N"]], names=STRATA).to_frame(index=False)
+    out = every.merge(out, on=STRATA, how="left").fillna(0)
+    dn =d.groupby("daynight").apply(lambda x: pd.Series({"modis_dn": x.loc[x.sensor.eq("MODIS"),"hotspots"].sum(), "terra_dn": x.loc[x.satellite.eq("Terra"),"hotspots"].sum(), "snpp_dn": x.loc[x.satellite.eq("SNPP"),"hotspots"].sum()}), include_groups=False).reset_index()
     out = out.merge(dn, on="daynight", how="left")
     out["ratio"] = out.snpp / out.modis.clip(lower=1)
     out["ratio_terra"] = out.snpp / out.terra.clip(lower=1)
-    out["fallback"] = out.modis < 50
-    out.loc[out.fallback, "ratio"] = out.snpp_dn / out.modis_dn.clip(lower=1)
-    out.loc[out.terra < 50, "ratio_terra"] = out.snpp_dn / out.terra_dn.clip(lower=1)
+    out["fallback"] = out.modis < MIN_MODIS
+    thin_terra = out.terra < MIN_MODIS
+    if fallback is not None:
+        f = out[STRATA].merge(fallback[STRATA+["ratio","ratio_terra"]], on=STRATA, how="left")
+        out.loc[out.fallback, "ratio"] = f.loc[out.fallback, "ratio"].values
+        out.loc[thin_terra, "ratio_terra"] = f.loc[thin_terra, "ratio_terra"].values
+    else:
+        out.loc[out.fallback, "ratio"] = out.snpp_dn / out.modis_dn.clip(lower=1)
+        out.loc[thin_terra, "ratio_terra"] = out.snpp_dn / out.terra_dn.clip(lower=1)
     return out
 def converted(staging, ratio_table):
     d = add_strata(staging[staging.sensor.eq("MODIS")])
@@ -43,17 +57,21 @@ def converted(staging, ratio_table):
     early = d.year * 100 + d.month < AQUA_START[0] * 100 + AQUA_START[1]
     d.loc[early, "weight"] = d.loc[early, "hotspots"] * d.loc[early, "ratio_terra"]
     return d
-def main():
-    ap=argparse.ArgumentParser(); ap.add_argument("--staging",default="data/cleaned_canada.parquet"); ap.add_argument("--monthly",default="data/monthly.parquet"); ap.add_argument("--out",default="data/monthly_harmonized.parquet"); ap.add_argument("--calibration-out",default="data/calibration_grid.json"); a=ap.parse_args()
-    s=pd.read_parquet(a.staging); r=ratios(s); w=converted(s,r)
+def harmonize(s, w, monthly):
+    """Staging rows s, converted MODIS rows w, monthly cell table -> monthly with harmonized_count."""
     conv=w.groupby(KEYS,as_index=False).weight.sum().rename(columns={"weight":"modis_converted"})
     actual=s[s.satellite.eq("SNPP")].groupby(KEYS,as_index=False).hotspots.sum().rename(columns={"hotspots":"snpp_observed"})
-    m=pd.read_parquet(a.monthly).drop(columns=["harmonized_count"],errors="ignore").merge(conv,on=KEYS,how="left").merge(actual,on=KEYS,how="left")
+    m=monthly.drop(columns=["harmonized_count"],errors="ignore").merge(conv,on=KEYS,how="left").merge(actual,on=KEYS,how="left")
     m[["modis_converted","snpp_observed"]]=m[["modis_converted","snpp_observed"]].fillna(0.0)
     # From SNPP_START, observed SNPP is the record, zeros included; MODIS fills only months with no SNPP data region-wide.
     snpp_era = m.year * 100 + m.month >= SNPP_START[0] * 100 + SNPP_START[1]
     snpp_has_data = m.groupby(["year", "month"]).snpp_observed.transform("sum").gt(0)
     m["harmonized_count"]=m.snpp_observed.where(snpp_era & snpp_has_data, m.modis_converted)
+    return m
+def main():
+    ap=argparse.ArgumentParser(); ap.add_argument("--staging",default="data/cleaned_canada.parquet"); ap.add_argument("--monthly",default="data/monthly.parquet"); ap.add_argument("--out",default="data/monthly_harmonized.parquet"); ap.add_argument("--calibration-out",default="data/calibration_grid.json"); ap.add_argument("--ratios",help="calibration_regions.json from build_regions.py: use its shipped Canada ratios"); a=ap.parse_args()
+    s=pd.read_parquet(a.staging); r=pd.DataFrame(json.loads(Path(a.ratios).read_text())["regions"]["canada"]["strata"]) if a.ratios else ratios(s); w=converted(s,r)
+    m=harmonize(s,w,pd.read_parquet(a.monthly))
     m.drop(columns=["modis_converted","snpp_observed"]).to_parquet(a.out,index=False)
     Path(a.calibration_out).write_text(json.dumps({"reference":"SNPP only","calib_years":[2012,2020],"min_modis_hotspots":50,"strata":r.round(6).to_dict("records")},indent=2))
     print(r[[*STRATA,"modis","terra","snpp","ratio","ratio_terra","fallback"]].to_string(index=False)); print(f"Wrote {a.out} ({len(m):,} rows)")
