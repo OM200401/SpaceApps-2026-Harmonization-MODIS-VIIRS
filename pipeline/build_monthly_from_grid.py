@@ -14,7 +14,7 @@ CANADA = (-140.0, 42.0, -52.0, 72.0)
 def grid_rows(path):
     pf = pq.ParquetFile(path)
     cols = ["cell_lat", "cell_lon", "year", "month", "satellite",
-            "confidence", "is_vegetation", "hotspots", "frp_sum"]
+            "daynight", "confidence", "is_vegetation", "hotspots", "frp_sum"]
     parts = []
     read_rows = kept_rows = 0
     for batch in pf.iter_batches(batch_size=262_144, columns=cols):
@@ -45,13 +45,13 @@ def main():
     rows, read_rows, kept_rows = grid_rows(args.input)
     if rows.empty:
         raise SystemExit("No rows passed the required grid filters")
-    rows = (rows.groupby(["cell_lat", "cell_lon", "year", "month", "satellite"],
+    rows = (rows.groupby(["cell_lat", "cell_lon", "year", "month", "satellite", "daynight"],
                          as_index=False, sort=False)
                  .agg(hotspots=("hotspots", "sum"), frp_sum=("frp_sum", "sum")))
     rows["sensor"] = rows["satellite"].map(
         {"Terra": "MODIS", "Aqua": "MODIS", "SNPP": "VIIRS_SNPP"})
     rows["mean_frp"] = rows["frp_sum"] / rows["hotspots"]
-    rows = rows[["cell_lat", "cell_lon", "year", "month", "sensor", "satellite",
+    rows = rows[["cell_lat", "cell_lon", "year", "month", "sensor", "satellite", "daynight",
                  "hotspots", "frp_sum", "mean_frp"]]
 
     key = ["cell_lat", "cell_lon", "year", "month"]

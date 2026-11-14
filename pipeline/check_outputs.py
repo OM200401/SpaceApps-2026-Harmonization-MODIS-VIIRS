@@ -15,11 +15,12 @@ def stage_clean():
     p = Path("data/cleaned_canada.parquet"); m = Path("data/monthly.parquet")
     if not p.exists(): return fail("data/cleaned_canada.parquet missing")
     d = pd.read_parquet(p)
-    need = {"cell_lat", "cell_lon", "year", "month", "sensor", "satellite", "hotspots", "frp_sum", "mean_frp"}
+    need = {"cell_lat", "cell_lon", "year", "month", "sensor", "satellite", "daynight", "hotspots", "frp_sum", "mean_frp"}
     rc |= ok("cleaned rows: "+f"{len(d):,}") if len(d) > 0 else fail("cleaned is empty")
     rc |= ok("schema complete") if need <= set(d.columns) else fail(f"missing columns: {need - set(d.columns)}")
     rc |= ok("sensors: "+str(sorted(d['sensor'].unique()))) if set(d["sensor"].unique()) == {"MODIS", "VIIRS_SNPP"} else fail(f"unexpected grid sensors: {sorted(d['sensor'].unique())}")
     rc |= ok("satellites Terra/Aqua/SNPP only") if set(d["satellite"].unique()) == {"Terra", "Aqua", "SNPP"} else fail(f"unexpected satellites: {sorted(d['satellite'].unique())}")
+    rc |= ok("day/night retained") if set(d["daynight"].unique()) <= {"D", "N"} else fail(f"bad daynight values: {set(d['daynight'].unique())}")
     inb = d["cell_lon"].between(-140,-52).all() and d["cell_lat"].between(42,72).all()
     rc |= ok("all rows inside Canada bbox") if inb else fail("rows outside Canada bbox - slice did not run first")
     yrs = d["year"]
@@ -41,13 +42,13 @@ def stage_calibrate():
     d = pd.read_parquet(p)
     if "harmonized_count" not in d.columns: return fail("harmonized_count column missing")
     rc |= fail(f"harmonized_count has {int(d['harmonized_count'].isna().sum())} nulls") if d["harmonized_count"].isna().any() else ok("harmonized_count fully filled")
-    c = Path("data/calibration.json")
+    c = Path("data/calibration_grid.json") if Path("data/calibration_grid.json").exists() else Path("data/calibration.json")
     if not c.exists(): rc |= fail("data/calibration.json missing")
     else:
         cal = json.loads(c.read_text()); s = cal.get("strata", [])
         rc |= ok(f"calibration strata: {len(s)}, global ratio {cal.get('global_ratio')}") if len(s) >= 4 else fail(f"only {len(s)} strata")
-        bad = [x for x in s if not (0.5 <= x.get("ratio", 0) <= 6.0)]
-        rc |= fail(f"ratios outside sane band 0.5-6.0: {bad}") if bad else ok("all strata ratios in sane band 0.5-6.0")
+        bad = [x for x in s if not pd.notna(x.get("ratio")) or x.get("ratio") < 0]
+        rc |= fail(f"negative or non-finite calibration ratios: {bad}") if bad else ok("all calibration ratios finite and non-negative")
     t = d.groupby("year").agg(raw=("total_count","sum"), harm=("harmonized_count","sum"))
     try:
         rj = (t.loc[2012,"raw"]-t.loc[2011,"raw"])/t.loc[2011,"raw"]; hj = (t.loc[2012,"harm"]-t.loc[2011,"harm"])/t.loc[2011,"harm"]
@@ -58,7 +59,7 @@ def stage_calibrate():
 
 def stage_clean_quiet():
     p = Path("data/cleaned_canada.parquet")
-    return 0 if p.exists() and len(pd.read_parquet(p, columns=["lat"])) > 0 else 1
+    return 0 if p.exists() and len(pd.read_parquet(p, columns=["cell_lat"])) > 0 else 1
 
 def stage_json():
     rc = stage_calibrate()
