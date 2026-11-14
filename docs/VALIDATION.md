@@ -85,7 +85,7 @@ Canada with global ratios, by stratum:
 | Off | Night | 21 | 50.6% | −50.6% |
 
 Fire-season error and bias both improve over Canada's own ratios. Off-season nights get worse, because the global off-night ratio (9.47) is lower than Canada's (13.93), but those months carry few detections. The top-5 months still match 5/5: Aug 2023, Jul 2023, Jul 2021, Sep 2023, Jun 2023.
-Check: `python pipeline/grid_validate.py --ratios data/calibration_regions.json`.
+Check: `python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet --ratios data/calibration_regions.json`.
 
 ### 2011→2012 sensor jump by region
 | Region | Raw | Harmonized | MODIS alone |
@@ -97,7 +97,11 @@ Check: `python pipeline/grid_validate.py --ratios data/calibration_regions.json`
 In every region the harmonized change is within 5 points of the single-sensor MODIS change, and the fake sensor-switch jump is gone. (Canada with its own ratios: +59.1%.)
 
 ## Cell-day counts vs detections (2026-11-14, #15) — not adopted
-**Test:** count each 0.05° cell (~5 km) at most once per day, per day/night and per satellite, instead of counting every detection. This removes repeat passes and VIIRS's extra detections of the same fire. Built from all 660M raw detections with `python summarise/build_monthly_grid.py --input <raw parquet> --cell-days 0.05 --output data/derived/monthly_celldays_025.parquet`, then `build_regions.py --input` on that file. Same filters as the detection grid (vegetation, confidence n/h, Terra/Aqua/S-NPP); 165M cell-days worldwide.
+**Test:** count each 0.05° cell (~5 km) at most once per day, per day/night and per satellite, instead of counting every detection. This removes repeat passes and VIIRS's extra detections of the same fire. Built from all 660M raw detections (the Hugging Face dataset downloaded to `data/firms`, laid out as `sensor=*/year=*/*.parquet`). Commands, with separate output paths so the shipped detection outputs are not overwritten:
+```bash
+python summarise/build_monthly_grid.py --input data/firms --cell-days 0.05   # -> data/derived/monthly_celldays_025.parquet
+python pipeline/build_regions.py --input data/derived/monthly_celldays_025.parquet --outdir data/regions_celldays     --out data/monthly_harmonized_all_celldays.parquet --calibration-out data/calibration_regions_celldays.json     --app-out data/monthly_harmonized_celldays.parquet
+``` Same filters as the detection grid (vegetation, confidence n/h, Terra/Aqua/S-NPP); 165M cell-days worldwide.
 
 **Ratios shrink a lot:** Canada's fire-season night ratio drops from 8.42 to 2.65. In Canada one cell-day holds 4.4 detections on average, against 2.2 in the Amazon and 1.9 in the Mediterranean. So much of VIIRS's extra count is the same fire detected repeatedly, not extra fires.
 

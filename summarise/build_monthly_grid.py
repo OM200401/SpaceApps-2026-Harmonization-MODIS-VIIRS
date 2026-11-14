@@ -7,13 +7,15 @@ With --cell-days FINE, `hotspots` instead counts fire cell-days: each FINE-degre
 counts at most once per day, per day/night and per satellite. Repeat passes and VIIRS's
 smaller pixels then stop inflating counts. That output is pre-filtered to vegetation
 fires with nominal/high confidence and to Terra/Aqua/S-NPP, so its `confidence` is 'n'
-and `is_vegetation` is true on every row (the downstream filters still pass).
+and `is_vegetation` is true on every row (the downstream filters still pass). FINE must
+divide --cell evenly; `frp_sum` is scaled so frp_sum / hotspots is still the mean
+detection FRP. Default output: data/derived/monthly_celldays_<cell>.parquet.
 
 Usage:
     python summarise/build_monthly_grid.py
-    python summarise/build_monthly_grid.py --cell-days 0.05         --output data/derived/monthly_celldays_025.parquet
     python summarise/build_monthly_grid.py --input data/firms --cell 0.25 \
         --output data/derived/monthly_grid_025.parquet
+    python summarise/build_monthly_grid.py --input data/firms --cell-days 0.05
 """
 
 import argparse
@@ -78,7 +80,8 @@ def build(input_dir: Path, output: Path, cell: float, temp_dir: Path, fine: floa
     else:
         final = f"""SELECT {keys}, 'n' AS confidence, true AS is_vegetation,
                    CAST(count(DISTINCT (floor(latitude / {fine}), floor(longitude / {fine}), acq_date)) AS INTEGER) AS hotspots,
-                   CAST(round(sum(frp), 1) AS FLOAT) AS frp_sum
+                   -- Scaled so frp_sum / hotspots stays the mean detection FRP, as downstream expects.
+                   CAST(round(avg(frp) * count(DISTINCT (floor(latitude / {fine}), floor(longitude / {fine}), acq_date)), 1) AS FLOAT) AS frp_sum
             FROM cls
             WHERE is_vegetation AND confidence IN ('n', 'h') AND satellite IN ('Terra', 'Aqua', 'SNPP')
             GROUP BY ALL ORDER BY cell_lat, cell_lon, year, month, sensor"""
@@ -137,9 +140,15 @@ def main() -> None:
     p.add_argument("--cell-days", type=float, default=None, metavar="FINE",
                    help="count fire cell-days on a FINE-degree grid instead of detections")
     args = p.parse_args()
+    if args.cell_days is not None:
+        # Fine cells must nest inside output cells, or one fine cell-day is counted in two.
+        steps = args.cell / args.cell_days if args.cell_days > 0 else 0
+        if args.cell_days <= 0 or abs(steps - round(steps)) > 1e-9:
+            p.error(f"--cell-days must be positive and divide --cell {args.cell} evenly")
 
+    kind = "celldays" if args.cell_days is not None else "grid"
     output = args.output or Path(
-        f"data/derived/monthly_grid_{str(args.cell).replace('.', '')}.parquet"
+        f"data/derived/monthly_{kind}_{str(args.cell).replace('.', '')}.parquet"
     )
     t0 = time.time()
     build(args.input, output, args.cell, args.temp, args.cell_days)
