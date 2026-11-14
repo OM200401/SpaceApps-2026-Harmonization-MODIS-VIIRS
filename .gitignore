@@ -1,0 +1,38 @@
+# Data: stored on Hugging Face (undeadphoenix/firms-fire-data), never in Git
+data/
+firms/
+*.parquet
+*.csv
+*.zip
+*.gz
+*.duckdb
+*.duckdb.wal
+*.db
+
+# Secrets (FIRMS MAP_KEY, Hugging Face tokens, etc.)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.next/
+.vite/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
