@@ -64,13 +64,55 @@ The app covers the **whole world**. It has ten preset areas, among them Canada, 
 Mediterranean, US West, Siberia, southern Africa, SE Asia, northern Australia and the whole world,
 and you can draw or type any other box.
 
-Two generations of the method are in this repo:
+## How the harmonization works
 
-- **v2, what the app shows.** One worldwide gradient-boosted model, documented in
-  [experiments/v2/README.md](experiments/v2/README.md).
-- **The previous rule** (per-area ratios plus a monthly power law), documented in
-  [docs/VALIDATION.md](docs/VALIDATION.md). The Canada-only `app/data/monthly.json` and the
-  independent audit below still use it.
+S-NPP VIIRS is the reference sensor, so every count is in S-NPP VIIRS units.
+
+1. **Count.** NASA FIRMS detections per 0.25° grid cell and month, by satellite and by day or night.
+   Vegetation fires only, nominal and high confidence.
+2. **Learn from clean overlap years only: June 2012 to 2021.** The MODIS satellites' orbits drift after 2021,
+   so later years don't represent 2000–2011. Days when any satellite was down are dropped, and gas flares,
+   which the fire data counts as vegetation fires, are masked.
+3. **Convert MODIS with one worldwide model.** For each 1° block, month and day or night, the model starts
+   from a local S-NPP to MODIS ratio and applies a correction learned by gradient boosting (LightGBM) from
+   MODIS-only inputs: how intense and how spread out the fires were, the other half of the day, the months
+   around it and the neighbouring blocks. Where MODIS saw nothing, it adds the small fires VIIRS usually
+   finds there. Before July 2002 only Terra flew, so a Terra-only version of the model is used.
+4. **Join the records.** Before February 2012 the app shows converted MODIS counts, marked ≈ as estimates.
+   From February 2012 it shows what S-NPP observed, minus gas flares.
+
+### Accuracy
+
+Hide one year of 2012–2021 at a time, predict it from MODIS alone, and compare with what S-NPP really saw.
+Monthly error is the total absolute error over all months divided by the total fire. This is the same table
+as the app's Method page.
+
+| Region | Monthly error, previous method | Monthly error, now | Yearly error, now | Bias, now |
+|---|---:|---:|---:|---:|
+| Canada | 11.3% | **6.5%** | 4.3% | −2.3% |
+| Amazon | 2.8% | **2.6%** | 1.2% | +0.5% |
+| Mediterranean | 7.9% | **7.3%** | 3.6% | +2.2% |
+| US West | 8.8% | **4.4%** | 2.6% | −0.6% |
+| Siberia | 8.5% | **4.5%** | 2.2% | +0.6% |
+| Southern Africa | 2.8% | **2.0%** | 1.2% | +0.1% |
+| SE Asia | 4.8% | **3.9%** | 2.4% | +1.5% |
+| Northern Australia | 6.7% | **3.3%** | 1.2% | −0.7% |
+| Whole world | 2.1% | **1.5%** | 0.7% | −0.1% |
+
+Further checks:
+
+- Fitting on 2012–2018 and predicting 2019–2021 gives similar numbers (Canada 6.7%, world 1.7%).
+- With only Terra, as in 2000–2002, the world error is 2.7%, against 6.4% for the previous Terra ratio.
+- Predicting S-NPP from NOAA-20, an identical VIIRS instrument, gives 0.7% for the world and 1.1–4.0% per
+  region. That is the best any conversion could do.
+
+The weakest spots are megafire months, where smoke hides fire from MODIS (those months can come out 10–25%
+low), and small areas, which these region-wide scores don't measure.
+
+Full method, every table and the remaining checks: [docs/VALIDATION.md](docs/VALIDATION.md) and
+[experiments/v2/README.md](experiments/v2/README.md). VALIDATION.md also keeps the previous rule
+(per-area ratios plus a monthly power law) as history; the Canada-only `app/data/monthly.json` and the
+independent audit below still use that previous rule.
 
 ## The challenge
 
@@ -205,9 +247,9 @@ python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet
 
 ## Independent audit
 
-Do not take our word for any number in this project. The audit engine recomputes the Canada record built with the previous method from the raw data, with completely separate code, and shows its work.
+The audit engine recomputes the Canada record built with the previous method from the raw data, with completely separate code, and shows its work.
 
-**Scope.** The audit covers the Canada record in `app/data/monthly.json`, which was built with the previous rule (`docs/VALIDATION.md`). The worldwide v2 tiles the app now reads are checked separately, by the hidden-year tests in `experiments/v2/README.md`.
+**Scope, stated plainly.** The audit certifies `app/data/monthly.json`, the earlier Canada-only record built with the previous rule. **The live site no longer reads that file.** It reads the worldwide v2 tiles, which this audit does not cover. The v2 numbers are checked by the leave-one-year-out tests above (and in `docs/VALIDATION.md`), not by this audit.
 
 ```bash
 python pipeline/audit_engine.py --selftest
@@ -215,15 +257,16 @@ python pipeline/audit_engine.py --selftest
 
 The production pipeline is pandas. The audit rebuilds the data from the 55M-row grid in SQL (DuckDB), refits the harmonization rule from the project's calibration rules (`docs/VALIDATION.md` and the production calibration code), and compares everything against expected values that were written down in advance (`pipeline/audit_claims.json`). The full report is `docs/AUDIT_REPORT.md`.
 
-On that Canada record, it verifies:
+On that earlier Canada record, it verifies:
 
 - 308,806 cell-months rebuilt from the grid, zero differences
-- May 2023 = 208,476, and the 2011 to 2012 jump: +785.4% raw, +60.8% harmonized
+- the raw counts, May 2023 and the 2011 to 2012 jump published for that record
 - every cell's harmonized value, refit independently, largest difference 0.005, which is the file's own rounding
-- the holdout: fit 2012 to 2020, predict 2021 to 2023, MAPE 13.6%
+- the previous rule's holdout score (fit 2012 to 2020, predict 2021 to 2023), as published in the history part of `docs/VALIDATION.md`
 - itself: it corrupts copies of the data 8 ways (quiet drift, swapped values, planted stale numbers) and must catch all 8. It does.
 
-One limit, stated plainly: the audit certifies the Canada record under the previous rule, not the v2 tiles, and in that record the Terra-only months before July 2002 have no holdout coverage, here or anywhere in the project.
+It also checks the text of the README, the app pages and the docs for stale numbers and method descriptions.
+Its expected values are those of the earlier record, so it does not confirm the v2 figures quoted above.
 
 ## Data
 
@@ -344,6 +387,14 @@ We used AI assistants to speed up building this project. The team directed and r
 - Schroeder, W., Oliva, P., Giglio, L., & Csiszar, I. A. (2014). The New VIIRS 375 m active fire
   detection data product: Algorithm description and initial assessment. *Remote Sensing of
   Environment*, 143, 85–96. <https://doi.org/10.1016/j.rse.2013.12.008>
+
+**FIRMS documentation**
+
+- NASA Earthdata, FIRMS overview: <https://www.earthdata.nasa.gov/data/tools/firms>
+- NASA Earthdata, FIRMS frequently asked questions (product versions, near-real-time vs standard data,
+  confidence and type fields): <https://www.earthdata.nasa.gov/data/tools/firms/faq>
+- MODIS Collection 6 and Collection 6.1 Active Fire Product User's Guide (University of Maryland):
+  <https://modis-fire.umd.edu/files/MODIS_C6_C6.1_Fire_User_Guide_1.0.pdf>
 
 **Third-party software and services**
 

@@ -1,9 +1,97 @@
 # Validation — numbers are from runs, never hand-written
 
-> **This document covers the previous rule (#37).** The app now shows the worldwide v2 rule, which is
-> documented and validated in `experiments/v2/README.md`. The Canada-only `app/data/monthly.json` and the
-> independent audit (`docs/AUDIT_REPORT.md`) still use the rule described here. Where this document says
-> "shipped", it means that previous rule.
+This document has two parts:
+
+1. **v2, the method the app shows** (this section). Its numbers come from the runs in `experiments/v2/`,
+   which also has the full run order and every table: [experiments/v2/README.md](../experiments/v2/README.md).
+2. **History** (everything after the divider below): the previous rule (#37) and earlier tests. The
+   Canada-only `app/data/monthly.json` and the independent audit (`docs/AUDIT_REPORT.md`) still use that
+   previous rule. Where the history part says "shipped", it means the previous rule.
+
+## v2: what the app shows
+
+### Method
+Harmonized counts are in S-NPP VIIRS-equivalent units, per 0.25° cell and month, for the whole world.
+
+- **From Feb 2012:** the observed S-NPP count, minus gas flares.
+- **Nov 2000 – Jan 2012:** MODIS converted into S-NPP units by one worldwide model (`experiments/v2/gbm.py`),
+  at 1° block × month × day/night:
+  1. Where MODIS saw fire in this half of the day: MODIS × block ratio, times a correction learned by
+     gradient boosting (LightGBM, Poisson, linear leaves). Block ratios shrink world → 10° tile → block.
+  2. Where MODIS saw nothing in this half of the day but has evidence in the other half or at low
+     confidence: a second, small model. This is about 4% of night-time S-NPP.
+  3. Where MODIS saw nothing at all: the block's average S-NPP under that condition.
+
+  Inputs are MODIS-only: counts by satellite, FRP mix, scan angle, confidence mix, hot-pixel share, active
+  days, the other half of the day, the months before and after, neighbouring blocks, the 10° tile.
+- **Before Jul 2002:** only Terra flew, so a Terra-only version of the model is used.
+- Estimates are split from 1° blocks to 0.25° cells by MODIS detections, or by the cell's 2012–2021 S-NPP
+  share where MODIS saw nothing.
+
+**Data cleaning found by going back to the raw detections:**
+
+| Problem | Evidence | Fix |
+|---|---|---|
+| Terra and Aqua orbits drift after 2021 | Mean overpass time is flat through 2021, then Terra 10:33 → 09:26 and Aqua 13:36 → 14:45 by 2025 | Fit and test on 2012–2021 only |
+| Sensor outage days | Aqua out 16 Aug – 2 Sep 2020, S-NPP 16 days in 2022 and 25 in 2024, Terra 11 days in Feb 2016 | Drop a day for every sensor when Terra, Aqua or S-NPP is out |
+| Gas flares typed as vegetation fire | Permian, Bakken, Gulf states, Algeria: S-NPP sees them at night, MODIS barely | Mask spots that burn year-round and mostly at night (about 1.7% of S-NPP detections) |
+| S-NPP ran low in its first months | March 2012 S-NPP/MODIS is 20% below the 2013–2019 mean | Start the fit in June 2012 |
+
+### Accuracy: leave one year out
+Fit on nine of the years 2012–2021, predict the tenth from MODIS alone, and compare with what S-NPP saw.
+Every rule is scored on the same cleaned data, each region over its whole box (the boxes overlap: Canada and
+US West share 42–49° N).
+
+**Monthly error** = Σ|error| ÷ Σ actual over all months (WAPE). **Floor** = NOAA-20, an identical VIIRS
+instrument 50 minutes apart, predicting S-NPP with block ratios (2019–2025): the best any conversion could do.
+
+| Region | Old single ratio | Previous rule (#37) | **v2 monthly error** | Floor | v2 yearly error | v2 worst year | v2 bias |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Canada | 15.4% | 11.3% | **6.5%** | 2.5% | 4.3% | 14.5% | −2.3% |
+| Amazon | 4.8% | 2.8% | **2.6%** | 1.7% | 1.2% | 2.8% | +0.5% |
+| Mediterranean | 10.8% | 7.9% | **7.3%** | 4.0% | 3.6% | 8.8% | +2.2% |
+| US West | 13.7% | 8.8% | **4.4%** | 2.8% | 2.6% | 6.5% | −0.6% |
+| Siberia | 10.8% | 8.5% | **4.5%** | 1.8% | 2.2% | 5.2% | +0.6% |
+| Southern Africa | 6.8% | 2.8% | **2.0%** | 1.1% | 1.2% | 2.9% | +0.1% |
+| SE Asia | 9.2% | 4.8% | **3.9%** | 1.8% | 2.4% | 5.3% | +1.5% |
+| Northern Australia | 10.1% | 6.7% | **3.3%** | 2.3% | 1.2% | 3.6% | −0.7% |
+| World | 3.6% | 2.1% | **1.5%** | 0.7% | 0.7% | 1.4% | −0.1% |
+
+### Other checks
+- **Forward holdout inside the stable years** (fit 2012–2018, predict 2019–2021), monthly error, v2 against
+  the previous rule: Canada 6.7% vs 15.2%, Amazon 2.7% vs 2.5%, Mediterranean 6.9% vs 6.5%, US West 6.1% vs
+  12.1%, Siberia 4.2% vs 8.7%, world 1.7% vs 2.8%.
+- **Terra-only path** (months before July 2002), tested by dropping Aqua from 2012–2021, monthly error, v2
+  against the previous Terra ratio: Canada 7.9% vs 14.1%, Amazon 5.6% vs 9.7%, Mediterranean 9.2% vs 11.5%,
+  US West 5.8% vs 11.4%, Siberia 5.4% vs 12.3%, southern Africa 4.0% vs 8.2%, SE Asia 7.3% vs 18.2%, northern
+  Australia 5.6% vs 16.5%, world 2.7% vs 6.4%.
+- **Old protocol** (fit 2012–2020, predict 2021–2023, which includes orbit-drift years), monthly error, v2
+  against the previous rule: Canada 5.8% vs 9.7%, Amazon 4.0% vs 4.0%, Mediterranean 8.4% vs 9.9%, US West
+  4.1% vs 12.9%, world 2.9% vs 3.7%. On mean monthly error v2 is worse here for the Amazon (6.3% vs 5.1%) and
+  the Mediterranean (15.2% vs 12.9%), because it uses Terra and Aqua separately and so is more exposed to
+  the drift.
+- **Seeds:** three seeds averaged change nothing beyond 0.1 points.
+- **Flare mask leakage:** the mask is built from all of 2012–2021, so a held-out year's own S-NPP helps
+  decide which spots are masked. Rebuilding it without each held-out year changes 0.2–0.4% of that year's
+  S-NPP detections (at most 0.5% in a region), which bounds the effect on the scores at about half a point.
+- **2011→2012 jump** in the app's data: world raw +407.2%, harmonized +5.6%, MODIS alone +5.2%; Canada raw
+  +785.4%, harmonized +59.8%, MODIS alone +60.5%.
+
+### Limits
+- **Megafire months.** In Canada six months carry about 60% of all the error (NWT July 2014: −24%, BC August
+  2018: −11%). Smoke and smouldering ground hide fire from MODIS there.
+- **Small fires MODIS never sees.** In the Mediterranean 8% of S-NPP detections fall in block-months with no
+  same-time MODIS detection, which is why quiet winter months there are the least accurate.
+- **Small areas.** These scores are for large regions. Accuracy for a small box drawn in the app is not
+  measured, and is lower.
+- **Terra-only months** were tested by hiding Aqua, but the Terra satellite was younger in 2000–2002.
+
+---
+
+# History: the previous rule (#37) and earlier tests
+
+> Everything below documents earlier rules. It is kept as a record and is not what the app shows. Where it
+> says "shipped", it means the previous rule.
 
 ## Estimator definition (shipped, #37)
 Harmonized count (S-NPP VIIRS-equivalent units) per 0.25° cell-month:
@@ -175,7 +263,7 @@ Same filters as the detection grid (vegetation, confidence n/h, Terra/Aqua/S-NPP
 
 ### Not yet done
 - [ ] Coverage check per sensor-year (NRT vs standard-processing months, see #14)
-- [ ] Export the extra regions to the app (#11): all three regions make `monthly.json` 17.9 MB instead of 4.2 MB
+- [x] Export the extra regions to the app (#11): done in v2, which serves the whole world as map tiles instead of one `monthly.json`
 - [x] Cell-day counting (#15): tested above, not adopted
 - [ ] NBAC 2023 correlation (`validate_nbac.py`, skips until the NBAC file is present)
 

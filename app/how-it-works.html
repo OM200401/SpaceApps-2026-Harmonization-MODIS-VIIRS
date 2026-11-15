@@ -87,7 +87,7 @@ details.more .body{margin-top:10px}
    <li><strong>Gas flares are left out.</strong> Spots that burn all year, mostly at night (oil and gas flares), are removed from every year, so some oil-field areas show less than the raw data.</li>
    <li><strong>The latest months are provisional.</strong> They use NASA's near-real-time data, which is replaced by the final archive a few months later.</li>
    <li><strong>A detection is not a fire.</strong> One large fire can produce hundreds of hotspot detections. Counts measure burning activity, not the number of separate fires.</li>
-   <li><strong>Small areas are noisier.</strong> Error grows as the area you draw gets smaller (about 25% for a single 1° box).</li>
+   <li><strong>Small areas are noisier.</strong> The accuracy table is for large regions. Error grows as the area you draw gets smaller, and we haven't measured it for small boxes.</li>
   </ul></details>
  </section>
 
@@ -96,7 +96,8 @@ details.more .body{margin-top:10px}
   <ul class="plain" style="margin-top:10px">
    <li>NASA FIRMS active fire detections: MODIS Collection 6.1 (Terra and Aqua) and VIIRS 375&nbsp;m S-NPP Collection 2, via NASA Earthdata. Vegetation fires only, nominal and high confidence.</li>
    <li>Counted per 0.25° grid cell (about 25&nbsp;km) and month, by satellite and day or night.</li>
-   <li>Full method and accuracy numbers for the model shown here: <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/blob/main/experiments/v2/README.md">the v2 method notes</a>. The method we used before it, with its validation: <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/blob/main/docs/VALIDATION.md">VALIDATION.md</a>. All the code is in the <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">GitHub repository</a>.</li>
+   <li>Full method and every accuracy table: <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/blob/main/docs/VALIDATION.md">VALIDATION.md</a> (this model first, the method we used before it after) and <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/blob/main/experiments/v2/README.md">the v2 method notes</a>. All the code is in the <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">GitHub repository</a>.</li>
+   <li>References: Giglio, Schroeder &amp; Justice (2016), <a href="https://doi.org/10.1016/j.rse.2016.02.054">The collection 6 MODIS active fire detection algorithm and fire products</a>, <cite>Remote Sensing of Environment</cite> 178, 31–41. Schroeder, Oliva, Giglio &amp; Csiszar (2014), <a href="https://doi.org/10.1016/j.rse.2013.12.008">The New VIIRS 375&nbsp;m active fire detection data product</a>, <cite>Remote Sensing of Environment</cite> 143, 85–96. NASA Earthdata, <a href="https://www.earthdata.nasa.gov/data/tools/firms">FIRMS</a> and its <a href="https://www.earthdata.nasa.gov/data/tools/firms/faq">FAQ</a>.</li>
   </ul></details>
   <p style="margin:14px 0 0"><a class="btn btn-primary" data-page-link="index.html" href="index.html">Explore the map →</a> <a class="btn" data-page-link="report.html" href="report.html">Open the burning calendar</a></p>
  </section>

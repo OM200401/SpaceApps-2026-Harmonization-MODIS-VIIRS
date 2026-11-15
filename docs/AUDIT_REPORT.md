@@ -1,4 +1,6 @@
-# Audit Report — independent recomputation of the shipped Canada record
+# Audit Report — independent recomputation of the earlier Canada record
+
+**Scope: the live site no longer reads the file audited here.** This audit certifies `app/data/monthly.json`, the earlier Canada-only record built with the previous rule. The app now reads the worldwide v2 tiles, which this audit does not cover; their accuracy is tested by the leave-one-year-out checks in docs/VALIDATION.md (v2 section) and experiments/v2/README.md.
 
 Artifact audited: `app/data/monthly.json` (md5 dbb934b1681e) — every value in it, per cell and per month, plus the Canada validation numbers in the claims registry. Engine: `pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL aggregation over the raw grid; method refit implemented from the project's calibration rules, docs/VALIDATION.md and the production calibration code). Claims and tolerances: `pipeline/audit_claims.json`.
 Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
@@ -43,7 +45,7 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L5 | Calibration window misstated as 2012-2023 overlap in README.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in README.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in SPEC.md (history doc: quoted context) | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in SPEC.md (history doc: quoted context) | 0 | 3 | INFO | L45 /FRP bin/; L45 /FRP×season/; L77 /FRP bin/ |
+| L5 | Rejected FRP-stratified method described as shipped in SPEC.md (history doc: quoted context) | 0 | 4 | INFO | L46 /FRP-bin/; L50 /FRP bin/; L50 /FRP×season/; L82 /FRP bin/ |
 | L5 | Calibration window misstated as 2012-2023 overlap in SPEC.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in app/how-it-works.html | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in app/how-it-works.html | 0 | 0 | PASS |  |
@@ -81,7 +83,7 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L5 | Calibration window misstated as 2012-2023 overlap in docs/UI_DATA_CONTRACT.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in docs/UI_DATA_CONTRACT.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/VALIDATION.md (history doc: quoted context) | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context) | 0 | 1 | INFO | L59 /FRP bin/ |
+| L5 | Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context) | 0 | 1 | INFO | L147 /FRP bin/ |
 | L5 | Calibration window misstated as 2012-2023 overlap in docs/VALIDATION.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in experiments/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in experiments/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
@@ -198,6 +200,7 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L4 | LOYO 8-region MAPE, old -> new (%) | 20.8 -> 14.0 | not recomputed | UNVERIFIABLE | Experiment result CSVs are gitignored and not in the repo; the audit can verify the harness code and its baseline expectations but not the LOYO outputs. |
 
 ## Known gaps (stated, not hidden)
+- The worldwide v2 tiles the live site reads are not audited here. Only the earlier Canada record (`app/data/monthly.json`, previous rule) is recomputed.
 - LOYO experiment averages are UNVERIFIABLE from the repo: the result CSVs are gitignored. The harness code and its hard-coded old-rule baseline expectations are in the repo (verified by check L5 baseline_expectations, and the Canada pair is numerically reproduced by L4), but the LOYO outputs themselves are not.
 - Terra-only months (Nov 2000 - Jun 2002) have no holdout coverage by design; their harmonized values rest on the Terra-only ratios alone.
 - Canada's untouched-holdout WAPE worsens under the shipped rule (8.8% -> 11.0%, nested check in docs/VALIDATION.md) even as MAPE improves; both figures belong in any honest summary.

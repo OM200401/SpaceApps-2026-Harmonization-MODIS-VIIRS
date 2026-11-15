@@ -41,6 +41,11 @@ Monthly aggregate: cell_lat, cell_lon (0.25° grid), year, month,
 modis_count, viirs_count, total_count, mean_frp, harmonized_count (calibration fills).
 
 ## Calibration (measurement, not ML)
+> **Superseded by v2.** This section is the pre-build plan. What the app shows is one worldwide
+> gradient-boosted model, learned from June 2012 to 2021 and tested by hiding one year at a time; see
+> `docs/VALIDATION.md` (v2 section) and `experiments/v2/README.md`. The FRP-bin strata planned below
+> were dropped, and the "measurement, not ML" title no longer holds.
+
 - Overlap: 2012–2023. Train/calibration split: 2012–2021. Holdout: 2022–2023 + spot 2024–25 if data allows (brief said 2024–25 holdout; we implement configurable split, default calib 2012–2020, holdout 2021–2023 so holdout is fully inside overlap — LOGGED DECISION D3).
 - Stratify by FRP bin (0–10, 10–30, 30–100, 100+ MW) as fire-size proxy, and by season (May–Sep boreal fire season vs off-season). Land-cover stratification is stretch (needs a land-cover raster we do not yet have) — LOGGED D4: FRP×season is V1; land-cover added only if a raster lands by Sun noon.
 - Per stratum: ratio r = VIIRS_count / MODIS_count in overlap (aggregated per cell-month, then median ratio, robust to zero cells: use sum ratio with +1 smoothing, report both).

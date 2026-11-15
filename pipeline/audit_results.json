@@ -308,9 +308,9 @@
    "verdict": "PASS"
   },
   {
-   "actual": 3,
+   "actual": 4,
    "claim": "Rejected FRP-stratified method described as shipped in SPEC.md (history doc: quoted context)",
-   "detail": "L45 /FRP bin/; L45 /FRP\u00d7season/; L77 /FRP bin/",
+   "detail": "L46 /FRP-bin/; L50 /FRP bin/; L50 /FRP\u00d7season/; L82 /FRP bin/",
    "expected": 0,
    "id": "method:SPEC.md",
    "layer": "L5",
@@ -652,7 +652,7 @@
   {
    "actual": 1,
    "claim": "Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context)",
-   "detail": "L59 /FRP bin/",
+   "detail": "L147 /FRP bin/",
    "expected": 0,
    "id": "method:docs/VALIDATION.md",
    "layer": "L5",
