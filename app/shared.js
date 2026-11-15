@@ -188,7 +188,7 @@
     const link = (page, label) => `<a data-page-link="${page}" href="${page}"${active === page ? ' aria-current="page"' : ""}>${label}</a>`;
     el.className = "site-header";
     el.innerHTML = `<div class="wrap"><a class="brand" data-page-link="index.html" href="index.html"><span class="brand-mark">${FLAME}</span>One Burning Calendar</a>
-      <nav class="nav" aria-label="Main">${link("index.html", "Map")}${link("report.html", "Report")}${link("how-it-works.html", "Method")}</nav>
+      <nav class="nav" aria-label="Main">${link("index.html", "Map")}${link("report.html", "Calendar")}${link("how-it-works.html", "Method")}</nav>
       <span class="header-meta" id="data-through"></span>
       <button class="theme-toggle" id="theme-toggle" type="button"></button></div>`;
     document.getElementById("theme-toggle").onclick = () => setTheme(isDark() ? "light" : "dark");

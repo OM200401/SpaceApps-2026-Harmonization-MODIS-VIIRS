@@ -1,7 +1,11 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Area report — One Burning Calendar</title>
-<meta name="description" content="Fire history report for an area: this year against the normal range, every month since 2001, and downloads.">
+<title>Burning calendar — One Burning Calendar</title>
+<meta name="description" content="Burning calendar for an area: every month since 2001, this year against the normal range, the busiest periods, and downloads.">
+<meta property="og:type" content="website"><meta property="og:site_name" content="One Burning Calendar">
+<meta property="og:title" content="Burning calendar: every month since 2001"><meta property="og:description" content="The fire history of any area: which months and years burned most, and how this year compares.">
+<meta property="og:url" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/report.html"><meta property="og:image" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/preview.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23c2410c%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
 <script>try{var t=localStorage.getItem("obc-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="stylesheet" href="shared.css">
@@ -37,7 +41,7 @@ details.more{margin-top:14px}
  <section class="card" aria-labelledby="area-title">
   <div class="report-head">
    <div style="flex:1;min-width:260px">
-    <h1 id="area-title">Area report</h1>
+    <h1 id="area-title">Burning calendar</h1>
     <p class="report-sub" id="area-sub"></p>
    </div>
    <div class="head-actions no-print"><button id="csv" title="One row per 0.25° cell and month, with estimate and provisional flags">CSV</button><button id="print">Print</button><button id="copy">Copy link</button><span id="copy-msg" class="small muted" role="status" style="align-self:center"></span></div>
@@ -78,7 +82,7 @@ details.more{margin-top:14px}
  </section>
 
  <section class="card" aria-labelledby="busy-title">
-  <details class="more" style="margin:0"><summary><h2 id="busy-title" style="display:inline;font-size:16px;color:var(--ink)">Busiest months and years</h2></summary>
+  <details class="more" open style="margin:0"><summary><h2 id="busy-title" style="display:inline;font-size:16px;color:var(--ink)">Busiest months and years</h2></summary>
    <div class="busy" style="margin-top:12px"><div><h3>Top 5 months</h3><ol id="busy-months"></ol></div><div><h3>Top 5 years</h3><ol id="busy-years"></ol></div></div>
   </details>
  </section>
@@ -114,7 +118,7 @@ function renderSummary() {
   $("area-title").textContent = O.areaName(BBOX);
   $("area-sub").textContent = `${YEAR} · data through ${O.MO[O.state.END.month - 1]} ${O.state.END.year}${fullRange() ? "" : ` · date range ${rangeText()}`}${LEVEL === "c" ? " · large area, 1° cells" : ""}`;
   $("k-rank-l").textContent = fullRange() ? `Rank since ${O.FIRST_YEAR}` : `Rank, ${rangeText()}`;
-  $("print-meta").textContent = `One Burning Calendar · area report · ${O.areaName(BBOX)} · ${YEAR} · printed ${new Date().toLocaleDateString()}`;
+  $("print-meta").textContent = `One Burning Calendar · burning calendar · ${O.areaName(BBOX)} · ${YEAR} · printed ${new Date().toLocaleDateString()}`;
   const st = empty ? { key: "none", label: "No data for this area" } : v.status;
   $("pill").className = "pill status-" + st.key; $("pill").textContent = st.label;
   $("verdict").textContent = empty ? "No vegetation fires were detected in this area since 2000." : v.sentence;
