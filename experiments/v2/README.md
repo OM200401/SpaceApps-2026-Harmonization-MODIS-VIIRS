@@ -133,7 +133,8 @@ else, with the global ratio for thin strata (`pipeline/build_global.py`).
 3. `pipeline/build_global.py` (PR #43, shipped rule) for the raw counts, then `pipeline/build_global_v2.py`:
    swaps in the v2 estimates before Feb 2012; from Feb 2012 the record is observed S-NPP (`viirs_count`) minus
    flare detections, counted from the raw data with the base grid's archive / near-real-time rules.
-4. `pipeline/export_tiles.py --monthly data/monthly_harmonized_global_v2.parquet`.
+4. `pipeline/export_tiles.py --monthly data/monthly_harmonized_global_v2.parquet`, then zip `index.json`, `c/`
+   and `d/` from `app/data/` and upload it as a release (currently `tiles-v2`, read by `pipeline/fetch_tiles.py`).
 
 World 2011→2012 harmonized jump: shipped +6.8%, v2 +5.6%. Canada preset: +59.8% against +60.5% for MODIS alone.
 

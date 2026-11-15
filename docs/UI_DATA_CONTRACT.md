@@ -1,10 +1,16 @@
 # UI data contract — what the web app reads
 
 The app loads `app/data/index.json` first, then only the tiles an area needs.
+The tiles are not in git. They are a zip on a release (`tiles-v2`); `python pipeline/fetch_tiles.py` unpacks
+it into `app/data/`, and the Pages workflow (`.github/workflows/pages.yml`) does the same before deploying.
 Regenerate everything with:
 
     python pipeline/build_global.py      # harmonize the whole world -> data/monthly_harmonized_global.parquet
-    python pipeline/export_tiles.py      # -> app/data/index.json, app/data/d/*.json, app/data/c/*.json
+    python pipeline/build_global_v2.py   # v2 rule (needs experiments/v2 outputs) -> data/monthly_harmonized_global_v2.parquet
+    python pipeline/export_tiles.py --monthly data/monthly_harmonized_global_v2.parquet
+                                         # -> app/data/index.json, app/data/d/*.json, app/data/c/*.json
+
+then zip `index.json`, `c/` and `d/`, upload the zip to a new release, and set `TILES_TAG` in fetch_tiles.py.
 
 index.json:
 {
