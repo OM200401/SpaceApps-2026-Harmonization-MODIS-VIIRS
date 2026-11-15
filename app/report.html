@@ -187,14 +187,18 @@ function renderCalendar() {
   $("legend").textContent = notes.join(" ");
   const cells = [...$("grid").querySelectorAll("td[data-y]")];
   let cur = SEL && cells.find(c => +c.dataset.y === SEL.y && +c.dataset.m === SEL.m);
+  if (SEL && !cur) { SEL = null; $("cellinfo").textContent = "Pick a month to see its details."; }   // the selected month left the date range
+  syncCellLink();
   if (!cur) cur = cells.find(c => BY.get(O.tOf(+c.dataset.y, +c.dataset.m))) || cells[0];
   if (cur) { cur.tabIndex = 0; if (SEL && cur.dataset.y == SEL.y && cur.dataset.m == SEL.m) { cur.classList.add("sel"); $("cellinfo").textContent = O.describe(BY, MED, SEL.y, SEL.m); } }
 }
+// The map link follows the selected month; page-link refreshes (setState) reset it, so re-apply after them.
+function syncCellLink() { $("cell-map-link").href = O.pageLink("index.html", SEL ? { year: SEL.y, month: SEL.m } : {}); }
 function selectCell(td) {
   $("grid").querySelectorAll("td[data-y]").forEach(c => { c.tabIndex = -1; c.classList.remove("sel"); });
   td.tabIndex = 0; td.classList.add("sel"); SEL = { y: +td.dataset.y, m: +td.dataset.m };
   $("cellinfo").textContent = O.describe(BY, MED, SEL.y, SEL.m);
-  $("cell-map-link").href = O.pageLink("index.html", { year: SEL.y, month: SEL.m });
+  syncCellLink();
 }
 const grid = $("grid");
 grid.addEventListener("focusin", e => { const td = e.target.closest("td[data-y]"); if (td) selectCell(td); });
@@ -220,7 +224,7 @@ function renderBusy() {
 }
 
 $("mode").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; MODE = b.dataset.m; $("mode").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); renderCalendar(); });
-$("year").onchange = e => { YEAR = +e.target.value; O.setState({ year: YEAR, month: null }); renderSummary(); renderSeason(); };
+$("year").onchange = e => { YEAR = +e.target.value; O.setState({ year: YEAR, month: null }); renderSummary(); renderSeason(); syncCellLink(); };
 function yearOptions() {
   $("year").innerHTML = Array.from({ length: Y1 - Y0 + 1 }, (_, i) => Y1 - i).map(y => `<option value="${y}">${y}${y < 2012 ? " (estimated)" : ""}</option>`).join("");
   if (YEAR == null || YEAR < Y0 || YEAR > Y1) YEAR = Y1;
