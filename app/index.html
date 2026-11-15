@@ -2,6 +2,10 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>One Burning Calendar — fire activity map</title>
 <meta name="description" content="Harmonized MODIS + VIIRS fire activity: how unusual is this month for your area?">
+<meta property="og:type" content="website"><meta property="og:site_name" content="One Burning Calendar">
+<meta property="og:title" content="One Burning Calendar: 25 years of fire, one consistent record"><meta property="og:description" content="Two NASA satellite fire records joined into one. See how unusual this month is for any area on Earth.">
+<meta property="og:url" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/"><meta property="og:image" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/preview.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23c2410c%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
 <script>try{var t=localStorage.getItem("obc-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
@@ -30,6 +34,7 @@ body{display:flex;flex-direction:column;min-height:100vh}
 button.chip{border-radius:999px;padding:6px 12px;font-size:13.5px}
 button.chip[aria-pressed="true"]{background:var(--ember);border-color:var(--ember);color:var(--on-ember)}
 .insight{top:16px;right:16px;width:300px;padding:18px 20px}
+.insight .lede{font-size:12.5px;color:var(--ink-2);margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .insight .where{font-size:12.5px;color:var(--ink-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .insight .month{font-size:24px;font-weight:650;letter-spacing:-.01em;margin:2px 0 10px}
 .insight .ratio{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;margin-top:14px}
@@ -82,6 +87,7 @@ button.chip[aria-pressed="true"]{background:var(--ember);border-color:var(--embe
   </details>
  </div>
  <aside class="float insight glass" aria-labelledby="sel-month">
+  <p class="lede">For fire managers: is this month unusual for your area?</p>
   <div class="where" id="area-name"></div>
   <h2 class="month" id="sel-month">—</h2>
   <span class="pill status-none" id="sel-pill">Loading</span>
@@ -89,7 +95,7 @@ button.chip[aria-pressed="true"]{background:var(--ember);border-color:var(--embe
   <div class="counts" id="sel-counts"></div>
   <p class="note" id="sel-note" hidden></p>
   <div class="legend-mini" aria-hidden="true"><span>Less</span><span class="g" id="legend-grad"></span><span>More fire</span></div>
-  <a class="btn btn-primary" id="open-report" data-page-link="report.html" href="report.html">Open area report →</a>
+  <a class="btn btn-primary" id="open-report" data-page-link="report.html" href="report.html">Open the burning calendar →</a>
   <a class="how" data-page-link="how-it-works.html" href="how-it-works.html">How two satellites become one record</a>
  </aside>
  <div class="float timeline glass">
@@ -165,7 +171,7 @@ function renderMonth() {
   if (!empty && O.isEst(y, m)) notes.push("≈ Estimated from MODIS (before S-NPP VIIRS, Feb 2012).");
   if (!empty && O.isProv(y, m)) notes.push("Provisional near-real-time data.");
   $("sel-note").hidden = !notes.length; $("sel-note").textContent = notes.join(" ");
-  $("open-report").textContent = empty ? "Open area report →" : `${y} report for this area →`;
+  $("open-report").textContent = empty ? "Open the burning calendar →" : `${y} calendar for this area →`;
   if (SPARK) { const C = O.colors(); SPARK.data.datasets[0].backgroundColor = SPARK.data.labels.map((_, i) => T0 + i === T ? C.ember : C.spark); SPARK.update("none"); }
   drawCells();
 }
