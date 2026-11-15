@@ -12,24 +12,70 @@ Independence rules:
     in docs/VALIDATION.md.
   * Read-only against the repo: writes only docs/AUDIT_REPORT.md and
     pipeline/audit_results.json. Fault injection runs on in-memory copies.
-  * Verdicts: PASS / FAIL / UNVERIFIABLE / BLOCKED. Nothing is rounded up.
+    (--pin is the one exception: it rewrites the claims registry, and only
+    after every invariant has passed; see below.)
+  * Verdicts: PASS / FAIL / UNVERIFIABLE / BLOCKED / STALE. Nothing is
+    rounded up.
 
-Usage: python pipeline/audit_engine.py [--root .] [--grid PATH] [--selftest]
-Exit: 0 = no science FAIL, 1 = science FAIL, 2 = layers BLOCKED (no FAIL).
+Change behaviour (v3.2):
+  * The publication sweep DISCOVERS its files from the tree (app/, docs/,
+    README, SPEC, experiments/) instead of a hard-coded list, so a new
+    page or doc is swept from the day it appears. History documents
+    (docs/VALIDATION.md, docs/OM_TABLE_VERDICT.md, experiments/) quote old
+    numbers legitimately: their hits are INFO, never FAIL.
+  * Claims split into INVARIANTS (identities, era rules, the grid refit:
+    enforced in full no matter what) and ANCHORS (the recorded values of
+    one specific artifact, pinned by its md5 in the registry). If the
+    artifact changes, anchors that moved report STALE instead of FAIL,
+    the recomputed values are printed, and invariants still run in full.
+    --pin re-pins the anchors to the recomputed values after a human has
+    reviewed the change; pinning is refused while any invariant fails,
+    so a wrong number can never be pinned into truth.
+
+  * Numbers stated in prose are reconciled too: a MAPE, WAPE, bias or
+    detection total printed in a swept strict document must be one of the
+    verified values, or it is a publication finding. Deleting a file the
+    audit has always swept is a finding, not an improvement: additions
+    are discovered automatically, deletions of known surfaces alarm.
+  * Malformed inputs never produce a raw traceback or leave a stale
+    green report behind: the audit writes an ABORTED report (one BLOCKED
+    row naming the failure) and exits 3. Outputs are written atomically
+    (temp file + rename), so the report and the results JSON can never
+    be a mismatched pair from two different runs.
+
+Usage: python pipeline/audit_engine.py [--root .] [--grid PATH]
+       [--selftest] [--pin] [--strict]
+Exit: 0 = no science FAIL, 1 = science FAIL, 2 = layers BLOCKED (no FAIL),
+3 = inputs unreadable (ABORTED report written).
+--strict also exits 1 when publication findings exist or the record is
+STALE (for CI).
 """
-import argparse, copy, json, math, re, sys
+import argparse, copy, json, math, os, re, sys
 from pathlib import Path
 import numpy as np
 
-PASS, FAIL, UNVER, BLOCKED, INFO = "PASS", "FAIL", "UNVERIFIABLE", "BLOCKED", "INFO"
+PASS, FAIL, UNVER, BLOCKED, INFO, STALE = "PASS", "FAIL", "UNVERIFIABLE", "BLOCKED", "INFO", "STALE"
 SNPP_YM = 201202          # first full S-NPP month
 AQUA_YM = 200207          # first Aqua month; earlier is Terra-only
 CANADA = (-140.0, 42.0, -52.0, 72.0)
 
+ANCHOR_IDS = {"entries", "cells", "region_months", "may23_modis", "may23_viirs",
+              "may23_harm", "aug23_harm", "prairies_harm", "prairies_n",
+              "raw_2011", "raw_2012", "jump_raw", "jump_harm", "jump_modis",
+              "grid_rows", "holdout_mape", "holdout_wape", "holdout_bias",
+              "holdout_old_own", "holdout_old_global", "holdout_feb_start",
+              "peak_month"}
+
 class Audit:
-    def __init__(self):
+    def __init__(self, stale_mode=False, anchor_ids=()):
         self.rows = []    # dicts: layer, id, claim, expected, actual, verdict, detail
+        self.stale_mode = stale_mode
+        self.anchor_ids = set(anchor_ids)
     def add(self, layer, cid, claim, expected, actual, verdict, detail=""):
+        if self.stale_mode and verdict == FAIL and cid in self.anchor_ids:
+            verdict = STALE
+            detail = (detail + " | anchor moved: artifact differs from the pinned "
+                      "record; value shown is the recomputation").strip(" |")
         self.rows.append({"layer": layer, "id": cid, "claim": claim,
                           "expected": expected, "actual": actual,
                           "verdict": verdict, "detail": detail})
@@ -73,15 +119,79 @@ def encode_cells(c, dec):
         i += cnt
     return out
 
+HISTORY_FILES = {"docs/VALIDATION.md", "docs/OM_TABLE_VERDICT.md"}
+EXCLUDED_FILES = {"docs/AUDIT_REPORT.md", "pipeline/audit_results.json"}
+SUBMISSION_FILES = ["docs/PROJECT_PAGE.md", "docs/DEMO_SCRIPT.md"]
+# Files the audit sweeps on the reference tree. Discovery below finds new
+# files automatically; this list exists so that DELETING a known surface
+# alarms instead of silently improving the report. Remove a line here, in
+# the same PR that deletes the file, when a deletion is deliberate.
+EXPECTED_FILES = ["README.md", "SPEC.md", "app/how-it-works.html", "app/index.html",
+                  "app/report.html", "app/shared.css", "app/shared.js",
+                  "docs/DEMO_SCRIPT.md", "docs/OM_TABLE_VERDICT.md",
+                  "docs/PROJECT_PAGE.md", "docs/UI_DATA_CONTRACT.md",
+                  "docs/VALIDATION.md", "experiments/README.md",
+                  "experiments/harness.py", "experiments/prep.py",
+                  "experiments/run_baseline.py", "experiments/run_conf.py",
+                  "experiments/run_final.py", "experiments/run_nested.py",
+                  "experiments/run_suite.py", "experiments/run_suite_d.py",
+                  "experiments/run_suite_e.py"]
+
+def _role_for(rel, first_line):
+    if "audit: history" in first_line:
+        return "history"
+    if rel in HISTORY_FILES or rel.startswith("experiments/"):
+        return "history"
+    return "strict"
+
+def discover_docs(root):
+    """Find every public text surface in the tree, sorted, with a role.
+
+    Swept: every .md/.txt anywhere (prose a reader can meet, in any
+    folder), the app and docs code surfaces (.html/.js/.css), and the
+    experiments code. Roles: "strict" (publication rules enforced as
+    FAIL) and "history" (documents that quote old numbers legitimately:
+    hits are INFO) — history comes from HISTORY_FILES, the experiments/
+    tree, or a first line containing "audit: history" (self-declared, so
+    visible in the file itself). The audit's own outputs are excluded so
+    the sweep never reads its own report.
+    """
+    swept = {}
+    for p in sorted(root.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(root).as_posix()
+        if any(part.startswith(".") for part in rel.split("/")):
+            continue
+        if rel in EXCLUDED_FILES:
+            continue
+        ext = p.suffix.lower()
+        prose = ext in {".md", ".txt"}
+        surface = rel.startswith(("app/", "docs/")) and ext in {".html", ".js", ".css"}
+        experiment = rel.startswith("experiments/") and ext in {".py", ".md", ".txt"}
+        if not (prose or surface or experiment):
+            continue
+        try:
+            if p.stat().st_size > 2_000_000:
+                continue
+            text = p.read_text(errors="replace")
+        except OSError:
+            continue
+        first = text.splitlines()[0] if text.splitlines() else ""
+        swept[rel] = {"role": _role_for(rel, first)}
+    docs = {rel: (root / rel).read_text(errors="replace") for rel in swept}
+    return docs, swept
+
 def load_ctx(root):
     data = json.loads((root / "app/data/monthly.json").read_text())
-    docs = {}
-    for rel in ["README.md", "SPEC.md", "docs/VALIDATION.md", "docs/PROJECT_PAGE.md",
-                "docs/DEMO_SCRIPT.md", "docs/OM_TABLE_VERDICT.md", "app/index.html",
-                "experiments/run_baseline.py"]:
-        p = root / rel
-        docs[rel] = p.read_text(errors="replace") if p.exists() else ""
-    return {"data": data, "dec": decode_cells(data["cells"]), "docs": docs}
+    docs, swept = discover_docs(root)
+    return {"data": data, "dec": decode_cells(data["cells"]),
+            "docs": docs, "swept": swept}
+
+def artifact_md5(root):
+    import hashlib
+    mj = root / "app/data/monthly.json"
+    return hashlib.md5(mj.read_bytes()).hexdigest() if mj.exists() else 'missing'
 
 def ym(y, m): return y * 100 + m
 
@@ -180,15 +290,29 @@ def layer_L2(A, ctx, claims):
     terra = [f"{r['year']}-{r['month']:02d}" for r in rm if ym(r["year"], r["month"]) < AQUA_YM]
     A.add("L2", "terra_era", "Terra-only months (before Jul 2002) have no holdout coverage",
           "unvalidated by design", f"{len(terra)} months: {terra[0]}..{terra[-1]}", INFO)
+    js = ctx["docs"].get("app/shared.js", "")
+    presets = re.findall(r'\{\s*id:\s*"([^"]+)",\s*name:\s*"([^"]+)",\s*bbox:\s*'
+                         r'"(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)"', js)
+    if presets:
+        lats = np.asarray(ctx["data"]["cells"]["cell_lat"], dtype=float)
+        lons = np.asarray(ctx["data"]["cells"]["cell_lon"], dtype=float)
+        parts = []
+        for pid, name, w, s, e, n in presets:
+            cnt = int(((lons >= float(w)) & (lons <= float(e))
+                       & (lats >= float(s)) & (lats <= float(n))).sum())
+            parts.append(f"{name}={cnt}")
+        A.add("L2", "preset_coverage",
+              "App region presets vs shipped cell coverage (distinct cells)",
+              "coverage stated", "; ".join(parts), INFO,
+              "Presets with 0 cells lie outside the Canada export; the app shows an "
+              "honest no-data state for them. Stated so a preset change is never silent.")
 
 # ------------------------------------------------------------------- L5 ----
 STALE_PATTERNS = [r"209,913", r"209913", r"14\.8\s*[x×]"]
 METHOD_PATTERNS = [r"FRP-bin", r"FRP bin", r"FRP×season", r"fire intensity and season",
                    r"by fire size and season", r"stratified by fire intensity"]
+WINDOW_PATTERNS = [r"2012[–-]2023 overlap"]
 PLACEHOLDER_PATTERNS = [r"\[X\]", r"\[TABLE\]", r"\[RESULT\]", r"\[MAPE", r"\[A\]%", r"\[B\]%"]
-PUBLIC_FILES = ["README.md", "app/index.html", "docs/PROJECT_PAGE.md", "docs/DEMO_SCRIPT.md"]
-METHOD_FILES = ["app/index.html", "docs/PROJECT_PAGE.md", "docs/DEMO_SCRIPT.md", "SPEC.md"]
-PLACEHOLDER_FILES = ["docs/PROJECT_PAGE.md", "docs/DEMO_SCRIPT.md"]
 
 def _hits(text, patterns):
     out = []
@@ -197,26 +321,86 @@ def _hits(text, patterns):
             if re.search(p, line): out.append((ln, p, line.strip()[:110]))
     return out
 
+def _swept_of(ctx):
+    if "swept" in ctx:
+        return ctx["swept"]
+    return {k: {"role": "history" if (k in HISTORY_FILES
+                                      or k.startswith("experiments/")) else "strict"}
+            for k in ctx["docs"]}
+
+PROSE_METRIC_PATTERNS = [
+    ("MAPE", re.compile(r"MAPE[^0-9]{0,24}?(\d+(?:\.\d+)?)\s*(?:%|percent\b|per\s?cent\b)"), "mape"),
+    ("WAPE", re.compile(r"WAPE[^0-9]{0,24}?(\d+(?:\.\d+)?)\s*(?:%|percent\b|per\s?cent\b)"), "wape"),
+    ("bias", re.compile(r"bias[^0-9\-]{0,24}?(-?\d+(?:\.\d+)?)\s*(?:%|percent\b|per\s?cent\b)"), "bias"),
+]
+PROSE_DETECTIONS = re.compile(r"(\d{1,3}(?:,\d{3})+)\s+detections")
+# Verified values that are not registry claims: the regional holdouts from
+# docs/VALIDATION.md (Amazon 8.3, Mediterranean 15.6) and the nested-check
+# WAPEs (8.8 baseline, 11.0 shipped on the untouched holdout).
+REGIONAL_VALUES = {"mape": {8.3, 15.6}, "wape": {8.8, 11.0}, "bias": set()}
+
+def _prose_violations(text, claims):
+    cl = {c["id"]: c for c in claims}
+    allowed = {
+        "mape": {float(cl[k]["expected"]) for k in
+                 ("holdout_mape", "holdout_old_own", "holdout_old_global",
+                  "holdout_feb_start")} | REGIONAL_VALUES["mape"],
+        "wape": {float(cl["holdout_wape"]["expected"])} | REGIONAL_VALUES["wape"],
+        "bias": {float(cl["holdout_bias"]["expected"])} | REGIONAL_VALUES["bias"],
+    }
+    det_allowed = {f"{int(float(cl[k]['expected'])):,}" for k in
+                   ("may23_viirs", "may23_harm", "aug23_harm", "raw_2011", "raw_2012")}
+    out = []
+    for ln, line in enumerate(text.splitlines(), 1):
+        for name, pat, key in PROSE_METRIC_PATTERNS:
+            for m in pat.finditer(line):
+                v = float(m.group(1))
+                if all(abs(v - av) > 0.051 for av in allowed[key]):
+                    out.append(f"L{ln}: {name} {v}% is not a verified value "
+                               f"({sorted(allowed[key])})")
+        for m in PROSE_DETECTIONS.finditer(line):
+            if m.group(1) not in det_allowed:
+                out.append(f"L{ln}: {m.group(1)} detections is not a verified total")
+    return out
+
 def layer_L5(A, ctx, claims):
     docs = ctx["docs"]
-    for f in PUBLIC_FILES:
-        h = _hits(docs.get(f, ""), STALE_PATTERNS)
-        A.add("L5", f"stale:{f}", f"Stale pre-v2 numbers in {f}", 0, len(h),
-              PASS if not h else FAIL, "; ".join(f"L{ln} /{p}/" for ln, p, _ in h[:4]))
-    for f in METHOD_FILES:
-        h = _hits(docs.get(f, ""), METHOD_PATTERNS)
-        A.add("L5", f"method:{f}", f"Rejected FRP-stratified method described as shipped in {f}",
-              0, len(h), PASS if not h else FAIL,
-              "; ".join(f"L{ln}: {txt}" for ln, _, txt in h[:3]))
-    for f in METHOD_FILES:
-        h = _hits(docs.get(f, ""), [r"2012[–-]2023 overlap"])
-        if h:
-            A.add("L5", f"window:{f}", f"Calibration window misstated as 2012-2023 overlap in {f}",
-                  0, len(h), FAIL, "; ".join(f"L{ln}: {txt}" for ln, _, txt in h[:2]))
-    for f in PLACEHOLDER_FILES:
-        h = _hits(docs.get(f, ""), PLACEHOLDER_PATTERNS)
-        A.add("L5", f"placeholders:{f}", f"Unfilled placeholders in {f}", 0, len(h),
-              PASS if not h else FAIL, "; ".join(f"L{ln} /{p}/" for ln, p, _ in h[:6]))
+    swept = _swept_of(ctx)
+    kinds = [("stale", STALE_PATTERNS, "Stale pre-v2 numbers"),
+             ("method", METHOD_PATTERNS,
+              "Rejected FRP-stratified method described as shipped"),
+             ("window", WINDOW_PATTERNS,
+              "Calibration window misstated as 2012-2023 overlap")]
+    for f in sorted(swept):
+        role = swept[f]["role"]
+        text = docs.get(f, "")
+        for kind, pats, label in kinds:
+            h = _hits(text, pats)
+            if role == "history":
+                A.add("L5", f"{kind}:{f}", f"{label} in {f} (history doc: quoted context)",
+                      0, len(h), INFO if h else PASS,
+                      "; ".join(f"L{ln} /{p}/" for ln, p, _ in h[:4]))
+            else:
+                A.add("L5", f"{kind}:{f}", f"{label} in {f}", 0, len(h),
+                      PASS if not h else FAIL,
+                      "; ".join(f"L{ln}: {txt}" for ln, _, txt in h[:3]))
+        if role == "strict":
+            v = _prose_violations(text, claims)
+            A.add("L5", f"prose:{f}",
+                  f"Numbers stated in prose in {f} match the verified values",
+                  0, len(v), PASS if not v else FAIL, "; ".join(v[:4]))
+    for f in EXPECTED_FILES:
+        if f not in docs:
+            A.add("L5", f"missing:{f}", f"Expected swept file {f} is missing",
+                  "present", "missing", FAIL,
+                  "A file the audit has always swept disappeared. Deleting it must be a "
+                  "deliberate, reviewed change (remove it from EXPECTED_FILES in the same "
+                  "PR), never a silent improvement to this report.")
+    for f in SUBMISSION_FILES:
+        if f in docs:
+            h = _hits(docs[f], PLACEHOLDER_PATTERNS)
+            A.add("L5", f"placeholders:{f}", f"Unfilled placeholders in {f}", 0, len(h),
+                  PASS if not h else FAIL, "; ".join(f"L{ln} /{p}/" for ln, p, _ in h[:6]))
     rb = docs.get("experiments/run_baseline.py", "")
     missing = [v for v in ["0.1955", "0.1691", "0.1792", "0.2062"] if v not in rb]
     A.add("L5", "baseline_expectations",
@@ -232,11 +416,40 @@ def _run_shallow(ctx, claims):
     layer_L2(A, ctx, claims); layer_L5(A, ctx, claims)
     return [r for r in A.rows if r["verdict"] == FAIL]
 
+def _run_shallow_rows(ctx, claims):
+    A = Audit()
+    layer_L0(A, ctx, claims); layer_L1(A, ctx, claims)
+    layer_L2(A, ctx, claims); layer_L5(A, ctx, claims)
+    return A.rows
+
+def _new_or_worse(base_rows, mut_rows):
+    """FAIL ids in mut_rows that are new, or whose numeric actual grew.
+
+    Delta-by-id alone mis-scores the simulations in a dirty tree: if the
+    real tree already fails the very check a mutation targets, the
+    mutation is invisible by id but visible by count."""
+    base = {r["id"]: r for r in base_rows if r["verdict"] == FAIL}
+    out = set()
+    for r in mut_rows:
+        if r["verdict"] != FAIL:
+            continue
+        b = base.get(r["id"])
+        if b is None:
+            out.add(r["id"])
+        else:
+            try:
+                if float(r["actual"]) > float(b["actual"]):
+                    out.add(r["id"])
+            except (TypeError, ValueError):
+                pass
+    return out
+
 def layer_L6(A, ctx, claims):
-    base_fail_ids = {r["id"] for r in _run_shallow(ctx, claims)}
+    base_rows = _run_shallow_rows(ctx, claims)
     dec = ctx["dec"]
     def mutated(fn):
-        c2 = {"data": copy.deepcopy(ctx["data"]), "docs": dict(ctx["docs"])}
+        c2 = {"data": copy.deepcopy(ctx["data"]), "docs": dict(ctx["docs"]),
+              "swept": {k: dict(v) for k, v in _swept_of(ctx).items()}}
         fn(c2)
         c2["dec"] = decode_cells(c2["data"]["cells"])
         return c2
@@ -282,7 +495,7 @@ def layer_L6(A, ctx, claims):
     tests.append(("stale 209,913 planted in README", m8))
     caught = 0
     for name, fn in tests:
-        new_fails = {r["id"] for r in _run_shallow(mutated(fn), claims)} - base_fail_ids
+        new_fails = _new_or_worse(base_rows, _run_shallow_rows(mutated(fn), claims))
         ok = len(new_fails) > 0
         caught += ok
         A.add("L6", f"mutation:{name}", f"Fault injection caught: {name}",
@@ -290,6 +503,96 @@ def layer_L6(A, ctx, claims):
               PASS if ok else FAIL)
     A.add("L6", "score", "Fault-injection score", "8/8", f"{caught}/8",
           PASS if caught == 8 else FAIL)
+
+# ------------------------------------------------------------------- L7 ----
+def layer_L7(A, ctx, claims):
+    """Change simulations: prove the audit adapts to a changing project.
+
+    Each simulation mutates an in-memory copy the way a real change would
+    (a new page appears, a doc is deleted, text moves into a script file)
+    and asserts the sweep reacts correctly. C5 asserts the anchor/pin
+    semantics directly. Nothing here touches the disk.
+    """
+    base_rows = _run_shallow_rows(ctx, claims)
+    base_fail_ids = {r["id"] for r in base_rows if r["verdict"] == FAIL}
+    def mutated_docs(fn):
+        c2 = {"data": ctx["data"], "dec": ctx["dec"],
+              "docs": dict(ctx["docs"]),
+              "swept": {k: dict(v) for k, v in _swept_of(ctx).items()}}
+        fn(c2)
+        return c2
+    tests = []
+    def c1(c2):
+        c2["docs"]["app/zz_new_page.html"] = "<p>Peak month: 209,913 detections.</p>"
+        c2["swept"]["app/zz_new_page.html"] = {"role": "strict"}
+    tests.append(("new app page with a stale number is caught", c1,
+                  {"stale:app/zz_new_page.html"}))
+    def c2(c2):
+        c2["docs"]["app/zz_new_page.html"] = "<p>A new, clean page.</p>"
+        c2["swept"]["app/zz_new_page.html"] = {"role": "strict"}
+    tests.append(("new clean app page adds no finding", c2, set()))
+    def c3(c2):
+        c2["docs"]["docs/zz_new_doc.md"] = "Calibrated, stratified by fire intensity and season."
+        c2["swept"]["docs/zz_new_doc.md"] = {"role": "strict"}
+    tests.append(("new doc with the rejected method text is caught", c3,
+                  {"method:docs/zz_new_doc.md"}))
+    def c4(c2):
+        del c2["docs"]["docs/PROJECT_PAGE.md"]
+        del c2["swept"]["docs/PROJECT_PAGE.md"]
+    tests.append(("deleted submission doc is a finding, not a pass", c4,
+                  {"missing:docs/PROJECT_PAGE.md"}))
+    def c7(c2):
+        c2["docs"]["app/shared.js"] = c2["docs"].get("app/shared.js", "") + "\n// calibrated by FRP bin and season\n"
+    tests.append(("method text moved into app/shared.js is caught", c7,
+                  {"method:app/shared.js"}))
+    def c8(c2):
+        c2["docs"]["docs/VALIDATION.md"] = c2["docs"].get("docs/VALIDATION.md", "") + "\nOld peak was 209,913.\n"
+    tests.append(("stale number quoted in a history doc is INFO, not FAIL", c8, set()))
+    def c9(c2):
+        c2["docs"]["README.md"] = c2["docs"].get("README.md", "") + "\nHoldout MAPE 9.1%.\n"
+    tests.append(("wrong metric in README prose is caught", c9, {"prose:README.md"}))
+    def c10(c2):
+        target = next((f for f in EXPECTED_FILES if f in c2["docs"]), None)
+        c2["_deleted"] = target
+        if target:
+            del c2["docs"][target]
+            c2["swept"].pop(target, None)
+    tests.append(("deleted swept file alarms instead of improving the report", c10,
+                  lambda c2: {f"missing:{c2['_deleted']}"} if c2.get("_deleted") else set()))
+    def c11(c2):
+        c2["docs"]["app/notes.txt"] = "Peak: 209,913 detections."
+        c2["swept"]["app/notes.txt"] = {"role": "strict"}
+    tests.append(("stale number in a new .txt file is caught", c11,
+                  {"stale:app/notes.txt"}))
+    caught = 0
+    for name, fn, expect in tests:
+        c2 = mutated_docs(fn)
+        mut_rows = _run_shallow_rows(c2, claims)
+        new_fails = {r["id"] for r in mut_rows if r["verdict"] == FAIL} - base_fail_ids
+        exp = expect(c2) if callable(expect) else expect
+        if exp:
+            ok = exp <= _new_or_worse(base_rows, mut_rows)
+        else:
+            ok = (new_fails == set()) and not _new_or_worse(base_rows, mut_rows)
+        caught += bool(ok)
+        A.add("L7", f"change:{name}", f"Change simulation: {name}",
+              f"new FAILs {sorted(exp) if exp else 'none'}",
+              f"new FAILs {sorted(new_fails)}", PASS if ok else FAIL)
+    # C5: anchor semantics under a changed artifact (stale mode mapping)
+    A5 = Audit(stale_mode=True, anchor_ids=ANCHOR_IDS)
+    c5 = {"data": copy.deepcopy(ctx["data"]), "docs": ctx["docs"], "swept": ctx.get("swept", {})}
+    for r in c5["data"]["region_monthly"]:
+        if (r["year"], r["month"]) == (2023, 5): r["harmonized"] += 500.0
+    c5["dec"] = decode_cells(c5["data"]["cells"])
+    layer_L1(A5, c5, claims)
+    row = [r for r in A5.rows if r["id"] == "may23_harm"]
+    ok = bool(row) and row[0]["verdict"] == STALE
+    caught += bool(ok)
+    A.add("L7", "change:anchor semantics", "Change simulation: moved anchor reports STALE "
+          "under a changed artifact (not PASS, not a science FAIL)",
+          "STALE", row[0]["verdict"] if row else "row missing", PASS if ok else FAIL)
+    A.add("L7", "score", "Change-simulation score", "10/10", f"{caught}/10",
+          PASS if caught == 10 else FAIL)
 
 # ----------------------------------------------------------------- L3/L4 ---
 def grid_aggregates(grid_path):
@@ -545,17 +848,24 @@ def layer_L4(A, ctx, claims, st, world):
             A.add("L4", c["id"], c["claim"], c["expected"], "not recomputed", UNVER, c.get("why", ""))
 
 # ---------------------------------------------------------------- report ---
-def write_report(A, root, grid_note):
-    import hashlib
-    mj = root / "app/data/monthly.json"
-    digest = hashlib.md5(mj.read_bytes()).hexdigest()[:12] if mj.exists() else "missing"
-    sci_layers = ["L0", "L1", "L2", "L3", "L4", "L6"]
+def write_report(A, root, grid_note, record):
+    digest = artifact_md5(root)[:12]
+    sci_layers = ["L0", "L1", "L2", "L3", "L4", "L6", "L7"]
     sci_fail = [r for r in A.rows if r["verdict"] == FAIL and r["layer"] in sci_layers]
     pub_fail = [r for r in A.rows if r["verdict"] == FAIL and r["layer"] == "L5"]
     blocked = [r for r in A.rows if r["verdict"] == BLOCKED]
     unver = [r for r in A.rows if r["verdict"] == UNVER]
+    stale = [r for r in A.rows if r["verdict"] == STALE and r["layer"] != "LP"]
     passes = [r for r in A.rows if r["verdict"] == PASS]
     numbers_verdict = "FAIL" if sci_fail else ("INCOMPLETE" if blocked else "PASS")
+    if record["status"] == "ABORTED":
+        numbers_line = "**NUMBERS verdict: NOT EVALUATED** — the audit did not run."
+        pub_line = "**PUBLICATION verdict: NOT EVALUATED** — the audit did not run."
+    else:
+        numbers_line = (f"**NUMBERS verdict: {numbers_verdict}** — {len(passes)} checks passed, "
+                        f"{len(sci_fail)} failed, {len(unver)} unverifiable, {len(blocked)} blocked.")
+        pub_line = (f"**PUBLICATION verdict: {'FAIL' if pub_fail else 'PASS'}** — "
+                    f"{len(pub_fail)} publication findings.")
     lines = ["# Audit Report — independent recomputation of the shipped Canada record",
              "",
              f"Artifact audited: `app/data/monthly.json` (md5 {digest}) — every value in it, per cell and "
@@ -564,18 +874,33 @@ def write_report(A, root, grid_note):
              "aggregation over the raw grid; method refit implemented from docs/VALIDATION.md). "
              "Claims and tolerances: `pipeline/audit_claims.json`.",
              f"Grid: {grid_note}",
+             f"**RECORD: {record['status']}** — {record['detail']}",
              "",
-             f"**NUMBERS verdict: {numbers_verdict}** — {len(passes)} checks passed, "
-             f"{len(sci_fail)} failed, {len(unver)} unverifiable, {len(blocked)} blocked.",
-             f"**PUBLICATION verdict: {'FAIL' if pub_fail else 'PASS'}** — {len(pub_fail)} publication findings.",
-             "",
-             "| Layer | Check | Published / expected | Recomputed | Verdict | Detail |",
-             "|---|---|---|---|---|---|"]
+             numbers_line,
+             pub_line,
+             ""]
+    if stale:
+        lines += ["## What changed since the pinned record",
+                  "The artifact no longer matches the md5 pinned in the claims registry. "
+                  "Anchors below moved; each shows the pinned value and the independent "
+                  "recomputation. Invariants, the era rules and the grid refit above are "
+                  "unaffected and were enforced in full. After reviewing this table, "
+                  "re-pin with `python pipeline/audit_engine.py --pin`.",
+                  "",
+                  "| Anchor | Pinned | Recomputed |",
+                  "|---|---|---|"]
+        for r in stale:
+            lines.append(f"| {r['claim']} | {str(r['expected']).replace('|', '/')} | "
+                         f"{str(r['actual']).replace('|', '/')} |")
+        lines += [""]
+    lines += ["| Layer | Check | Published / expected | Recomputed | Verdict | Detail |",
+              "|---|---|---|---|---|---|"]
     for r in A.rows:
         exp = str(r["expected"]).replace("|", "/")
         act = str(r["actual"]).replace("|", "/")
         det = str(r["detail"]).replace("|", "/")
         lines.append(f"| {r['layer']} | {r['claim']} | {exp} | {act} | {r['verdict']} | {det} |")
+    pub_files = sorted({r["id"].split(":", 1)[-1] for r in pub_fail})
     lines += ["", "## Known gaps (stated, not hidden)",
               "- LOYO experiment averages are UNVERIFIABLE from the repo: the result CSVs are gitignored. "
               "The harness code and its hard-coded old-rule baseline expectations are in the repo (verified "
@@ -585,44 +910,162 @@ def write_report(A, root, grid_note):
               "harmonized values rest on the Terra-only ratios alone.",
               "- Canada's untouched-holdout WAPE worsens under the shipped rule (8.8% -> 11.0%, nested check "
               "in docs/VALIDATION.md) even as MAPE improves; both figures belong in any honest summary.",
-              "- The shipped app's own method text is a publication finding of this audit (see L5): the "
-              "calibration it describes is not the calibration that produced the data.",
-              ""]
-    (root / "docs/AUDIT_REPORT.md").write_text("\n".join(lines))
-    (root / "pipeline/audit_results.json").write_text(json.dumps(
+              "- Anchor values are pinned to one artifact md5 in the claims registry. If the artifact "
+              "changes, moved anchors report STALE (never a silent pass) until a human reviews the "
+              "recomputation and re-pins with --pin; pinning is refused while any invariant fails."]
+    if pub_fail:
+        lines.append(f"- Publication findings are open in: {', '.join(pub_files)}. "
+                     "They are errors in the project's own text, not in the data.")
+    lines += [""]
+    _atomic_write(root / "docs/AUDIT_REPORT.md", "\n".join(lines))
+    _atomic_write(root / "pipeline/audit_results.json", json.dumps(
         {"artifact_md5": digest, "rows": A.rows}, indent=1, sort_keys=True))
     return sci_fail, pub_fail, blocked
+
+def _atomic_write(path, text):
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+def do_pin(A, root, meta, cur_md5):
+    """Re-pin anchors to the recomputed values. Refused unless every
+    invariant passed: a FAIL outside L5, or any BLOCKED row, stops it."""
+    blockers = [r for r in A.rows if r["verdict"] == BLOCKED
+                or (r["verdict"] == FAIL and r["layer"] != "L5")]
+    if blockers:
+        print(f"\nPIN REFUSED: {len(blockers)} invariant/blocked rows are not clean. "
+              "Fix the record first; pinning a broken record is not allowed.")
+        return False
+    rows_by_id = {r["id"]: r for r in A.rows}
+    moved, code_moved = [], []
+    for c in meta["claims"]:
+        r = rows_by_id.get(c["id"])
+        if r is None:
+            continue
+        new = r["actual"]
+        if isinstance(new, (int, float)) and isinstance(c["expected"], (int, float)):
+            if float(new) == float(c["expected"]):
+                continue
+        elif str(new) == str(c["expected"]):
+            continue
+        moved.append((c["id"], c["expected"], new))
+        c["expected"] = new
+    r = rows_by_id.get("peak_month")
+    if r is not None and r["verdict"] == STALE:
+        code_moved.append(("peak_month (code anchor in layer_L1)", r["expected"], r["actual"]))
+    if not moved and not code_moved and meta.get("pinned_artifact_md5") == cur_md5:
+        print("\nPIN: registry already matches the artifact; nothing to do.")
+        return True
+    meta["pinned_artifact_md5"] = cur_md5
+    _atomic_write(root / "pipeline/audit_claims.json",
+                  json.dumps(meta, indent=1, sort_keys=True) + "\n")
+    print(f"\nPINNED: registry now pins artifact md5 {cur_md5[:12]}")
+    for cid, old, new in moved:
+        print(f"  anchor {cid}: {old} -> {new}")
+    for cid, old, new in code_moved:
+        print(f"  anchor {cid}: {old} -> {new}  (update the code anchor if this change is legitimate)")
+    print("Review the diff of pipeline/audit_claims.json before committing it.")
+    return True
+
+def run_audit(a):
+    root = Path(a.root)
+    meta = json.loads((root / "pipeline/audit_claims.json").read_text())
+    claims = meta["claims"]
+    ctx = load_ctx(root)
+    cur_md5 = artifact_md5(root)
+    pin_md5 = meta.get("pinned_artifact_md5")
+    stale_mode = pin_md5 is not None and cur_md5 != pin_md5
+    A = Audit(stale_mode=stale_mode, anchor_ids=ANCHOR_IDS)
+    if pin_md5 is None:
+        A.add("LP", "pin", "Record pin", "pinned_artifact_md5 in registry", "absent", INFO,
+              "Registry carries no pin; anchors are enforced as FAIL. Run --pin to adopt pinning.")
+        record = {"status": "UNPINNED", "detail": "the registry carries no pinned artifact md5."}
+    elif stale_mode:
+        A.add("LP", "pin", "Record pin", f"artifact md5 {pin_md5[:12]}",
+              f"artifact md5 {cur_md5[:12]}", STALE,
+              "Artifact changed since the anchors were pinned. Moved anchors report STALE; "
+              "invariants and the grid refit are enforced in full regardless.")
+        record = {"status": "STALE",
+                  "detail": f"artifact md5 {cur_md5[:12]} differs from the pinned {pin_md5[:12]}. "
+                            "See 'What changed since the pinned record' below."}
+    else:
+        A.add("LP", "pin", "Record pin", f"artifact md5 {pin_md5[:12]}",
+              f"artifact md5 {cur_md5[:12]}", PASS, "Artifact matches the pinned record.")
+        record = {"status": "CURRENT", "detail": f"artifact md5 {cur_md5[:12]} matches the pinned record."}
+    layer_L0(A, ctx, claims); layer_L1(A, ctx, claims); layer_L2(A, ctx, claims); layer_L5(A, ctx, claims)
+    if a.selftest:
+        try:
+            layer_L6(A, ctx, claims)
+            layer_L7(A, ctx, claims)
+        except Exception as exc:
+            A.add("L7", "selftest_crash", "Fault-injection and change simulations completed",
+                  "no exception", f"{type(exc).__name__}: {exc}", BLOCKED,
+                  "A simulation crashed; the audit itself completed. Fix the simulation.")
+    grid = Path(a.grid) if a.grid else root / "data/derived/monthly_grid_025.parquet"
+    if grid.exists():
+        try:
+            st, world = layer_L3(A, ctx, claims, str(grid))
+            layer_L4(A, ctx, claims, st, world)
+            grid_note = f"`{grid}` present; L3/L4 ran in full."
+        except Exception as exc:
+            for lid, name in [("L3", "Raw-input recomputation"), ("L4", "Method refit and holdout")]:
+                A.add(lid, "blocked", name, "readable grid parquet",
+                      f"{type(exc).__name__}: {exc}", BLOCKED,
+                      "The grid exists but could not be read; fix its permissions or format and re-run.")
+            grid_note = f"`{grid}` present but UNREADABLE; L3/L4 BLOCKED."
+    else:
+        for lid, name in [("L3", "Raw-input recomputation"), ("L4", "Method refit and holdout")]:
+            A.add(lid, "blocked", name, "grid parquet present", f"{grid} not found", BLOCKED,
+                  "Place the data-v2 monthly_grid_025.parquet at data/derived/ and re-run.")
+        grid_note = f"`{grid}` NOT found; L3/L4 BLOCKED."
+    sci_fail, pub_fail, blocked = write_report(A, root, grid_note, record)
+    stale_rows = [r for r in A.rows if r["verdict"] == STALE and r["layer"] != "LP"]
+    for r in A.rows:
+        print(f"{r['layer']:3} {r['verdict']:12} {r['claim']}  [{r['actual']}]  {r['detail']}")
+    print(f"\nNUMBERS: {'FAIL' if sci_fail else ('INCOMPLETE' if blocked else 'PASS')} ({len(sci_fail)} failed)  "
+          f"PUBLICATION: {'FAIL' if pub_fail else 'PASS'} ({len(pub_fail)} findings)  "
+          f"BLOCKED: {len(blocked)}  RECORD: {record['status']}"
+          + (f" ({len(stale_rows)} anchors moved)" if stale_rows else ""))
+    if a.pin:
+        do_pin(A, root, meta, cur_md5)
+    code = 1 if sci_fail else (2 if blocked else 0)
+    if a.strict and code == 0 and (pub_fail or stale_mode):
+        code = 1
+    sys.exit(code)
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
     ap.add_argument("--grid", default=None)
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--pin", action="store_true",
+                    help="after a clean run, re-pin registry anchors to the recomputed values")
+    ap.add_argument("--strict", action="store_true",
+                    help="also fail (exit 1) on publication findings or a STALE record")
     a = ap.parse_args()
-    root = Path(a.root)
-    claims = json.loads((root / "pipeline/audit_claims.json").read_text())["claims"]
-    ctx = load_ctx(root)
-    A = Audit()
-    layer_L0(A, ctx, claims); layer_L1(A, ctx, claims); layer_L2(A, ctx, claims); layer_L5(A, ctx, claims)
-    if a.selftest:
-        layer_L6(A, ctx, claims)
-    grid = Path(a.grid) if a.grid else root / "data/derived/monthly_grid_025.parquet"
-    if grid.exists():
-        st, world = layer_L3(A, ctx, claims, str(grid))
-        layer_L4(A, ctx, claims, st, world)
-        grid_note = f"`{grid}` present; L3/L4 ran in full."
-    else:
-        for lid, name in [("L3", "Raw-input recomputation"), ("L4", "Method refit and holdout")]:
-            A.add(lid, "blocked", name, "grid parquet present", f"{grid} not found", BLOCKED,
-                  "Place the data-v2 monthly_grid_025.parquet at data/derived/ and re-run.")
-        grid_note = f"`{grid}` NOT found; L3/L4 BLOCKED."
-    sci_fail, pub_fail, blocked = write_report(A, root, grid_note)
-    for r in A.rows:
-        print(f"{r['layer']:3} {r['verdict']:12} {r['claim']}  [{r['actual']}]  {r['detail']}")
-    print(f"\nNUMBERS: {'FAIL' if sci_fail else ('INCOMPLETE' if blocked else 'PASS')} ({len(sci_fail)} failed)  "
-          f"PUBLICATION: {'FAIL' if pub_fail else 'PASS'} ({len(pub_fail)} findings)  "
-          f"BLOCKED: {len(blocked)}")
-    sys.exit(1 if sci_fail else (2 if blocked else 0))
+    try:
+        run_audit(a)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        # Malformed inputs (bad JSON, a deleted claim, an unreadable file)
+        # must never surface as a raw traceback or leave the previous
+        # run's green report standing. Write an honest ABORTED report.
+        root = Path(a.root)
+        A = Audit()
+        A.add("L0", "inputs", "Audit inputs readable and complete",
+              "valid monthly.json and claims registry",
+              f"{type(exc).__name__}: {exc}", BLOCKED,
+              "The audit could not run. This report replaces the previous one so "
+              "stale results are never mistaken for current ones.")
+        record = {"status": "ABORTED",
+                  "detail": f"the audit did not run: {type(exc).__name__}: {exc}"}
+        try:
+            write_report(A, root, "not reached; the inputs failed first.", record)
+        except Exception:
+            pass
+        print(f"AUDIT ABORTED: {type(exc).__name__}: {exc}")
+        sys.exit(3)
 
 if __name__ == "__main__":
     main()
