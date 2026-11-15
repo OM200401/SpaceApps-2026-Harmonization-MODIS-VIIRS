@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Area report — One Burning Calendar</title>
+<meta name="description" content="Fire history report for an area: this year against the normal range, every month since 2001, and downloads.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23c2410c%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="shared.css">
+<style>
+.report-head{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.report-head .pill{margin-top:4px}
+.report-sub{font-size:13px;color:var(--ink-3);margin:2px 0 14px}
+.calendar-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px}
+.calendar-controls input{width:90px}
+.print-only{display:none}
+@media print{.print-only{display:block}.calendar-controls{display:none}}
+</style></head><body>
+<header id="site-header"></header>
+<main class="wrap">
+ <div class="areabar no-print">
+  <label class="field">Area<select id="preset"></select></label>
+  <label class="field">Or enter W,S,E,N<input id="bbox" style="width:190px" aria-describedby="bbox-error"></label>
+  <button id="apply">Apply</button>
+  <label class="field">Year<select id="year"></select></label>
+  <a class="btn" data-page-link="index.html" href="index.html">← Back to the map</a>
+  <span id="bbox-error" class="field-error" role="alert"></span>
+ </div>
+ <p class="print-only small muted" id="print-meta"></p>
+
+ <section class="card" aria-labelledby="area-title">
+  <div class="report-head">
+   <div style="flex:1;min-width:260px">
+    <h1 id="area-title">Area report</h1>
+    <p class="report-sub" id="area-sub"></p>
+   </div>
+   <span class="pill status-none" id="pill">Loading</span>
+  </div>
+  <p class="verdict" id="verdict">Loading the fire record…</p>
+  <div class="kpis" style="margin-top:16px">
+   <div class="kpi"><div class="l" id="k-sofar-l">So far</div><div class="v" id="k-sofar">—</div></div>
+   <div class="kpi"><div class="l">vs typical</div><div class="v" id="k-vs">—</div></div>
+   <div class="kpi"><div class="l">Rank since 2001</div><div class="v" id="k-rank">—</div></div>
+   <div class="kpi"><div class="l">Peak month</div><div class="v" id="k-peak">—</div></div>
+  </div>
+ </section>
+
+ <section class="card" aria-labelledby="season-title">
+  <div class="card-head">
+   <h2 id="season-title">Season shape: <span id="season-year"></span> against a normal year</h2>
+   <div class="actions no-print"><button id="png">Download chart PNG</button></div>
+  </div>
+  <div class="legend-row">
+   <span><span class="swatch" style="background:var(--blue-soft)"></span>Normal range (10th–90th percentile, 2003–2020)</span>
+   <span><span class="line-swatch" style="border-color:var(--blue);border-top-style:dashed"></span>Median</span>
+   <span><span class="line-swatch" style="border-color:var(--ember)" id="year-swatch"></span><span id="year-legend"></span></span>
+  </div>
+  <div style="position:relative;height:300px"><canvas id="season" role="img" aria-label="Monthly harmonized detections for the selected year against the 2003 to 2020 normal range and median">Season chart.</canvas></div>
+  <p class="note" id="season-note" hidden></p>
+ </section>
+
+ <section class="card" aria-labelledby="cal-title">
+  <div class="card-head"><h2 id="cal-title">Every month since 2001</h2></div>
+  <div class="calendar-controls no-print">
+   <div class="field">View<div class="seg" id="mode" role="group" aria-label="Calendar view">
+    <button data-m="harmonized" aria-pressed="true">Harmonized</button><button data-m="total" aria-pressed="false">Raw</button><button data-m="anomaly" aria-pressed="false">× median</button></div></div>
+   <label class="field">From<input id="y0" type="number" min="2001" step="1"></label>
+   <label class="field">To<input id="y1" type="number" step="1"></label>
+  </div>
+  <div class="calendar-scroll" id="grid">Loading…</div>
+  <div class="scale" id="scale" aria-hidden="true"></div>
+  <p class="cellinfo" id="cellinfo" aria-live="polite">Click or tap a month, or use Tab and the arrow keys, to see its details.</p>
+  <p class="no-print small" style="margin:6px 0 0"><a id="cell-map-link" data-page-link="index.html" href="index.html">Show the selected month on the map →</a></p>
+  <p class="calendar-legend" id="legend"></p>
+ </section>
+
+ <section class="card" aria-labelledby="busy-title">
+  <h2 id="busy-title" style="margin-bottom:8px">Busiest periods</h2>
+  <div class="busy"><div><h3>Top 5 months</h3><ol id="busy-months"></ol></div><div><h3>Top 5 years</h3><ol id="busy-years"></ol></div></div>
+ </section>
+
+ <section class="card no-print" aria-labelledby="share-title">
+  <h2 id="share-title" style="margin-bottom:10px">Use this report</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+   <button id="csv">Download CSV of this area</button>
+   <button id="print">Print one-page brief</button>
+   <button id="copy">Copy link to this report</button>
+   <span id="copy-msg" class="small muted" role="status" style="align-self:center"></span>
+  </div>
+  <p class="small muted" style="margin:10px 0 0">The CSV has one row per 0.25° cell and month, with MODIS, S-NPP and harmonized counts, plus flags for estimated and provisional months. <a data-page-link="how-it-works.html" href="how-it-works.html">How these numbers are made →</a></p>
+ </section>
+</main>
+<footer id="site-footer"></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="shared.js"></script>
+<script>
+const O = window.OBC, $ = id => document.getElementById(id);
+O.renderHeader("report.html"); O.renderFooter();
+let S = O.getState(), BBOX = S.bbox, CELLS = [], BY = new Map(), STATS = {}, MED = {}, YEAR = null, MODE = "harmonized", CHART = null, SEL = null;
+
+function upToFor(y) { return y === O.state.END.year ? O.state.END.month : 12; }
+function setArea(b) {
+  BBOX = b; $("bbox").value = O.formatBBox(b); $("bbox-error").textContent = ""; O.presetOptions($("preset"), b);
+  O.setState({ bbox: b });
+  CELLS = O.filterCells(b); BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
+  MED = {}; for (let m = 1; m <= 12; m++) MED[m] = STATS[m].p50;
+  renderAll();
+}
+function applyField() { const b = O.parseBBox($("bbox").value); if (!b) { $("bbox-error").textContent = "Enter W,S,E,N as numbers, with W < E and S < N."; return; } setArea(b); }
+
+function renderAll() { renderSummary(); renderSeason(); renderCalendar(); renderBusy(); }
+
+function renderSummary() {
+  const empty = !CELLS.length, upTo = upToFor(YEAR), v = O.verdict(BY, YEAR, upTo);
+  $("area-title").textContent = O.areaName(BBOX);
+  $("area-sub").textContent = `${O.formatBBox(BBOX)} (W,S,E,N) · ${O.fmt(new Set(CELLS.map(c => c.cell_lat + "," + c.cell_lon)).size)} grid cells with fire since 2000 · data through ${O.MONTH[O.state.END.month - 1]} ${O.state.END.year}`;
+  $("print-meta").textContent = `One Burning Calendar · area report · ${O.areaName(BBOX)} · ${YEAR} · printed ${new Date().toLocaleDateString()}`;
+  const st = empty ? { key: "none", label: "No data for this area" } : v.status;
+  $("pill").className = "pill status-" + st.key; $("pill").textContent = st.label;
+  $("verdict").textContent = empty ? "This area isn't in the current data export yet. Canada is fully covered: choose Canada boreal, or an area inside Canada." : v.sentence;
+  $("k-sofar-l").textContent = upTo < 12 ? `So far (Jan–${O.MO[upTo - 1]})` : `Whole year`;
+  $("k-sofar").textContent = empty ? "—" : (O.isEst(YEAR, upTo) ? "≈" : "") + O.fmtK(v.sofar);
+  $("k-vs").textContent = empty || v.ratio == null ? "—" : v.ratio.toFixed(1) + "×";
+  $("k-rank").textContent = empty ? "—" : `${v.rank} of ${v.nYears}`;
+  $("k-peak").textContent = empty || !v.peak ? "—" : `${O.MO[v.peak.m - 1]} · ${O.fmtK(v.peak.v)}`;
+}
+
+function renderSeason() {
+  const est = YEAR < 2012, labels = O.MO;
+  const yearData = labels.map((_, i) => O.val(BY, YEAR, i + 1));
+  const prov = labels.map((_, i) => O.isProv(YEAR, i + 1));
+  $("season-year").textContent = YEAR;
+  $("year-legend").textContent = `${YEAR}${est ? " (estimated from MODIS)" : ""}${prov.some(Boolean) ? " · hollow points are provisional" : ""}`;
+  $("year-swatch").style.borderTopStyle = est ? "dotted" : "solid";
+  const p10 = labels.map((_, i) => STATS[i + 1].p10), p90 = labels.map((_, i) => STATS[i + 1].p90), p50 = labels.map((_, i) => STATS[i + 1].p50);
+  const ds = [
+    { label: "90th percentile", data: p90, borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: "rgba(42,111,214,.16)" },
+    { label: "10th percentile", data: p10, borderWidth: 0, pointRadius: 0, fill: false },
+    { label: "Median", data: p50, borderColor: "#2a6fd6", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
+    { label: String(YEAR), data: yearData, borderColor: "#c2410c", borderWidth: 2.5, borderDash: est ? [3, 3] : [], pointRadius: 4, pointHoverRadius: 6,
+      pointBackgroundColor: prov.map(p => p ? "#fff" : "#c2410c"), pointBorderColor: "#c2410c", pointBorderWidth: 2, fill: false, spanGaps: false }];
+  const opts = { responsive: true, maintainAspectRatio: false, animation: { duration: 300 }, interaction: { mode: "index", intersect: false },
+    plugins: { legend: { display: false }, tooltip: { callbacks: {
+      label: c => c.datasetIndex === 1 ? null : `${c.dataset.label}: ${c.raw == null ? "not yet" : O.fmt(c.raw)}${c.datasetIndex === 3 && prov[c.dataIndex] ? " (provisional)" : ""}`,
+      afterBody: items => { const i = items[0].dataIndex; return `Normal range: ${O.fmt(p10[i])}–${O.fmt(p90[i])}`; } } } },
+    scales: { y: { beginAtZero: true, ticks: { color: "#737b86", callback: v => O.fmtK(v) }, grid: { color: "#eceef1" } }, x: { ticks: { color: "#737b86" }, grid: { display: false } } } };
+  if (!CHART) CHART = new Chart($("season"), { type: "line", data: { labels, datasets: ds }, options: opts });
+  else { CHART.data.datasets = ds; CHART.options = opts; CHART.update(); }
+  const notes = [];
+  if (est) notes.push(`${YEAR} is before S-NPP VIIRS existed, so its line is an estimate converted from MODIS.`);
+  if (prov.some(Boolean)) notes.push("Recent months come from near-real-time data and may change slightly when NASA publishes the final archive.");
+  $("season-note").hidden = !notes.length; $("season-note").textContent = notes.join(" ");
+}
+
+// ---- calendar (accessible version from #28) ----
+function renderCalendar() {
+  const y0 = Math.max(O.FIRST_YEAR, +$("y0").value || O.FIRST_YEAR), y1 = Math.min(O.state.END.year, +$("y1").value || O.state.END.year);
+  let max = 0;
+  for (let y = y0; y <= y1; y++) for (let m = 1; m <= 12; m++) { const r = BY.get(O.tOf(y, m)); if (!r || O.isPartial(y, m)) continue; const v = MODE === "anomaly" ? (MED[m] ? r.harmonized / MED[m] : 0) : MODE === "total" ? r.total : r.harmonized; if (v > max) max = v; }
+  let h = `<table class="calendar" aria-label="Fire activity calendar, ${y0} to ${y1}"><tr><th scope="col">Year</th>${O.MO.map(m => `<th scope="col">${m}</th>`).join("")}</tr>`;
+  for (let y = y0; y <= y1; y++) {
+    h += `<tr${y === 2012 && MODE !== "total" ? ' class="snpp-start"' : ""}><th scope="row">${y}</th>`;
+    for (let m = 1; m <= 12; m++) {
+      const at = `data-y="${y}" data-m="${m}" tabindex="-1"`;
+      if (O.isPartial(y, m)) { h += O.tOf(y, m) === O.tOf(O.state.END.year, O.state.END.month) + 1 ? `<td class="partial" ${at} aria-label="${O.MO[m - 1]} ${y}: partial month, not shown">partial</td>` : `<td ${at} aria-label="${O.MO[m - 1]} ${y}: no data yet"></td>`; continue; }
+      const r = BY.get(O.tOf(y, m)); let txt = "·", bg = "#f4f5f7", ink = "#737b86";
+      if (r) { let v; if (MODE === "anomaly") { v = MED[m] ? r.harmonized / MED[m] : 0; txt = v.toFixed(1) + "×"; } else { v = MODE === "total" ? r.total : r.harmonized; txt = O.fmt(v); }
+        const c = O.rampRGB(MODE === "anomaly" ? (v - 1) / 4 : Math.pow(v / Math.max(max, 1), O.POW)); bg = `rgb(${c})`; ink = O.inkFor(c); }
+      const prov = r && O.isProv(y, m), est = r && MODE !== "total" && O.isEst(y, m), cls = [prov && "prov", est && "est"].filter(Boolean).join(" ");
+      h += `<td${cls ? ` class="${cls}"` : ""} ${at} style="background:${bg};color:${ink}" aria-label="${O.describe(BY, MED, y, m)}">${est ? "≈" : ""}${txt}${prov ? "*" : ""}</td>`;
+    }
+    h += "</tr>";
+  }
+  $("grid").innerHTML = h + "</table>";
+  const stops = Array.from({ length: 11 }, (_, i) => O.ramp(i / 10)).join(",");
+  const ticks = MODE === "anomaly" ? ["≤1×", "2×", "3×", "4×", "≥5×"] : [0, .25, .5, .75, 1].map(t => O.fmtK(max * Math.pow(t, 1 / O.POW)));
+  $("scale").innerHTML = `<span>${MODE === "anomaly" ? "× median" : MODE === "total" ? "Raw detections" : "Harmonized detections"}</span><div class="bar"><div class="grad" style="background:linear-gradient(to right,${stops})"></div><div class="ticks">${ticks.map(t => `<span>${t}</span>`).join("")}</div></div>`;
+  const notes = [MODE === "anomaly" ? "Each month compared with its 2003–2020 median; 1.0× is a typical month." : MODE === "total" ? "Raw = MODIS + S-NPP detections added together, uncorrected: watch the fake jump in 2012." : "Harmonized detections in S-NPP VIIRS-equivalent units."];
+  if (MODE !== "total" && y0 < 2012) notes.push("≈ Italic values before Feb 2012 are estimates converted from MODIS; the line above 2012 marks where observed S-NPP data begins.");
+  if (O.state.PROV && y1 >= O.state.PROV.year) notes.push("* Dashed cells are provisional (near-real-time data).");
+  $("legend").textContent = notes.join(" ");
+  const cells = [...$("grid").querySelectorAll("td[data-y]")];
+  let cur = SEL && cells.find(c => +c.dataset.y === SEL.y && +c.dataset.m === SEL.m);
+  if (!cur) cur = cells.find(c => BY.get(O.tOf(+c.dataset.y, +c.dataset.m))) || cells[0];
+  if (cur) { cur.tabIndex = 0; if (SEL && cur.dataset.y == SEL.y && cur.dataset.m == SEL.m) { cur.classList.add("sel"); $("cellinfo").textContent = O.describe(BY, MED, SEL.y, SEL.m); } }
+}
+function selectCell(td) {
+  $("grid").querySelectorAll("td[data-y]").forEach(c => { c.tabIndex = -1; c.classList.remove("sel"); });
+  td.tabIndex = 0; td.classList.add("sel"); SEL = { y: +td.dataset.y, m: +td.dataset.m };
+  $("cellinfo").textContent = O.describe(BY, MED, SEL.y, SEL.m);
+  $("cell-map-link").href = O.pageLink("index.html", { year: SEL.y, month: SEL.m });
+}
+const grid = $("grid");
+grid.addEventListener("focusin", e => { const td = e.target.closest("td[data-y]"); if (td) selectCell(td); });
+grid.addEventListener("click", e => { const td = e.target.closest("td[data-y]"); if (td) { td.focus(); selectCell(td); } });
+grid.addEventListener("keydown", e => {
+  const td = e.target.closest("td[data-y]"); if (!td) return;
+  const rows = [...grid.querySelectorAll("tr")].slice(1), ri = rows.indexOf(td.parentElement), ci = [...td.parentElement.children].indexOf(td);
+  const mv = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key]; let next = null;
+  if (mv) { const r = rows[ri + mv[0]]; next = r && r.children[ci + mv[1]]; if (next && !next.matches("td[data-y]")) next = null; }
+  else if (e.key === "Home") next = td.parentElement.querySelector("td[data-y]");
+  else if (e.key === "End") { const all = td.parentElement.querySelectorAll("td[data-y]"); next = all[all.length - 1]; }
+  if (next) { e.preventDefault(); next.focus(); }
+});
+
+function renderBusy() {
+  const rows = [...BY.values()].filter(r => !O.isPartial(r.year, r.month) && r.year >= O.FIRST_YEAR);
+  const li = (t, v) => `<li>${t} · ${O.fmt(v)}</li>`, none = "<li>No data for this area</li>";
+  const months = [...rows].sort((a, b) => b.harmonized - a.harmonized).slice(0, 5);
+  $("busy-months").innerHTML = months.length ? months.map(r => li(`${O.isEst(r.year, r.month) ? "≈ " : ""}${O.MO[r.month - 1]} ${r.year}${O.isProv(r.year, r.month) ? " (provisional)" : ""}`, r.harmonized)).join("") : none;
+  const yr = {}; rows.forEach(r => yr[r.year] = (yr[r.year] || 0) + r.harmonized);
+  const years = Object.entries(yr).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  $("busy-years").innerHTML = years.length ? years.map(([y, v]) => li(+y === O.state.END.year && O.state.END.month < 12 ? `${y} (to ${O.MO[O.state.END.month - 1]})` : y, v)).join("") : none;
+}
+
+$("mode").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; MODE = b.dataset.m; $("mode").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); renderCalendar(); });
+["y0", "y1"].forEach(id => $(id).addEventListener("change", renderCalendar));
+$("year").onchange = e => { YEAR = +e.target.value; O.setState({ year: YEAR, month: null }); renderSummary(); renderSeason(); };
+$("preset").onchange = e => setArea(O.parseBBox(e.target.value));
+$("apply").onclick = applyField;
+$("bbox").addEventListener("keydown", e => { if (e.key === "Enter") applyField(); });
+$("png").onclick = () => O.downloadCanvas($("season"), `fire-season-${YEAR}.png`);
+$("csv").onclick = () => O.downloadCSV(CELLS, `fire-cells-${(O.presetFor(BBOX) || { id: "custom-area" }).id}.csv`);
+$("print").onclick = () => window.print();
+$("copy").onclick = async () => { try { await navigator.clipboard.writeText(location.href); $("copy-msg").textContent = "Link copied"; } catch { $("copy-msg").textContent = "Copy this page's address from the address bar"; } setTimeout(() => $("copy-msg").textContent = "", 3000); };
+
+O.loadData().then(() => {
+  O.setDataThrough();
+  const end = O.state.END.year;
+  $("year").innerHTML = Array.from({ length: end - O.FIRST_YEAR + 1 }, (_, i) => end - i).map(y => `<option value="${y}">${y}${y < 2012 ? " (estimated)" : ""}</option>`).join("");
+  YEAR = S.year && S.year >= O.FIRST_YEAR && S.year <= end ? S.year : end; $("year").value = YEAR;
+  $("y0").value = O.FIRST_YEAR; $("y1").value = end; $("y1").max = end; $("y0").max = end;
+  setArea(BBOX);
+}).catch(err => { console.error(err); $("verdict").textContent = "Couldn't load the fire data. Try reloading the page."; });
+</script>
+</body></html>

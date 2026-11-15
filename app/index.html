@@ -1,262 +1,235 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>One Burning Calendar — Harmonized MODIS + VIIRS Fire Record | Team Murphy</title>
+<title>One Burning Calendar — fire activity map</title>
+<meta name="description" content="Harmonized MODIS + VIIRS fire activity: how unusual is this month for your area?">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23c2410c%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="shared.css">
 <style>
-:root{--ink:#17202a;--mut:#5d6d7e;--line:#d5dbdb;--accent:#b03a2e}
-*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;color:var(--ink);background:#fbfcfc}
-header{padding:28px 32px 10px;max-width:1180px;margin:auto}
-h1{font-size:28px;margin:0 0 6px}h2{font-size:17px;margin:22px 0 8px}
-.sub{color:var(--mut);max-width:820px;line-height:1.45;margin:0}
-main{max-width:1180px;margin:auto;padding:0 32px 40px}
-.cards{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}
-.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:200px;flex:1}
-.card b{font-size:22px;display:block}.card span{color:var(--mut);font-size:12.5px}
-.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0}
-.controls{display:flex;gap:14px;flex-wrap:wrap;align-items:end}
-label{font-size:12.5px;color:var(--mut);display:flex;flex-direction:column;gap:4px}
-input,select{font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
-button{font-size:14px;padding:7px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
-button.ghost{background:#fff;color:var(--accent)}
-.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
-.seg button{border:0;border-radius:0;background:#fff;color:var(--ink)}
-.seg button.on{background:var(--accent);color:#fff}
-table{border-collapse:collapse}td,th{border:1px solid #e5e8e8;width:54px;height:27px;text-align:center;font-size:11px}
-th{background:#f4f6f6;font-weight:600}
-.legend{font-size:12px;color:var(--mut);margin-top:8px}
-.busy{display:flex;gap:28px;flex-wrap:wrap}.busy ol{margin:4px 0 0;padding-left:22px;line-height:1.7;font-size:14px}.busy h3{font-size:13px;color:var(--mut);margin:0;font-weight:600}
-td.prov{outline:2px dashed var(--mut);outline-offset:-3px}
-td.est{font-style:italic}
-tr.snpp-start>*{border-top:2px solid var(--ink)}
-#grid td{cursor:pointer}
-#grid td:focus{outline:3px solid #1f6feb;outline-offset:-3px}
-#grid td.sel{box-shadow:inset 0 0 0 2px var(--ink)}
-.scale{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12px;color:var(--mut);flex-wrap:wrap}
-.scale .bar{width:300px;max-width:100%}
-.scale .grad{height:12px;border-radius:3px;border:1px solid var(--line)}
-.scale .ticks{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:var(--ink)}
-.cellinfo{margin:8px 0 0;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#f8f9f9;font-size:13.5px;line-height:1.45;min-height:1.45em}
-td.partial{background:repeating-linear-gradient(45deg,#f4f6f6,#f4f6f6 4px,#fff 4px,#fff 8px);color:var(--mut);font-style:italic}
-.note{background:#fef9e7;border:1px solid #f0d97a;border-radius:8px;padding:10px 14px;line-height:1.45}
-#map,#chart{max-width:100%}
-#leaflet-map{height:430px;margin-top:10px;border:1px solid var(--line);border-radius:8px}.map-fallback{display:none}.field-error{color:#b03a2e;font-size:12px;max-width:220px}.map-status{color:var(--mut);font-size:12px;margin:8px 0 0}
-footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;margin:auto;line-height:1.5}
+.home-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.rail .card{padding:16px 18px}
+#leaflet-map{height:520px;border-radius:var(--radius-sm);border:1px solid var(--line)}
+#map-canvas{display:none;width:100%;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.map-status{font-size:12.5px;color:var(--ink-3);margin:8px 0 0;min-height:1.2em}
+.scrub{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.scrub-row{display:flex;align-items:center;gap:10px;margin-top:6px}
+.scrub-row input{flex:1}
+.month-big{font-size:28px;font-weight:650;letter-spacing:-.01em;margin:2px 0 8px}
+.ratio-big{font-size:34px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.rail-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:10px}
+.preview .verdict{font-size:17px}
+.preview .kpis{grid-template-columns:1fr 1fr;margin-top:12px}
+.preview .kpi .v{font-size:18px}
+.leaflet-container{font:inherit}
+@media (max-width:980px){.home-grid{grid-template-columns:1fr}#leaflet-map{height:400px}}
 </style></head><body>
-<header>
-<h1>One Burning Calendar</h1>
-<p class="sub">Two NASA satellites, one trustworthy fire record. MODIS (1&nbsp;km, 2000+) and VIIRS (375&nbsp;m, 2012+) count fires differently — VIIRS sees many more small fires, so the raw record fakes a jump in 2012. We calibrated the sensors on their 2012–2023 overlap, by fire intensity and season, and fused them into a single harmonized calendar. VIIRS is the reference; MODIS-era harmonized counts estimate what VIIRS would have seen.</p>
-</header>
-<main>
-<div class="cards">
-<div class="card"><b id="c-peak">—</b><span>Peak harmonized month (region total)</span></div>
-<div class="card"><b id="c-anom">—</b><span id="c-anom-label">Latest full month vs 2003–2020 median</span></div>
-<div class="card"><b id="c-jump">—</b><span>2011→2012 jump: raw vs harmonized</span></div>
-<div class="card"><b id="c-years">—</b><span>Years in the harmonized record</span></div>
-</div>
-
-<div class="panel"><div class="controls">
-<label>View<div class="seg" id="mode">
-<button data-m="harmonized" class="on">Harmonized</button><button data-m="total">Raw</button><button data-m="anomaly">Anomaly</button></div></label>
-<label>From year<input id="y0" type="number" value="2001" style="width:84px"></label>
-<label>To year<input id="y1" type="number" value="2026" style="width:84px"></label>
-<label>Region bbox W,S,E,N<input id="bbox" value="-140,42,-52,72" style="width:170px"><span id="bbox-error" class="field-error" role="alert"></span></label>
-<label>Presets<select id="preset"><option value="-140,42,-52,72">Canada boreal (showcase)</option><option value="-125,49,-60,65">Canada core fires</option><option value="-75,-15,-45,5">Amazon (generality)</option><option value="-10,35,30,45">Mediterranean</option></select></label>
-<button id="apply">Apply filters</button>
-<button id="csv" class="ghost">Download CSV</button>
-<button id="png" class="ghost">Download chart PNG</button>
-</div>
-<h2>Burning-activity calendar — region total per month</h2>
-<div id="grid" style="overflow-x:auto">Loading data…</div>
-<div class="scale" id="scale" aria-hidden="true"></div>
-<p class="cellinfo" id="cellinfo" aria-live="polite">Click or tap a month, or use Tab and the arrow keys, to see its details.</p>
-<div class="legend" id="legend"></div>
-<p class="note"><strong>The proof moment:</strong> switch to <em>Raw</em> and look at 2012 — the record jumps because the satellite changed, not the fires. Switch back to <em>Harmonized</em>: the jump shrinks. Then open <em>Anomaly</em>: May 2023 stands out against the 2003–2020 median — Canada's record season, only trustworthy once the sensors agree.</p>
-</div>
-
-<div class="panel">
-<h2>Busiest periods — harmonized, selected region</h2>
-<div class="busy"><div><h3>Top 5 months</h3><ol id="busy-months"></ol></div><div><h3>Top 5 years</h3><ol id="busy-years"></ol></div></div>
-</div>
-
-<div class="panel">
-<h2>Where it burned — grid map (0.25° cells)</h2>
-<div class="controls">
-<label>Year<input id="my" type="number" value="2023" style="width:84px"></label>
-<label>Month<select id="mm"></select></label>
-<button id="mapgo">Show month</button><button id="draw-region" class="ghost" aria-pressed="false">Select region</button><button id="clear-region" class="ghost" style="display:none">Clear selection</button></div>
-<div id="leaflet-map" aria-label="Interactive fire map. Use Select region, then drag a rectangle to select an area."></div>
-<canvas id="map" class="map-fallback" width="1040" height="430" style="margin-top:10px;border:1px solid var(--line);border-radius:8px"></canvas>
-<div id="map-status" class="map-status"></div>
-<div class="legend">Each rectangle is one 0.25° × 0.25° cell (~25 km); colour = harmonized detections that month. Select region then drag a rectangle, or type W,S,E,N above. If map tiles are unavailable, the canvas grid remains fully usable.</div>
-</div>
-
-<div class="panel">
-<h2>Season shape — selected year vs 2003–2020 median month</h2>
-<canvas id="chart" width="1040" height="300"></canvas>
-<div class="legend">Bars: harmonized region total for the map year above. Line: median for that month, 2003–2020.</div>
-</div>
+<header id="site-header"></header>
+<main class="wrap">
+ <h1 class="sr-only">Fire activity map</h1>
+ <div class="areabar">
+  <label class="field">Area<select id="preset"></select></label>
+  <label class="field">Or enter W,S,E,N<input id="bbox" style="width:190px" aria-describedby="bbox-error"></label>
+  <button id="apply">Apply</button>
+  <button id="draw-region" aria-pressed="false">Draw on map</button>
+  <button id="clear-region" hidden>Reset to Canada</button>
+  <a class="btn btn-primary" id="open-report" data-page-link="report.html" href="report.html">Open area report →</a>
+  <span id="bbox-error" class="field-error" role="alert"></span>
+ </div>
+ <div class="home-grid">
+  <section class="card" aria-label="Map">
+   <div id="leaflet-map" role="region" aria-label="Fire map. Choose Draw on map, then drag a rectangle to select an area."></div>
+   <canvas id="map-canvas" width="1040" height="520" aria-hidden="true"></canvas>
+   <p class="map-status" id="map-status" aria-live="polite"></p>
+   <div class="scrub">
+    <div class="legend-row"><span><span class="swatch" style="background:#c9ced4"></span>Harmonized detections per month in this area</span><span><span class="swatch" style="background:var(--ember)"></span>Selected month</span></div>
+    <div style="position:relative;height:64px"><canvas id="spark" role="img" aria-label="Monthly harmonized detections in the selected area, 2001 to present. Click a bar to select that month.">Monthly activity sparkline.</canvas></div>
+    <div class="scrub-row">
+     <button class="btn-icon" id="play" aria-pressed="false" aria-label="Play through months">▶</button>
+     <input type="range" id="scrub" step="1" aria-label="Month">
+     <strong id="scrub-label" style="min-width:76px;text-align:right;font-variant-numeric:tabular-nums"></strong>
+    </div>
+   </div>
+  </section>
+  <aside class="rail">
+   <section class="card" aria-labelledby="sel-title">
+    <h2 id="sel-title" class="small muted" style="font-weight:500">Selected month · <span id="area-name"></span></h2>
+    <div class="month-big" id="sel-month">—</div>
+    <span class="pill status-none" id="sel-pill">Loading</span>
+    <div class="rail-row"><span class="ratio-big" id="sel-ratio">—</span><span class="small muted" id="sel-ratio-l">vs the 2003–2020 median for this month</span></div>
+    <div class="rail-row"><span class="small muted">Harmonized detections</span><strong id="sel-val" style="font-variant-numeric:tabular-nums">—</strong></div>
+    <div class="rail-row"><span class="small muted">Typical (median)</span><span id="sel-med" style="font-variant-numeric:tabular-nums">—</span></div>
+    <p class="note" id="sel-note" hidden></p>
+   </section>
+   <section class="card preview" aria-labelledby="pv-title" style="margin-top:16px">
+    <h2 id="pv-title" class="small muted" style="font-weight:500">The year so far</h2>
+    <p class="verdict" id="pv-verdict" style="margin-top:6px">—</p>
+    <div class="kpis">
+     <div class="kpi"><div class="l">So far</div><div class="v" id="pv-sofar">—</div></div>
+     <div class="kpi"><div class="l">vs typical</div><div class="v" id="pv-vs">—</div></div>
+     <div class="kpi"><div class="l">Rank</div><div class="v" id="pv-rank">—</div></div>
+     <div class="kpi"><div class="l">Peak month</div><div class="v" id="pv-peak">—</div></div>
+    </div>
+    <a class="btn" data-page-link="report.html" href="report.html" style="margin-top:12px;width:100%;justify-content:center">Full area report: season chart, calendar, downloads →</a>
+   </section>
+   <section class="card" style="margin-top:16px">
+    <h2 class="small muted" style="font-weight:500">Why trust these numbers?</h2>
+    <p class="small" style="margin:6px 0 10px">Two satellites count fires differently. We convert the older MODIS record into today's S-NPP VIIRS units, so 2005 and 2023 can be compared directly.</p>
+    <a data-page-link="how-it-works.html" href="how-it-works.html" class="small">See how it works and how accurate it is →</a>
+   </section>
+  </aside>
+ </div>
 </main>
-<footer>Data: NASA FIRMS via NASA Earthdata — MODIS M-C61 (2000+), VIIRS SV-C2 (2012+), J1V-C2 (2018+), J2V-C2 (2023+). Independent validation reference: Canada NBAC / National Fire Database. Method: shared-schema cleaning (nominal+high confidence, vegetation fires, deduped), 0.25° cell × month aggregation, FRP-bin × season calibration from the sensor overlap, holdout-tested. Team Murphy — NASA Space Apps Challenge 2026.</footer>
-
+<footer id="site-footer"></footer>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="shared.js"></script>
 <script>
-let DATA=null, CELLS=[], MODE="harmonized", BBOX={west:-140,south:42,east:-52,north:72};
-let LEAFLET=null, MAP_CELLS=[], SELECT_MODE=false, FALLBACK=false, HAS_SELECTION=false;
-const BASE=[2003,2020]; // both MODIS satellites flying all year
-let END={year:0,month:12}; // last full month in the export (the partial month is dropped upstream); set on load
-const isPartial=(y,m)=>y*12+m>END.year*12+END.month;
-let PROV=null; // first month built on near-real-time FIRMS data (provisional_from in the export); null = none
-const isProv=(y,m)=>!!PROV&&y*12+m>=PROV.year*12+PROV.month;
-function provRange(){if(!PROV||isPartial(PROV.year,PROV.month))return "";const a=MO[PROV.month-1]+(PROV.year===END.year?"":" "+PROV.year),b=MO[END.month-1]+" "+END.year;return PROV.year===END.year&&PROV.month===END.month?b:a+"–"+b}
-const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-document.getElementById("mm").innerHTML=MO.map((m,i)=>`<option value="${i+1}"${i===4?" selected":""}>${m}</option>`).join("");
-// Cividis (colour-blind safe, perceptually uniform), reversed so low = light and high = dark.
-const CIVIDIS=[[255,234,70],[208,190,103],[182,169,113],[158,150,119],[135,132,121],[114,115,116],[94,98,110],[72,82,107],[42,64,108],[0,48,111],[0,32,77]];
-function rampRGB(t){t=Math.min(1,Math.max(0,t));const x=t*(CIVIDIS.length-1),i=Math.min(CIVIDIS.length-2,Math.floor(x)),f=x-i;return CIVIDIS[i].map((v,j)=>Math.round(v+(CIVIDIS[i+1][j]-v)*f))}
-function ramp(t){const c=rampRGB(t);return `rgb(${c[0]},${c[1]},${c[2]})`}
-// Black or white text, whichever has the higher WCAG contrast on a ramp colour (always at least 4.5:1).
-function inkFor(c){const L=c.map(v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)}),l=0.2126*L[0]+0.7152*L[1]+0.0722*L[2];return (l+0.05)/0.05>=1.05/(l+0.05)?"#000":"#fff"}
-const SNPP_T=2012*12+2; // harmonized values before Feb 2012 are converted from MODIS (estimates)
-const isEst=(y,m)=>MODE!=="total"&&y*12+m<SNPP_T;
-const POW=0.35; // colour scale compression for counts
-let LAST={by:{},med:{}}, SEL=null;
-function decodeCells(c){const out=[];let i=0;c.n_months.forEach((n,k)=>{for(const end=i+n;i<end;i++){const t=c.t[i],modis=c.modis_count[i],viirs=c.viirs_count[i];out.push({cell_lat:c.cell_lat[k],cell_lon:c.cell_lon[k],year:c.t0_year+Math.floor(t/12),month:t%12+1,modis_count:modis,viirs_count:viirs,total_count:modis+viirs,harmonized_count:c.harmonized_count[i]})}});return out}
-function formatBBox(b){return [b.west,b.south,b.east,b.north].map(v=>+v.toFixed(4)).join(",")}
-function parseBBox(text){const p=text.split(",").map(v=>Number(v.trim()));if(p.length!==4||p.some(v=>!Number.isFinite(v)))return null;const[west,south,east,north]=p;if(west>=east||south>=north||west<-180||east>180||south<-90||north>90)return null;return{west,south,east,north}}
-function syncLeafletSelection(){if(!LEAFLET||FALLBACK)return;if(!HAS_SELECTION){if(LEAFLET.selection){LEAFLET.selection.remove();LEAFLET.selection=null}return}/* Leaflet bounds use [lat, lon]; BBOX is W,S,E,N in lon-lat order. */const bounds=[[BBOX.south,BBOX.west],[BBOX.north,BBOX.east]];if(LEAFLET.selection)LEAFLET.selection.setBounds(bounds);else LEAFLET.selection=L.rectangle(bounds,{renderer:LEAFLET.renderer,color:"#b03a2e",weight:2,fill:false,interactive:false}).addTo(LEAFLET.map);LEAFLET.selection.bringToFront()}
-function setBBox(next,{fitMap=true,select=false}={}){BBOX={west:+next.west.toFixed(4),south:+next.south.toFixed(4),east:+next.east.toFixed(4),north:+next.north.toFixed(4)};HAS_SELECTION=select||HAS_SELECTION;document.getElementById("bbox").value=formatBBox(BBOX);document.getElementById("bbox-error").textContent="";syncLeafletSelection();if(LEAFLET&&fitMap){/* Leaflet bounds are [lat, lon]; field state is [lon, lat]. */LEAFLET.map.fitBounds([[BBOX.south,BBOX.west],[BBOX.north,BBOX.east]])}}
-function applyBBoxField(){const next=parseBBox(document.getElementById("bbox").value);if(!next){document.getElementById("bbox-error").textContent="Enter W,S,E,N numbers with W<E and S<N.";return false}setBBox(next,{select:true});return true}
-function series(cells){const k={};cells.forEach(c=>{const key=c.year+"-"+c.month;k[key]=k[key]||{year:+c.year,month:+c.month,total:0,harmonized:0};k[key].total+=+c.total_count;k[key].harmonized+=+c.harmonized_count});return Object.values(k)}
-function medians(s){const med={};for(let m=1;m<=12;m++){const v=s.filter(r=>r.month===m&&r.year>=BASE[0]&&r.year<=BASE[1]).map(r=>r.harmonized).sort((a,b)=>a-b);med[m]=v.length?(v[Math.floor((v.length-1)/2)]+v[Math.floor(v.length/2)])/2:0}return med}
-function filteredCells(){return CELLS.filter(c=>+c.cell_lon>=BBOX.west&&+c.cell_lon<=BBOX.east&&+c.cell_lat>=BBOX.south&&+c.cell_lat<=BBOX.north)}
-function renderAll(){
- document.getElementById("clear-region").style.display=HAS_SELECTION?"":"none";
- const cells=filteredCells(), s=series(cells), med=medians(s), by={}; s.forEach(r=>by[r.year+"-"+r.month]=r);
- const y0=+document.getElementById("y0").value, y1=+document.getElementById("y1").value;
- let max=0; s.forEach(r=>{const v=MODE==="anomaly"?(med[r.month]?r.harmonized/med[r.month]:0):(MODE==="total"?r.total:r.harmonized); if(v>max)max=v});
- LAST={by,med,max};
- let h=`<table aria-label="Burning-activity calendar, ${y0} to ${y1}"><tr><th scope="col">Year</th>`+MO.map(m=>`<th scope="col">${m}</th>`).join("")+"</tr>";
- for(let y=y0;y<=y1;y++){h+=`<tr${y===2012&&MODE!=="total"?' class="snpp-start"':""}><th scope="row">${y}</th>`;for(let m=1;m<=12;m++){
-  const at=`data-y="${y}" data-m="${m}" tabindex="-1"`;
-  if(isPartial(y,m)){if(y*12+m===END.year*12+END.month+1)h+=`<td class="partial" ${at} aria-label="${MO[m-1]} ${y}: partial month, not shown">partial</td>`;else h+=`<td ${at} aria-label="${MO[m-1]} ${y}: no data yet"></td>`;continue}
-  const r=by[y+"-"+m];let txt="·",bg="#f8f9f9",ink="var(--mut)";
-  if(r){let v;if(MODE==="anomaly"){v=med[m]?r.harmonized/med[m]:0;txt=v.toFixed(1)+"×"}else{v=MODE==="total"?r.total:r.harmonized;txt=Math.round(v).toLocaleString()}const c=rampRGB(MODE==="anomaly"?(v-1)/4:Math.pow(v/max,POW));bg=`rgb(${c[0]},${c[1]},${c[2]})`;ink=inkFor(c)}
-  const prov=r&&isProv(y,m), est=r&&isEst(y,m), cls=[prov&&"prov",est&&"est"].filter(Boolean).join(" ");
-  h+=`<td${cls?` class="${cls}"`:""} ${at} style="background:${bg};color:${ink}" aria-label="${describe(y,m)}">${est?"≈":""}${txt}${prov?"*":""}</td>`}h+="</tr>"}
- document.getElementById("grid").innerHTML=h+"</table>";
- initGridFocus();
- renderScale(max);
- const pr=provRange(), provNote=pr&&y1>=PROV.year?` * Dashed cells (${pr}) are provisional: they come from near-real-time FIRMS data, which NASA later replaces with the standard archive, so these values may change.`:"";
- const estNote=MODE!=="total"&&y0<2012?" ≈ Italic values before Feb 2012 are estimates: MODIS counts converted to what S-NPP VIIRS would have seen. The line above 2012 marks where observed S-NPP data begins.":"";
- document.getElementById("legend").textContent=(MODE==="anomaly"?"Value = × the 2003–2020 median for that month. 1.0× = a typical month. The current month is partial and not shown.":"Value = "+(MODE==="total"?"raw detections (MODIS + VIIRS, uncorrected)":"harmonized detections (VIIRS-equivalent)")+". The colour scale is compressed so ordinary months stay readable next to extremes.")+estNote+provNote;
- const peak=s.reduce((a,r)=>r.harmonized>(a?a.harmonized:-1)?r:a,null);
- document.getElementById("c-peak").textContent=peak?MO[peak.month-1]+" "+peak.year+" · "+Math.round(peak.harmonized).toLocaleString():"—";
- const full=s.filter(r=>!isPartial(r.year,r.month)), latest=full.reduce((a,r)=>!a||r.year*12+r.month>a.year*12+a.month?r:a,null);
- document.getElementById("c-anom").textContent=latest&&med[latest.month]?(latest.harmonized/med[latest.month]).toFixed(1)+"×":"—";
- document.getElementById("c-anom-label").textContent=latest?`${MO[latest.month-1]} ${latest.year} (latest full month${isProv(latest.year,latest.month)?", provisional":""}) vs ${BASE[0]}–${BASE[1]} ${MO[latest.month-1]} median`:"Latest full month vs 2003–2020 median";
- renderBusy(full.filter(r=>r.year>=y0&&r.year<=y1));
- const t11=by["2011-1"], rawJump=(()=>{const a=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.total,0),b=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.total,0),c=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.harmonized,0),d=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.harmonized,0);return a&&c?`${((b-a)/a*100).toFixed(0)}% → ${((d-c)/c*100).toFixed(0)}%`:"—"})(); document.getElementById("c-jump").textContent=rawJump;
- const yrs=s.map(r=>r.year); document.getElementById("c-years").textContent=yrs.length?Math.min(...yrs)+"–"+Math.max(...yrs):"—";
- drawMap(cells); updateLeafletCells(cells); drawChart(s,med);
+const O = window.OBC, $ = id => document.getElementById(id);
+O.renderHeader("index.html"); O.renderFooter();
+let S = O.getState(), BBOX = S.bbox, CELLS = [], BY = new Map(), STATS = {}, T0 = O.tOf(O.FIRST_YEAR, 1), T = null, SPARK = null, TIMER = null;
+let LEAFLET = null, FALLBACK = false, SELECT_MODE = false;
+const isCustom = () => !O.presetFor(BBOX);
+
+// ---- area ----
+function setArea(next, { fit = true } = {}) {
+  BBOX = { west: +next.west.toFixed(4), south: +next.south.toFixed(4), east: +next.east.toFixed(4), north: +next.north.toFixed(4) };
+  $("bbox").value = O.formatBBox(BBOX); $("bbox-error").textContent = "";
+  O.presetOptions($("preset"), BBOX);
+  $("clear-region").hidden = O.formatBBox(BBOX) === O.PRESETS[0].bbox;
+  O.setState({ bbox: BBOX });
+  CELLS = O.filterCells(BBOX); BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
+  $("area-name").textContent = O.areaName(BBOX);
+  syncSelection();
+  if (LEAFLET && fit) LEAFLET.map.fitBounds([[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]]);
+  drawSpark(); renderMonth();
 }
-// Plain-text description of one calendar month; used for the details line and screen readers.
-function describe(y,m){
- const name=MO[m-1]+" "+y;
- if(isPartial(y,m))return y*12+m===END.year*12+END.month+1?`${name}: partial month, not shown.`:`${name}: no data yet.`;
- const r=LAST.by[y+"-"+m];
- if(!r)return `${name}: no fire detections in this region.`;
- const med=LAST.med[m], parts=[`${name}: ${Math.round(r.harmonized).toLocaleString()} harmonized detections (S-NPP VIIRS-equivalent)`,
-  `raw ${Math.round(r.total).toLocaleString()} (MODIS + S-NPP, uncorrected)`];
- if(med)parts.push(`${(r.harmonized/med).toFixed(1)}× the ${BASE[0]}–${BASE[1]} ${MO[m-1]} median`);
- let s=parts.join("; ")+".";
- if(y*12+m<SNPP_T)s+=" Estimate: converted from MODIS, because observed S-NPP data begins in Feb 2012.";
- if(isProv(y,m))s+=" Provisional: near-real-time data, may change.";
- return s;
+function applyField() { const b = O.parseBBox($("bbox").value); if (!b) { $("bbox-error").textContent = "Enter W,S,E,N as numbers, with W < E and S < N."; return; } setArea(b); }
+
+// ---- month ----
+const ym = t => ({ y: Math.floor(t / 12), m: t % 12 + 1 });
+function setMonth(t) {
+  T = Math.max(T0, Math.min(O.tOf(O.state.END.year, O.state.END.month), t));
+  $("scrub").value = T; const { y, m } = ym(T);
+  $("scrub-label").textContent = `${O.MO[m - 1]} ${y}`;
+  O.setState({ year: y, month: m });
+  renderMonth();
 }
-function renderScale(max){
- const stops=Array.from({length:11},(_,i)=>ramp(i/10)).join(",");
- const ticks=MODE==="anomaly"?["≤1×","2×","3×","4×","≥5×"]:[0,0.25,0.5,0.75,1].map(t=>{const v=max*Math.pow(t,1/POW);return v>=1000?Math.round(v/100)/10+"k":Math.round(v).toString()});
- document.getElementById("scale").innerHTML=`<span>${MODE==="anomaly"?"× median":MODE==="total"?"Raw detections":"Harmonized detections"}</span><div class="bar"><div class="grad" style="background:linear-gradient(to right,${stops})"></div><div class="ticks">${ticks.map(t=>`<span>${t}</span>`).join("")}</div></div>`;
+function renderMonth() {
+  if (T == null) return;
+  const { y, m } = ym(T), v = O.val(BY, y, m), med = STATS[m] ? STATS[m].p50 : 0;
+  $("sel-month").textContent = `${O.MONTH[m - 1]} ${y}`;
+  const empty = !CELLS.length;
+  const ratio = !empty && med > 0 ? v / med : null, st = empty ? { key: "none", label: "No data for this area" } : O.status(ratio);
+  $("sel-pill").className = "pill status-" + st.key; $("sel-pill").textContent = st.label;
+  $("sel-ratio").textContent = ratio == null ? "—" : ratio.toFixed(1) + "×";
+  $("sel-val").textContent = empty ? "—" : (O.isEst(y, m) ? "≈ " : "") + O.fmt(v);
+  $("sel-med").textContent = empty ? "—" : O.fmt(med);
+  const notes = [];
+  if (empty) notes.push("This area isn't in the current data export yet. Canada is fully covered; choose Canada boreal or draw an area inside Canada.");
+  if (!empty && O.isEst(y, m)) notes.push("Estimate: before Feb 2012 only MODIS was flying, so this is converted to what S-NPP VIIRS would have seen.");
+  if (!empty && O.isProv(y, m)) notes.push("Provisional: near-real-time data, which NASA later replaces with the final archive.");
+  $("sel-note").hidden = !notes.length; $("sel-note").textContent = notes.join(" ");
+  // Preview of the area report: Jan..selected month of the selected year.
+  const vd = O.verdict(BY, y, m);
+  $("pv-title").textContent = `${y} so far · Jan–${O.MO[m - 1]}`;
+  $("pv-verdict").textContent = empty ? "No data for this area yet." : vd.sentence;
+  $("pv-sofar").textContent = empty ? "—" : O.fmtK(vd.sofar);
+  $("pv-vs").textContent = empty || vd.ratio == null ? "—" : vd.ratio.toFixed(1) + "×";
+  $("pv-rank").textContent = empty ? "—" : `${vd.rank} of ${vd.nYears}`;
+  $("pv-peak").textContent = empty || !vd.peak ? "—" : `${O.MO[vd.peak.m - 1]} · ${O.fmtK(vd.peak.v)}`;
+  if (SPARK) { SPARK.data.datasets[0].backgroundColor = SPARK.data.labels.map((_, i) => T0 + i === T ? "#c2410c" : "#c9ced4"); SPARK.update("none"); }
+  drawCells();
 }
-// Calendar keyboard and pointer support: one cell is in the tab order; arrow keys move between months.
-function gridCells(){return [...document.querySelectorAll("#grid td[data-y]")]}
-function initGridFocus(){
- const cells=gridCells();if(!cells.length)return;
- let cur=SEL&&cells.find(c=>+c.dataset.y===SEL.y&&+c.dataset.m===SEL.m);
- if(!cur)cur=cells.find(c=>LAST.by[c.dataset.y+"-"+c.dataset.m])||cells[0];
- cur.tabIndex=0;
- if(SEL&&cur.dataset.y==SEL.y&&cur.dataset.m==SEL.m){cur.classList.add("sel");document.getElementById("cellinfo").textContent=describe(SEL.y,SEL.m)}
+
+// ---- sparkline ----
+function drawSpark() {
+  const endT = O.tOf(O.state.END.year, O.state.END.month), labels = [], data = [];
+  for (let t = T0; t <= endT; t++) { const { y, m } = ym(t); labels.push(`${O.MO[m - 1]} ${y}`); data.push(O.val(BY, y, m) || 0); }
+  if (!SPARK) {
+    SPARK = new Chart($("spark"), { type: "bar", data: { labels, datasets: [{ data, backgroundColor: "#c9ced4", barPercentage: 1, categoryPercentage: .92 }] },
+      options: { responsive: true, maintainAspectRatio: false, animation: false, onClick: (_, els) => { if (els.length) { stop(); setMonth(T0 + els[0].index); } },
+        plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { label: c => O.fmt(c.raw) + " detections" } } }, scales: { x: { display: false }, y: { display: false } } } });
+  } else { SPARK.data.labels = labels; SPARK.data.datasets[0].data = data; }
+  SPARK.update("none");
 }
-function selectCell(td){
- gridCells().forEach(c=>{c.tabIndex=-1;c.classList.remove("sel")});
- td.tabIndex=0;td.classList.add("sel");
- SEL={y:+td.dataset.y,m:+td.dataset.m};
- document.getElementById("cellinfo").textContent=describe(SEL.y,SEL.m);
+
+// ---- play ----
+function stop() { clearInterval(TIMER); TIMER = null; $("play").setAttribute("aria-pressed", "false"); $("play").textContent = "▶"; $("play").setAttribute("aria-label", "Play through months"); }
+$("play").onclick = () => {
+  if (TIMER) return stop();
+  const endT = O.tOf(O.state.END.year, O.state.END.month);
+  if (T >= endT) setMonth(T0);
+  $("play").setAttribute("aria-pressed", "true"); $("play").textContent = "❚❚"; $("play").setAttribute("aria-label", "Pause");
+  TIMER = setInterval(() => { if (T >= endT) return stop(); setMonth(T + 1); }, 260);
+};
+$("scrub").addEventListener("input", e => { stop(); setMonth(+e.target.value); });
+
+// ---- map (Leaflet + region drawing from PR #29; canvas fallback if tiles fail) ----
+function setFallback(msg) { FALLBACK = true; $("leaflet-map").style.display = "none"; $("map-canvas").style.display = "block"; $("map-status").textContent = msg; drawCells(); }
+function syncSelection() {
+  if (!LEAFLET || FALLBACK) return;
+  const b = [[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]];
+  if (LEAFLET.selection) LEAFLET.selection.setBounds(b); else LEAFLET.selection = L.rectangle(b, { renderer: LEAFLET.renderer, color: "#c2410c", weight: 2, fill: false, interactive: false }).addTo(LEAFLET.map);
+  LEAFLET.selection.bringToFront();
 }
-const gridEl=document.getElementById("grid");
-gridEl.addEventListener("focusin",e=>{const td=e.target.closest("td[data-y]");if(td)selectCell(td)});
-gridEl.addEventListener("click",e=>{const td=e.target.closest("td[data-y]");if(td){td.focus();selectCell(td)}});
-gridEl.addEventListener("keydown",e=>{
- const td=e.target.closest("td[data-y]");if(!td)return;
- const rows=[...gridEl.querySelectorAll("tr")].slice(1),ri=rows.indexOf(td.parentElement),ci=[...td.parentElement.children].indexOf(td);
- const move={ArrowLeft:[0,-1],ArrowRight:[0,1],ArrowUp:[-1,0],ArrowDown:[1,0]}[e.key];
- let next=null;
- if(move){const r=rows[ri+move[0]];next=r&&r.children[ci+move[1]];if(next&&!next.matches("td[data-y]"))next=null}
- else if(e.key==="Home")next=td.parentElement.querySelector("td[data-y]");
- else if(e.key==="End"){const all=td.parentElement.querySelectorAll("td[data-y]");next=all[all.length-1]}
- if(next){e.preventDefault();next.focus()}
+function cellsThisMonth() { if (T == null) return []; const { y, m } = ym(T); return CELLS.filter(c => c.year === y && c.month === m); }
+function drawCells() {
+  const sel = cellsThisMonth(), max = Math.max(1, ...sel.map(c => c.harmonized_count)), { y, m } = T == null ? { y: 0, m: 1 } : ym(T);
+  if (LEAFLET && !FALLBACK) {
+    const vb = LEAFLET.map.getBounds(); LEAFLET.cells.clearLayers();
+    const vis = sel.filter(c => vb.contains([c.cell_lat + .125, c.cell_lon + .125]));
+    vis.forEach(c => L.rectangle([[c.cell_lat, c.cell_lon], [c.cell_lat + .25, c.cell_lon + .25]], { renderer: LEAFLET.renderer, stroke: false, fillColor: O.ramp(.22 + .78 * Math.pow(c.harmonized_count / max, .4)), fillOpacity: .85, interactive: false }).addTo(LEAFLET.cells));
+    syncSelection();
+    if (!SELECT_MODE) $("map-status").textContent = `${O.MO[m - 1]} ${y}: ${O.fmt(sel.length)} active 0.25° cells in this area${O.isProv(y, m) ? " (provisional)" : ""}. Darker = more fire.`;
+  } else if (FALLBACK) {
+    const cv = $("map-canvas"), x = cv.getContext("2d"), { west: w, south: s, east: e, north: n } = BBOX;
+    x.fillStyle = "#eef2f5"; x.fillRect(0, 0, cv.width, cv.height);
+    sel.forEach(c => { const px = (c.cell_lon - w) / (e - w) * cv.width, py = (1 - (c.cell_lat - s) / (n - s)) * cv.height, pw = Math.max(3, .25 / (e - w) * cv.width), ph = Math.max(3, .25 / (n - s) * cv.height); x.fillStyle = O.ramp(Math.pow(c.harmonized_count / max, .4)); x.fillRect(px, py - ph, pw, ph); });
+  }
+}
+function initLeaflet() {
+  if (!window.L) return setFallback("The interactive map couldn't load, so a simple grid view is shown instead.");
+  const map = L.map("leaflet-map", { zoomControl: true }).fitBounds([[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]]);
+  LEAFLET = { map, cells: L.layerGroup().addTo(map), renderer: L.canvas({ padding: .2 }), selection: null };
+  const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+  let ok = false; const errs = new Set();
+  const timer = setTimeout(() => { if (!ok && !FALLBACK) setFallback("Map tiles didn't load in time, so a simple grid view is shown instead."); }, 10000);
+  tiles.on("tileload", () => { ok = true; clearTimeout(timer); });
+  tiles.on("tileerror", e => { const c = e.coords || {}; errs.add(`${c.x}/${c.y}/${c.z}`); if (!ok && errs.size >= 6 && !FALLBACK) { clearTimeout(timer); setFallback("Map tiles couldn't load, so a simple grid view is shown instead."); } });
+  map.on("moveend", drawCells);
+  // Draw a box: pointer events, so mouse, pen and touch all work. Shift+drag box zoom also selects.
+  let start = null, draft = null; const box = map.getContainer();
+  const exit = cancel => { SELECT_MODE = false; start = null; map.dragging.enable(); box.style.cursor = ""; if (draft) { draft.remove(); draft = null; } $("draw-region").setAttribute("aria-pressed", "false"); $("draw-region").textContent = "Draw on map"; if (cancel) $("map-status").textContent = "Drawing cancelled."; };
+  L.DomEvent.on(box, "pointerdown", e => { if (!SELECT_MODE) return; L.DomEvent.stop(e); start = map.mouseEventToLatLng(e); draft = L.rectangle([start, start], { renderer: LEAFLET.renderer, color: "#c2410c", weight: 2, fillOpacity: .08, interactive: false }).addTo(map); });
+  L.DomEvent.on(box, "pointermove", e => { if (SELECT_MODE && start && draft) { L.DomEvent.stop(e); draft.setBounds(L.latLngBounds(start, map.mouseEventToLatLng(e))); } });
+  L.DomEvent.on(box, "pointerup", e => { if (!SELECT_MODE) return; L.DomEvent.stop(e); if (start) { const b = L.latLngBounds(start, map.mouseEventToLatLng(e)); if (b.getWest() < b.getEast() && b.getSouth() < b.getNorth()) setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); } exit(false); });
+  L.DomEvent.on(document, "keydown", e => { if (SELECT_MODE && e.key === "Escape") exit(true); });
+  map.on("boxzoomend", e => { const b = e.boxZoomBounds; setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); });
+  LEAFLET.exitDraw = exit;
+}
+$("draw-region").onclick = () => {
+  if (!LEAFLET || FALLBACK) { $("map-status").textContent = "The interactive map isn't available. Type W,S,E,N and choose Apply."; return; }
+  if (SELECT_MODE) return LEAFLET.exitDraw(true);
+  SELECT_MODE = true; LEAFLET.map.dragging.disable(); LEAFLET.map.getContainer().style.cursor = "crosshair";
+  $("draw-region").setAttribute("aria-pressed", "true"); $("draw-region").textContent = "Cancel drawing";
+  $("map-status").textContent = "Drag on the map to draw an area. Esc cancels.";
+};
+$("clear-region").onclick = () => setArea(O.parseBBox(O.PRESETS[0].bbox));
+$("preset").onchange = e => setArea(O.parseBBox(e.target.value));
+$("apply").onclick = applyField;
+$("bbox").addEventListener("keydown", e => { if (e.key === "Enter") applyField(); });
+
+// ---- start ----
+O.loadData().then(() => {
+  O.setDataThrough();
+  const endT = O.tOf(O.state.END.year, O.state.END.month);
+  $("scrub").min = T0; $("scrub").max = endT;
+  initLeaflet(); setArea(BBOX, { fit: false });
+  setMonth(S.year && S.month ? O.tOf(S.year, S.month) : endT);
+}).catch(err => {
+  console.error(err);
+  $("map-status").textContent = "Couldn't load the fire data. Try reloading the page.";
+  $("sel-pill").textContent = "Data unavailable";
 });
-function renderBusy(full){
- const li=(t,v)=>`<li>${t} · ${Math.round(v).toLocaleString()}</li>`, none="<li>No data for this selection</li>";
- const months=[...full].sort((a,b)=>b.harmonized-a.harmonized).slice(0,5);
- document.getElementById("busy-months").innerHTML=months.length?months.map(r=>li(MO[r.month-1]+" "+r.year+(isProv(r.year,r.month)?" (provisional)":""),r.harmonized)).join(""):none;
- const yr={};full.forEach(r=>yr[r.year]=(yr[r.year]||0)+r.harmonized);
- const years=Object.entries(yr).sort((a,b)=>b[1]-a[1]).slice(0,5);
- document.getElementById("busy-years").innerHTML=years.length?years.map(([y,v])=>li(+y===END.year&&END.month<12?`${y} (to ${MO[END.month-1]}, partial)`:y,v)).join(""):none;
-}
-function drawMap(cells){
- const y=+document.getElementById("my").value,m=+document.getElementById("mm").value,{west:w,south:so,east:e,north:n}=BBOX;
- const cv=document.getElementById("map"),x=cv.getContext("2d");x.fillStyle="#eef4f6";x.fillRect(0,0,cv.width,cv.height);
- const sel=cells.filter(c=>+c.year===y&&+c.month===m); const max=Math.max(1,...sel.map(c=>+c.harmonized_count));
- x.strokeStyle="#c9d4d8"; for(let gx=0;gx<=8;gx++){x.beginPath();x.moveTo(gx*cv.width/8,0);x.lineTo(gx*cv.width/8,cv.height);x.stroke()} for(let gy=0;gy<=4;gy++){x.beginPath();x.moveTo(0,gy*cv.height/4);x.lineTo(cv.width,gy*cv.height/4);x.stroke()}
- sel.forEach(c=>{const px=(+c.cell_lon-w)/(e-w)*cv.width, py=(1-(+c.cell_lat-so)/(n-so))*cv.height, pw=Math.max(3,(0.25/(e-w))*cv.width), ph=Math.max(3,(0.25/(n-so))*cv.height); x.fillStyle=ramp(Math.pow(+c.harmonized_count/max,0.4)); x.fillRect(px,py-ph,pw,ph)});
- x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(`${MO[m-1]} ${y}${isProv(y,m)&&!isPartial(y,m)?" (provisional: near-real-time data, may change)":""} — ${sel.length.toLocaleString()} active cells`,12,20);
-}
-function setFallback(message){FALLBACK=true;document.getElementById("leaflet-map").style.display="none";document.getElementById("map").classList.remove("map-fallback");document.getElementById("map-status").textContent=message}
-function updateLeafletCells(cells){
- if(!LEAFLET||FALLBACK)return;MAP_CELLS=cells;const y=+document.getElementById("my").value,m=+document.getElementById("mm").value,bounds=LEAFLET.map.getBounds();
- LEAFLET.cells.clearLayers();const sel=cells.filter(c=>+c.year===y&&+c.month===m&&bounds.contains([+c.cell_lat+.125,+c.cell_lon+.125]));const max=Math.max(1,...sel.map(c=>+c.harmonized_count));
- sel.forEach(c=>{const color=ramp(Math.pow(+c.harmonized_count/max,.4));/* Leaflet rectangle corners use [lat, lon], unlike BBOX's [lon, lat]. */L.rectangle([[+c.cell_lat,+c.cell_lon],[+c.cell_lat+.25,+c.cell_lon+.25]],{renderer:LEAFLET.renderer,stroke:false,fillColor:color,fillOpacity:.72,interactive:false}).addTo(LEAFLET.cells)});syncLeafletSelection();if(LEAFLET.draft)LEAFLET.draft.bringToFront();
- document.getElementById("map-status").textContent=`${MO[m-1]} ${y}: ${sel.length.toLocaleString()} visible fire cells`;
-}
-function initLeaflet(){
- if(!window.L){setFallback("Interactive map could not load. The canvas grid below remains available.");return}
- const map=L.map("leaflet-map",{renderer:L.canvas(),zoomControl:true}).fitBounds([[BBOX.south,BBOX.west],[BBOX.north,BBOX.east]]);const cells=L.layerGroup().addTo(map),renderer=L.canvas({padding:.2});LEAFLET={map,cells,renderer,selection:null,draft:null};
- const tiles=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"}).addTo(map);let tileSucceeded=false,tileFallback=false;const tileErrors=new Set(),tileTimer=setTimeout(()=>{if(!tileSucceeded&&!FALLBACK){tileFallback=true;setFallback("Map tiles did not load in time. The canvas grid below remains fully available.")}},10000);tiles.on("tileload",()=>{tileSucceeded=true;clearTimeout(tileTimer)});tiles.on("tileerror",e=>{const c=e.coords||{};tileErrors.add(`${c.x}/${c.y}/${c.z}`);if(!tileFallback&&tileErrors.size>=6){tileFallback=true;clearTimeout(tileTimer);setFallback("Map tiles could not load. The canvas grid below remains fully available.")}});
- map.on("moveend",()=>updateLeafletCells(MAP_CELLS));
- let start=null,draft=null;const container=map.getContainer();const exit=(cancel=false)=>{SELECT_MODE=false;start=null;map.dragging.enable();container.style.cursor="";if(draft){draft.remove();draft=null}document.getElementById("draw-region").setAttribute("aria-pressed","false");document.getElementById("draw-region").textContent="Select region";if(cancel)document.getElementById("map-status").textContent="Drawing cancelled. Pan or zoom to inspect cells."};
- const finish=e=>{if(!SELECT_MODE||!start)return;const b=L.latLngBounds(start,map.mouseEventToLatLng(e));if(b.getWest()<b.getEast()&&b.getSouth()<b.getNorth()){/* Leaflet [lat, lon] becomes field W,S,E,N lon-lat. */setBBox({west:b.getWest(),south:b.getSouth(),east:b.getEast(),north:b.getNorth()},{fitMap:false,select:true});renderAll()}exit()};
- L.DomEvent.on(container,"pointerdown",e=>{if(!SELECT_MODE)return;L.DomEvent.stop(e);start=map.mouseEventToLatLng(e);if(draft)draft.remove();draft=L.rectangle([start,start],{renderer:renderer,color:"#b03a2e",weight:2,fillOpacity:.08,interactive:false}).addTo(map);draft.bringToFront()});
- L.DomEvent.on(container,"pointermove",e=>{if(SELECT_MODE&&start&&draft){L.DomEvent.stop(e);draft.setBounds(L.latLngBounds(start,map.mouseEventToLatLng(e)));draft.bringToFront()}});L.DomEvent.on(container,"pointerup",e=>{if(SELECT_MODE){L.DomEvent.stop(e);finish(e)}});L.DomEvent.on(document,"pointerup",e=>{if(SELECT_MODE&&!container.contains(e.target)&&!document.getElementById("draw-region").contains(e.target))exit(true)});L.DomEvent.on(document,"keydown",e=>{if(SELECT_MODE&&e.key==="Escape")exit(true)});
- map.on("boxzoomend",e=>{const b=e.boxZoomBounds;setBBox({west:b.getWest(),south:b.getSouth(),east:b.getEast(),north:b.getNorth()},{fitMap:false,select:true});renderAll()});
- LEAFLET.exitDraw=exit;
- document.getElementById("map-status").textContent="Pan or zoom to inspect cells. Choose Select region, then drag to filter the calendar.";
-}
-function drawChart(s,med){
- const y=+document.getElementById("my").value,cv=document.getElementById("chart"),x=cv.getContext("2d");x.clearRect(0,0,cv.width,cv.height);
- const by={};s.forEach(r=>by[r.year+"-"+r.month]=r); const vals=[];for(let m=1;m<=12;m++)vals.push(by[y+"-"+m]?by[y+"-"+m].harmonized:0);
- const max=Math.max(1,...vals,...Object.values(med)); const bw=cv.width/14;
- const prov=vals.map((v,i)=>v>0&&isProv(y,i+1));
- vals.forEach((v,i)=>{const bh=(v/max)*(cv.height-50),bx=(i+0.7)*bw,by=cv.height-30-bh;x.fillStyle=prov[i]?"rgba(230,126,34,0.45)":"#e67e22";x.fillRect(bx,by,bw*0.6,bh);if(prov[i]){x.setLineDash([4,3]);x.strokeStyle="#5d6d7e";x.strokeRect(bx,by,bw*0.6,bh);x.setLineDash([])}x.fillStyle="#17202a";x.font="11px sans-serif";x.fillText(MO[i]+(prov[i]?"*":""),(i+0.8)*bw,cv.height-12)});
- x.strokeStyle="#b03a2e";x.lineWidth=2;x.beginPath();for(let m=1;m<=12;m++){const px=(m+0.0)*bw,py=cv.height-30-(med[m]/max)*(cv.height-50);m===1?x.moveTo(px,py):x.lineTo(px,py)}x.stroke();x.lineWidth=1;
- x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(y+" monthly harmonized totals (bars) vs "+BASE[0]+"–"+BASE[1]+" median (line)"+(prov.some(Boolean)?" · * dashed bars are provisional (near-real-time data, may change)":""),12,18);
-}
-document.getElementById("mode").addEventListener("click",e=>{if(e.target.dataset.m){MODE=e.target.dataset.m;document.querySelectorAll("#mode button").forEach(b=>b.classList.toggle("on",b.dataset.m===MODE));renderAll()}});
-document.getElementById("preset").onchange=e=>{const next=parseBBox(e.target.value);if(next){setBBox(next,{select:true});renderAll()}};
-document.getElementById("apply").onclick=()=>{if(applyBBoxField())renderAll()}; document.getElementById("bbox").addEventListener("keydown",e=>{if(e.key==="Enter"&&applyBBoxField())renderAll()});document.getElementById("mapgo").onclick=renderAll;
-document.getElementById("draw-region").onclick=()=>{if(!LEAFLET||FALLBACK){document.getElementById("map-status").textContent="Interactive map unavailable. Type W,S,E,N and choose Apply to select a region.";return}if(SELECT_MODE){LEAFLET.exitDraw(true);return}SELECT_MODE=true;LEAFLET.map.dragging.disable();LEAFLET.map.getContainer().style.cursor="crosshair";document.getElementById("draw-region").setAttribute("aria-pressed","true");document.getElementById("draw-region").textContent="Cancel selection";document.getElementById("map-status").textContent="Drag on the map to draw your region. Esc cancels."};
-document.getElementById("clear-region").onclick=()=>{HAS_SELECTION=false;document.getElementById("preset").selectedIndex=0;setBBox({west:-140,south:42,east:-52,north:72});renderAll()};
-document.getElementById("csv").onclick=()=>{const cells=filteredCells();const rows=[["cell_lat","cell_lon","year","month","modis_count","viirs_count","total_count","harmonized_count"],...cells.map(c=>[c.cell_lat,c.cell_lon,c.year,c.month,c.modis_count,c.viirs_count,c.total_count,c.harmonized_count])];const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"}));a.download="murphy_hotspots_selection.csv";a.click()};
-document.getElementById("png").onclick=()=>{const src=document.getElementById("chart");const a=document.createElement("a");a.href=src.toDataURL("image/png");a.download="murphy_chart.png";a.click()};
-fetch("data/monthly.json").then(r=>r.json()).then(d=>{DATA=d;CELLS=decodeCells(d.cells);END=d.region_monthly.reduce((a,r)=>r.year*12+r.month>a.year*12+a.month?{year:r.year,month:r.month}:a,{year:0,month:1});PROV=d.provisional_from||null;initLeaflet();renderAll()}).catch(()=>{document.getElementById("grid").textContent="Could not load valid monthly data — the pipeline export must meet the UI contract.";setFallback("Interactive map unavailable; data loading needs attention.")});
-</script></body></html>
+</script>
+</body></html>
