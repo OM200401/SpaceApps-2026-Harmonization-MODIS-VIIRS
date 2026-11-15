@@ -85,7 +85,7 @@ Canada with global ratios, by stratum:
 | Off | Night | 21 | 50.6% | −50.6% |
 
 Fire-season error and bias both improve over Canada's own ratios. Off-season nights get worse, because the global off-night ratio (9.47) is lower than Canada's (13.93), but those months carry few detections. The top-5 months still match 5/5: Aug 2023, Jul 2023, Jul 2021, Sep 2023, Jun 2023.
-Check: `python pipeline/grid_validate.py --ratios data/calibration_regions.json`.
+Check: `python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet --ratios data/calibration_regions.json`.
 
 ### 2011→2012 sensor jump by region
 | Region | Raw | Harmonized | MODIS alone |
@@ -96,10 +96,30 @@ Check: `python pipeline/grid_validate.py --ratios data/calibration_regions.json`
 
 In every region the harmonized change is within 5 points of the single-sensor MODIS change, and the fake sensor-switch jump is gone. (Canada with its own ratios: +59.1%.)
 
+## Cell-day counts vs detections (2026-11-14, #15) — not adopted
+**Test:** count each 0.05° cell (~5 km) at most once per day, per day/night and per satellite, instead of counting every detection. This removes repeat passes and VIIRS's extra detections of the same fire. Built from all 660M raw detections (the Hugging Face dataset downloaded to `data/firms`, laid out as `sensor=*/year=*/*.parquet`). Commands, with separate output paths so the shipped detection outputs are not overwritten:
+```bash
+python summarise/build_monthly_grid.py --input data/firms --cell-days 0.05   # -> data/derived/monthly_celldays_025.parquet
+python pipeline/build_regions.py --input data/derived/monthly_celldays_025.parquet --outdir data/regions_celldays     --out data/monthly_harmonized_all_celldays.parquet --calibration-out data/calibration_regions_celldays.json     --app-out data/monthly_harmonized_celldays.parquet
+``` Same filters as the detection grid (vegetation, confidence n/h, Terra/Aqua/S-NPP); 165M cell-days worldwide.
+
+**Ratios shrink a lot:** Canada's fire-season night ratio drops from 8.42 to 2.65. In Canada one cell-day holds 4.4 detections on average, against 2.2 in the Amazon and 1.9 in the Mediterranean. So much of VIIRS's extra count is the same fire detected repeatedly, not extra fires.
+
+**Holdout MAPE (calibrate 2012–2020, predict S-NPP 2021–2023)**
+| Region | Detections, own | Detections, global | Cell-days, own | Cell-days, global | Best |
+|---|---:|---:|---:|---:|---|
+| Canada | 19.5% | **16.9%** | 27.9% | 48.9% | detections |
+| Amazon | 17.9% | 32.9% | **17.3%** | 35.2% | cell-days, by 0.6 points |
+| Mediterranean | **20.6%** | 26.9% | 25.7% | 25.4% | detections |
+
+**2011→2012 jump, cell-day units, shipped ratio choice:** Canada −4.2% (MODIS cell-days alone +49.5%), Amazon +49.3% (+50.2%), Mediterranean +2.1% (+22.7%). With detections, every region was within 5 points of MODIS.
+
+**Decision:** keep detection counts. Cell-days lower the error only in the Amazon, by 0.6 points, and make Canada and the Mediterranean clearly worse, including the 2012 jump. Mixing units across regions isn't worth 0.6 points. The `--cell-days` option stays in `build_monthly_grid.py` so the test can be repeated.
+
 ### Not yet done
 - [ ] Coverage check per sensor-year (NRT vs standard-processing months, see #14)
 - [ ] Export the extra regions to the app (#11): all three regions make `monthly.json` 17.9 MB instead of 4.2 MB
-- [ ] Cell-day counting, kept only if it lowers the MAPE above (#15)
+- [x] Cell-day counting (#15): tested above, not adopted
 - [ ] NBAC 2023 correlation (`validate_nbac.py`, skips until the NBAC file is present)
 
 ## Pipeline test (synthetic data, NOT science results)
