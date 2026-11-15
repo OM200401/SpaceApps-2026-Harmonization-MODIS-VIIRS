@@ -19,12 +19,22 @@
     { id: "n-australia", name: "Northern Australia", bbox: "120,-20,150,-11" },
     { id: "world", name: "Whole world", bbox: "-180,-60,180,80" },
   ];
+  // Leave-one-year-out monthly error (%) per tested region, from docs/VALIDATION.md (the table on the Method page).
+  const ACCURACY = { canada: 6.5, amazon: 2.6, mediterranean: 7.3, "us-west": 4.4, siberia: 4.5, "southern-africa": 2.0, "se-asia": 3.9, "n-australia": 3.3, world: 1.5 };
   const DEFAULT_BBOX = { west: -140, south: 42, east: -52, north: 72 };
 
-  // Cividis (colour-blind safe, perceptually uniform), reversed so low = light and high = dark.
-  const CIVIDIS = [[255, 234, 70], [208, 190, 103], [182, 169, 113], [158, 150, 119], [135, 132, 121], [114, 115, 116], [94, 98, 110], [72, 82, 107], [42, 64, 108], [0, 48, 111], [0, 32, 77]];
-  function rampRGB(t) { t = Math.min(1, Math.max(0, t)); const x = t * (CIVIDIS.length - 1), i = Math.min(CIVIDIS.length - 2, Math.floor(x)), f = x - i; return CIVIDIS[i].map((v, j) => Math.round(v + (CIVIDIS[i + 1][j] - v) * f)); }
-  function ramp(t) { const c = rampRGB(t); return `rgb(${c[0]},${c[1]},${c[2]})`; }
+  // One fire ramp for the map and every calendar view: a single orange-red hue family, monotonic in lightness
+  // (so it survives colour-vision deficiency and greyscale). Dark theme: brighter = more fire. Light theme: darker = more fire.
+  const FIRE_DARK = [[40, 21, 17], [86, 27, 15], [148, 37, 14], [209, 67, 18], [250, 117, 35], [255, 173, 67], [255, 223, 136], [255, 247, 214]];
+  const FIRE_LIGHT = [[253, 233, 207], [251, 201, 148], [247, 157, 89], [232, 107, 41], [200, 66, 18], [154, 38, 13], [103, 23, 11], [56, 13, 9]];
+  function lerpStops(S, t) { t = Math.min(1, Math.max(0, t)); const x = t * (S.length - 1), i = Math.min(S.length - 2, Math.floor(x)), f = x - i; return S[i].map((v, j) => Math.round(v + (S[i + 1][j] - v) * f)); }
+  function rampRGB(t, dark = isDark()) { return lerpStops(dark ? FIRE_DARK : FIRE_LIGHT, t); }
+  function ramp(t, dark) { return `rgb(${rampRGB(t, dark)})`; }
+  // Diverging scale for "times typical": -1 = far below (blue), 0 = typical (neutral grey), +1 = far above (fire).
+  function divRGB(t, dark = isDark()) {
+    const mid = dark ? [64, 68, 76] : [212, 208, 201];
+    return t < 0 ? lerpStops([mid, dark ? [88, 160, 244] : [36, 102, 200]], -t) : lerpStops(dark ? [mid, [214, 78, 22], [255, 216, 124]] : [mid, [226, 96, 34], [92, 20, 9]], t);
+  }
   // Black or white text, whichever has the higher WCAG contrast on a ramp colour (always >= 4.5:1).
   function inkFor(c) { const L = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }), l = 0.2126 * L[0] + 0.7152 * L[1] + 0.0722 * L[2]; return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) ? "#000" : "#fff"; }
 
@@ -145,12 +155,11 @@
     const q = new URLSearchParams(location.search);
     const bbox = parseBBox(q.get("bbox")) || { ...DEFAULT_BBOX };
     const y = parseInt(q.get("year"), 10), m = parseInt(q.get("month"), 10);
-    return { bbox, year: Number.isFinite(y) ? y : null, month: m >= 1 && m <= 12 ? m : null };
+    return { bbox, year: Number.isFinite(y) ? y : null, month: m >= 1 && m <= 12 ? m : null, q: Object.fromEntries(q) };
   }
   function setState(s) {
     const q = new URLSearchParams(location.search);
-    if (s.bbox) q.set("bbox", formatBBox(s.bbox));
-    ["year", "month"].forEach(k => { if (k in s) { if (s[k] == null) q.delete(k); else q.set(k, s[k]); } });
+    Object.entries(s).forEach(([k, v]) => { if (v == null) q.delete(k); else q.set(k, k === "bbox" ? formatBBox(v) : v); });
     history.replaceState(null, "", location.pathname + "?" + q.toString());
     updateNavLinks();
   }
@@ -159,11 +168,10 @@
 
   // ---- theme: system by default; the header toggle stores an explicit choice (each page sets it early in <head>) ----
   const THEME_KEY = "obc-theme";
-  const sysDark = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : { matches: false, addEventListener() {} };
-  const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === "dark" : sysDark.matches; };
+  const isDark = () => document.documentElement.dataset.theme !== "light";
   const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   // Colours for canvas charts, which can't read CSS variables themselves.
-  const colors = () => ({ ink: cssVar("--ink"), ink2: cssVar("--ink-2"), ink3: cssVar("--ink-3"), grid: cssVar("--grid"), spark: cssVar("--spark"),
+  const colors = () => ({ ink: cssVar("--ink"), ink2: cssVar("--ink-2"), ink3: cssVar("--ink-3"), grid: cssVar("--grid"), bar: cssVar("--bar"),
     ember: cssVar("--ember"), blue: cssVar("--blue"), blueSoft: cssVar("--blue-soft"), card: cssVar("--card"), cellEmpty: cssVar("--cell-empty"), canvasBg: cssVar("--canvas-bg") });
   function themeChanged() { updateThemeToggle(); document.dispatchEvent(new CustomEvent("obc-theme")); }
   function setTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem(THEME_KEY, t); } catch (e) { } themeChanged(); }
@@ -175,25 +183,26 @@
     b.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
     b.setAttribute("aria-pressed", String(dark));
   }
-  sysDark.addEventListener && sysDark.addEventListener("change", () => { if (!document.documentElement.dataset.theme) themeChanged(); });
   // Charts get the card colour painted behind them, so exported PNGs match the theme instead of being transparent.
   if (window.Chart) Chart.register({ id: "obcBackground", beforeDraw(c) { const x = c.ctx; x.save(); x.globalCompositeOperation = "destination-over"; x.fillStyle = cssVar("--card"); x.fillRect(0, 0, c.width, c.height); x.restore(); } });
   const onTheme = fn => document.addEventListener("obc-theme", fn);
 
   // ---- chrome ----
   const FLAME = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2c1 3.5-1.5 5-1.5 7.5 0 1.4 1 2.5 2.3 2.5 1.6 0 2.4-1.4 2.2-3 2 1.6 3.5 4 3.5 6.6C18.5 19.5 15.6 22 12 22s-6.5-2.5-6.5-6.4C5.5 10.4 10.6 7.6 12 2z"/></svg>';
-  function renderHeader(active) {
+  // slot: page-specific controls (the explore page puts its area picker there).
+  function renderHeader(active, slot) {
     const el = document.getElementById("site-header"); if (!el) return;
-    const link = (page, label) => `<a data-page-link="${page}" href="${page}"${active === page ? ' aria-current="page"' : ""}>${label}</a>`;
+    const link = (page, label) => `<a class="nav-link" data-page-link="${page}" href="${page}"${active === page ? ' aria-current="page"' : ""}>${label}</a>`;
     el.className = "site-header";
-    el.innerHTML = `<div class="wrap"><a class="brand" data-page-link="index.html" href="index.html"><span class="brand-mark">${FLAME}</span>One Burning Calendar</a>
-      <nav class="nav" aria-label="Main">${link("index.html", "Map")}${link("report.html", "Report")}${link("how-it-works.html", "Method")}</nav>
-      <span class="header-meta" id="data-through"></span>
-      <button class="theme-toggle" id="theme-toggle" type="button"></button></div>`;
+    el.innerHTML = `<div class="bar"><a class="brand" data-page-link="index.html" href="index.html"><span class="brand-mark">${FLAME}</span>One Burning Calendar</a>
+      <div class="header-slot">${slot || ""}</div>
+      <div class="header-end"><span class="header-meta" id="data-through"></span>
+      <nav aria-label="Main" style="display:flex;gap:2px">${link("index.html", "Explore")}${link("how-it-works.html", "Method")}</nav>
+      <button class="theme-toggle" id="theme-toggle" type="button"></button></div></div>`;
     document.getElementById("theme-toggle").onclick = () => setTheme(isDark() ? "light" : "dark");
     updateThemeToggle(); updateNavLinks();
   }
-  function setDataThrough() { const el = document.getElementById("data-through"); if (el && state.END.year) el.textContent = `Data through ${MONTH[state.END.month - 1]} ${state.END.year}`; }
+  function setDataThrough() { const el = document.getElementById("data-through"); if (el && state.END.year) el.textContent = `NASA FIRMS MODIS + VIIRS · data through ${MONTH[state.END.month - 1]} ${state.END.year}`; }
   function renderFooter() {
     const el = document.getElementById("site-footer"); if (!el) return;
     el.className = "site-footer";
@@ -212,7 +221,7 @@
   }
   function downloadCanvas(canvas, name) { canvas.toBlob(b => download(name, b), "image/png"); }
 
-  window.OBC = { MO, MONTH, BASE, FIRST_YEAR, SNPP_T, POW, PRESETS, DEFAULT_BBOX, state, rampRGB, ramp, inkFor, fmt, fmtK, ordinal, tOf,
+  window.OBC = { MO, MONTH, BASE, FIRST_YEAR, SNPP_T, POW, PRESETS, ACCURACY, DEFAULT_BBOX, state, rampRGB, ramp, divRGB, inkFor, fmt, fmtK, ordinal, tOf,
     loadData, areaCells, levelFor, isPartial, isProv, isEst, parseBBox, formatBBox, presetFor, areaName, seriesFor, val, quantile, monthStats,
     status, verdict, describe, getState, setState, pageLink, updateNavLinks, renderHeader, renderFooter, setDataThrough, presetOptions,
     downloadCSV, downloadCanvas, isDark, setTheme, colors, onTheme };
