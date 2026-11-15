@@ -1,5 +1,5 @@
 /* One Burning Calendar: data loading, harmonization display rules and page chrome shared by all pages.
-   Exposes window.OBC. The data contract is docs/UI_DATA_CONTRACT.md (app/data/index.json + tiles). */
+   Exposes window.OBC. The data contract is docs/UI_DATA_CONTRACT.md (app/data/monthly.json). */
 (function () {
   const MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -12,12 +12,6 @@
     { id: "canada-core", name: "Canada core fires", bbox: "-125,49,-60,65" },
     { id: "amazon", name: "Amazon", bbox: "-75,-15,-45,5" },
     { id: "mediterranean", name: "Mediterranean", bbox: "-10,35,30,45" },
-    { id: "us-west", name: "US West", bbox: "-125,31,-102,49" },
-    { id: "siberia", name: "Siberia", bbox: "90,50,140,70" },
-    { id: "southern-africa", name: "Southern Africa", bbox: "12,-20,40,-5" },
-    { id: "se-asia", name: "SE Asia", bbox: "92,10,110,25" },
-    { id: "n-australia", name: "Northern Australia", bbox: "120,-20,150,-11" },
-    { id: "world", name: "Whole world", bbox: "-180,-60,180,80" },
   ];
   const DEFAULT_BBOX = { west: -140, south: 42, east: -52, north: 72 };
 
@@ -34,45 +28,20 @@
   const tOf = (y, m) => y * 12 + (m - 1);
 
   // ---- data ----
-  // index.json lists the tiles; areaCells() fetches only the tiles an area needs (see docs/UI_DATA_CONTRACT.md).
-  // "d" = 0.25-degree cells in 10-degree tiles, "c" = 1-degree cells in 30-degree tiles.
-  const DETAIL_MAX = 700000;          // above this many cell-months an area is shown with 1-degree cells
-  const state = { INDEX: null, END: { year: 0, month: 12 }, PROV: null };
-  const TILE_CACHE = new Map();
-  function decodeCells(c, size) {
+  const state = { DATA: null, CELLS: [], END: { year: 0, month: 12 }, PROV: null };
+  function decodeCells(c) {
     const out = []; let i = 0;
-    c.n_months.forEach((n, k) => { for (const end = i + n; i < end; i++) { const t = c.t[i], modis = c.modis_count[i], viirs = c.viirs_count[i]; out.push({ cell_lat: c.cell_lat[k], cell_lon: c.cell_lon[k], size, year: c.t0_year + Math.floor(t / 12), month: t % 12 + 1, modis_count: modis, viirs_count: viirs, total_count: modis + viirs, harmonized_count: c.harmonized_count[i] }); } });
+    c.n_months.forEach((n, k) => { for (const end = i + n; i < end; i++) { const t = c.t[i], modis = c.modis_count[i], viirs = c.viirs_count[i]; out.push({ cell_lat: c.cell_lat[k], cell_lon: c.cell_lon[k], year: c.t0_year + Math.floor(t / 12), month: t % 12 + 1, modis_count: modis, viirs_count: viirs, total_count: modis + viirs, harmonized_count: c.harmonized_count[i] }); } });
     return out;
   }
   async function loadData() {
-    const r = await fetch("data/index.json");
-    if (!r.ok) throw new Error("index.json " + r.status);
+    const r = await fetch("data/monthly.json");
+    if (!r.ok) throw new Error("monthly.json " + r.status);
     const d = await r.json();
-    state.INDEX = d; state.END = d.end; state.PROV = d.provisional_from || null;
+    state.DATA = d; state.CELLS = decodeCells(d.cells);
+    state.END = d.region_monthly.reduce((a, r) => tOf(r.year, r.month) > tOf(a.year, a.month) ? { year: r.year, month: r.month } : a, { year: 0, month: 1 });
+    state.PROV = d.provisional_from || null;
     return state;
-  }
-  function tileKeys(lvl, b) {
-    const t = state.INDEX.levels[lvl].tile, have = state.INDEX.tiles[lvl], keys = [];
-    for (let la = Math.floor(b.south / t) * t; la <= b.north; la += t)
-      for (let lo = Math.floor(b.west / t) * t; lo <= b.east; lo += t) { const k = `${la}_${lo}`; if (have[k]) keys.push(k); }
-    return keys;
-  }
-  function fetchTile(lvl, key) {
-    const id = lvl + "/" + key;
-    if (!TILE_CACHE.has(id)) TILE_CACHE.set(id, fetch(`data/${id}.json`).then(r => { if (!r.ok) throw new Error(id + " " + r.status); return r.json(); })
-      .then(c => decodeCells(c, state.INDEX.levels[lvl].cell)).catch(e => { TILE_CACHE.delete(id); throw e; }));
-    return TILE_CACHE.get(id);
-  }
-  // Level an area will use: detail unless its tiles hold more than DETAIL_MAX cell-months.
-  const levelFor = b => tileKeys("d", b).reduce((s, k) => s + state.INDEX.tiles.d[k][0], 0) <= DETAIL_MAX ? "d" : "c";
-  // Cells for an area. Detail keeps cells whose south-west corner is inside the box (as before); 1-degree
-  // cells are kept when the whole cell is inside, so whole-degree areas are exact and others round inward.
-  async function areaCells(b) {
-    const lvl = levelFor(b), parts = await Promise.all(tileKeys(lvl, b).map(k => fetchTile(lvl, k)));
-    const cells = [].concat(...parts);
-    const keep = lvl === "d" ? c => c.cell_lon >= b.west && c.cell_lon <= b.east && c.cell_lat >= b.south && c.cell_lat <= b.north
-      : c => c.cell_lon >= b.west - 1e-9 && c.cell_lon + 1 <= b.east + 1e-9 && c.cell_lat >= b.south - 1e-9 && c.cell_lat + 1 <= b.north + 1e-9;
-    return { cells: cells.filter(keep), level: lvl, cellDeg: state.INDEX.levels[lvl].cell };
   }
   const isPartial = (y, m) => tOf(y, m) > tOf(state.END.year, state.END.month);
   const isProv = (y, m) => !!state.PROV && tOf(y, m) >= tOf(state.PROV.year, state.PROV.month) && !isPartial(y, m);
@@ -89,6 +58,7 @@
   const formatBBox = b => [b.west, b.south, b.east, b.north].map(v => +(+v).toFixed(4)).join(",");
   const presetFor = b => PRESETS.find(p => p.bbox === formatBBox(b)) || null;
   const areaName = b => { const p = presetFor(b); return p ? p.name : `Custom area (${formatBBox(b)})`; };
+  const filterCells = b => state.CELLS.filter(c => c.cell_lon >= b.west && c.cell_lon <= b.east && c.cell_lat >= b.south && c.cell_lat <= b.north);
 
   // ---- monthly series for an area ----
   function seriesFor(cells) {
@@ -206,14 +176,14 @@
   }
   function download(name, blob) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
   function downloadCSV(cells, name) {
-    const rows = [["cell_lat", "cell_lon", "cell_deg", "year", "month", "modis_count", "viirs_count", "total_count", "harmonized_count", "estimate", "provisional"],
-      ...cells.map(c => [c.cell_lat, c.cell_lon, c.size, c.year, c.month, c.modis_count, c.viirs_count, c.total_count, c.harmonized_count, isEst(c.year, c.month) ? 1 : 0, isProv(c.year, c.month) ? 1 : 0])];
+    const rows = [["cell_lat", "cell_lon", "year", "month", "modis_count", "viirs_count", "total_count", "harmonized_count", "estimate", "provisional"],
+      ...cells.map(c => [c.cell_lat, c.cell_lon, c.year, c.month, c.modis_count, c.viirs_count, c.total_count, c.harmonized_count, isEst(c.year, c.month) ? 1 : 0, isProv(c.year, c.month) ? 1 : 0])];
     download(name, new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" }));
   }
   function downloadCanvas(canvas, name) { canvas.toBlob(b => download(name, b), "image/png"); }
 
   window.OBC = { MO, MONTH, BASE, FIRST_YEAR, SNPP_T, POW, PRESETS, DEFAULT_BBOX, state, rampRGB, ramp, inkFor, fmt, fmtK, ordinal, tOf,
-    loadData, areaCells, levelFor, isPartial, isProv, isEst, parseBBox, formatBBox, presetFor, areaName, seriesFor, val, quantile, monthStats,
+    loadData, isPartial, isProv, isEst, parseBBox, formatBBox, presetFor, areaName, filterCells, seriesFor, val, quantile, monthStats,
     status, verdict, describe, getState, setState, pageLink, updateNavLinks, renderHeader, renderFooter, setDataThrough, presetOptions,
     downloadCSV, downloadCanvas, isDark, setTheme, colors, onTheme };
 })();

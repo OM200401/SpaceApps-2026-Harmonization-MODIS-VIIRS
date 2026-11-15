@@ -108,7 +108,7 @@ button.chip[aria-pressed="true"]{background:var(--ember);border-color:var(--embe
 <script>
 const O = window.OBC, $ = id => document.getElementById(id);
 O.renderHeader("index.html"); O.renderFooter();
-let S = O.getState(), BBOX = S.bbox, CELLS = [], CELL_DEG = .25, LOAD_ID = 0, LOADED = false, BY_T = new Map(), BY = new Map(), STATS = {}, T0 = O.tOf(O.FIRST_YEAR, 1), T = null, SPARK = null, TIMER = null;
+let S = O.getState(), BBOX = S.bbox, CELLS = [], BY = new Map(), STATS = {}, T0 = O.tOf(O.FIRST_YEAR, 1), T = null, SPARK = null, TIMER = null;
 let LEAFLET = null, FALLBACK = false, SELECT_MODE = false;
 const isCustom = () => !O.presetFor(BBOX);
 let TOAST_T = null;
@@ -127,16 +127,11 @@ function setArea(next, { fit = true } = {}) {
   O.presetOptions($("preset"), BBOX);
   $("clear-region").hidden = O.formatBBox(BBOX) === O.PRESETS[0].bbox;
   O.setState({ bbox: BBOX });
+  CELLS = O.filterCells(BBOX); BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
   $("area-name").textContent = O.areaName(BBOX);
   syncSelection();
   if (fit) fitArea();
-  const id = ++LOAD_ID, slow = setTimeout(() => { if (id === LOAD_ID) toast("Loading fire data for this area…"); }, 250);
-  O.areaCells(BBOX).then(r => {
-    if (id !== LOAD_ID) return;  // a newer area was chosen while this one loaded
-    clearTimeout(slow); toast(r.level === "c" ? "Large area: shown with 1° cells." : "", r.level === "c" ? 3500 : 0);
-    LOADED = true; CELLS = r.cells; CELL_DEG = r.cellDeg; BY_T = new Map(); CELLS.forEach(c => { const k = O.tOf(c.year, c.month); (BY_T.get(k) || BY_T.set(k, []).get(k)).push(c); }); BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
-    drawSpark(); renderMonth();
-  }).catch(err => { if (id === LOAD_ID) { clearTimeout(slow); console.error(err); toast("Couldn't load fire data for this area. Try again."); } });
+  drawSpark(); renderMonth();
 }
 function applyField() { const b = O.parseBBox($("bbox").value); if (!b) { $("bbox-error").textContent = "Enter W,S,E,N as numbers, with W < E and S < N."; return; } setArea(b); }
 
@@ -153,7 +148,6 @@ function renderMonth() {
   if (T == null) return;
   const { y, m } = ym(T), v = O.val(BY, y, m), med = STATS[m] ? STATS[m].p50 : 0;
   $("sel-month").textContent = `${O.MONTH[m - 1]} ${y}`;
-  if (!LOADED) return;  // the month label is set; numbers follow once the area's tiles arrive
   const empty = !CELLS.length;
   const ratio = !empty && med > 0 ? v / med : null, st = empty ? { key: "none", label: "No data for this area" } : O.status(ratio);
   $("sel-pill").className = "pill status-" + st.key; $("sel-pill").textContent = st.label;
@@ -161,7 +155,7 @@ function renderMonth() {
   $("sel-ratio-l").textContent = `vs a typical ${O.MONTH[m - 1]}`;
   $("sel-counts").textContent = empty ? "" : `${O.isEst(y, m) ? "≈ " : ""}${O.fmt(v)} detections · typical ${O.fmt(med)}`;
   const notes = [];
-  if (empty) notes.push("No vegetation fires were detected in this area since 2000.");
+  if (empty) notes.push("This area isn't in the data export yet. Canada is fully covered.");
   if (!empty && O.isEst(y, m)) notes.push("≈ Estimated from MODIS (before S-NPP VIIRS, Feb 2012).");
   if (!empty && O.isProv(y, m)) notes.push("Provisional near-real-time data.");
   $("sel-note").hidden = !notes.length; $("sel-note").textContent = notes.join(" ");
@@ -219,19 +213,19 @@ function syncSelection() {
 }
 // Light map: cividis light-to-dark, so busier cells are darker. Dark map: the same scale reversed, so busier cells are brighter.
 function cellColor(share) { return mapRamp(Math.pow(share, .4)); }
-function cellsThisMonth() { return T == null ? [] : BY_T.get(T) || []; }
+function cellsThisMonth() { if (T == null) return []; const { y, m } = ym(T); return CELLS.filter(c => c.year === y && c.month === m); }
 function drawCells() {
-  const sel = cellsThisMonth(), max = sel.reduce((a, c) => Math.max(a, c.harmonized_count), 1), { y, m } = T == null ? { y: 0, m: 1 } : ym(T);
+  const sel = cellsThisMonth(), max = Math.max(1, ...sel.map(c => c.harmonized_count)), { y, m } = T == null ? { y: 0, m: 1 } : ym(T);
   if (LEAFLET && !FALLBACK) {
     const vb = LEAFLET.map.getBounds(); LEAFLET.cells.clearLayers();
-    const h = CELL_DEG / 2, vis = sel.filter(c => vb.contains([c.cell_lat + h, c.cell_lon + h]));
-    vis.forEach(c => L.rectangle([[c.cell_lat, c.cell_lon], [c.cell_lat + CELL_DEG, c.cell_lon + CELL_DEG]], { renderer: LEAFLET.renderer, stroke: false, fillColor: cellColor(c.harmonized_count / max), fillOpacity: LEAFLET.map.getZoom() >= 7 ? .7 : .9, interactive: false }).addTo(LEAFLET.cells));
+    const vis = sel.filter(c => vb.contains([c.cell_lat + .125, c.cell_lon + .125]));
+    vis.forEach(c => L.rectangle([[c.cell_lat, c.cell_lon], [c.cell_lat + .25, c.cell_lon + .25]], { renderer: LEAFLET.renderer, stroke: false, fillColor: cellColor(c.harmonized_count / max), fillOpacity: LEAFLET.map.getZoom() >= 7 ? .7 : .9, interactive: false }).addTo(LEAFLET.cells));
     syncSelection();
   } else if (FALLBACK) {
     const cv = $("map-canvas"); cv.width = cv.clientWidth || 1040; cv.height = cv.clientHeight || 520;
     const x = cv.getContext("2d"), { west: w, south: s, east: e, north: n } = BBOX;
     x.fillStyle = O.colors().canvasBg; x.fillRect(0, 0, cv.width, cv.height);
-    sel.forEach(c => { const px = (c.cell_lon - w) / (e - w) * cv.width, py = (1 - (c.cell_lat - s) / (n - s)) * cv.height, pw = Math.max(3, CELL_DEG / (e - w) * cv.width), ph = Math.max(3, CELL_DEG / (n - s) * cv.height); x.fillStyle = cellColor(c.harmonized_count / max); x.fillRect(px, py - ph, pw, ph); });
+    sel.forEach(c => { const px = (c.cell_lon - w) / (e - w) * cv.width, py = (1 - (c.cell_lat - s) / (n - s)) * cv.height, pw = Math.max(3, .25 / (e - w) * cv.width), ph = Math.max(3, .25 / (n - s) * cv.height); x.fillStyle = cellColor(c.harmonized_count / max); x.fillRect(px, py - ph, pw, ph); });
   }
 }
 const tileURL = () => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${O.isDark() ? "Dark" : "Light"}_Gray_Base/MapServer/tile/{z}/{y}/{x}`;

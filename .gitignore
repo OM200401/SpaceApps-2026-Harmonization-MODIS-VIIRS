@@ -1,7 +1,5 @@
 # Data: stored on Hugging Face (undeadphoenix/firms-fire-data), never in Git
 data/
-# ...except the web app's exported tiles, which GitHub Pages serves
-!app/data/
 firms/
 *.parquet
 *.csv

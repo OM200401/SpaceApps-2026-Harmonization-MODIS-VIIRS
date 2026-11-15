@@ -86,19 +86,15 @@ details.more{margin-top:14px}
 <script>
 const O = window.OBC, $ = id => document.getElementById(id);
 O.renderHeader("report.html"); O.renderFooter();
-let S = O.getState(), BBOX = S.bbox, CELLS = [], LEVEL = "d", LOAD_ID = 0, BY = new Map(), STATS = O.monthStats(new Map()), MED = {}, YEAR = null, MODE = "harmonized", CHART = null, SEL = null;
+let S = O.getState(), BBOX = S.bbox, CELLS = [], BY = new Map(), STATS = {}, MED = {}, YEAR = null, MODE = "harmonized", CHART = null, SEL = null;
 
 function upToFor(y) { return y === O.state.END.year ? O.state.END.month : 12; }
 function setArea(b) {
   BBOX = b; $("bbox").value = O.formatBBox(b); $("bbox-error").textContent = ""; O.presetOptions($("preset"), b);
   O.setState({ bbox: b });
-  const id = ++LOAD_ID; $("verdict").textContent = "Loading the fire record…";
-  O.areaCells(b).then(r => {
-    if (id !== LOAD_ID) return;
-    CELLS = r.cells; LEVEL = r.level; BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
-    MED = {}; for (let m = 1; m <= 12; m++) MED[m] = STATS[m].p50;
-    renderAll();
-  }).catch(err => { if (id === LOAD_ID) { console.error(err); $("verdict").textContent = "Couldn't load the fire data for this area. Try again."; } });
+  CELLS = O.filterCells(b); BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
+  MED = {}; for (let m = 1; m <= 12; m++) MED[m] = STATS[m].p50;
+  renderAll();
 }
 function applyField() { const b = O.parseBBox($("bbox").value); if (!b) { $("bbox-error").textContent = "Enter W,S,E,N as numbers, with W < E and S < N."; return; } setArea(b); }
 
@@ -107,11 +103,11 @@ function renderAll() { renderSummary(); renderSeason(); renderCalendar(); render
 function renderSummary() {
   const empty = !CELLS.length, upTo = upToFor(YEAR), v = O.verdict(BY, YEAR, upTo);
   $("area-title").textContent = O.areaName(BBOX);
-  $("area-sub").textContent = `${YEAR} · data through ${O.MO[O.state.END.month - 1]} ${O.state.END.year}${LEVEL === "c" ? " · large area, 1° cells" : ""}`;
+  $("area-sub").textContent = `${YEAR} · data through ${O.MO[O.state.END.month - 1]} ${O.state.END.year}`;
   $("print-meta").textContent = `One Burning Calendar · area report · ${O.areaName(BBOX)} · ${YEAR} · printed ${new Date().toLocaleDateString()}`;
   const st = empty ? { key: "none", label: "No data for this area" } : v.status;
   $("pill").className = "pill status-" + st.key; $("pill").textContent = st.label;
-  $("verdict").textContent = empty ? "No vegetation fires were detected in this area since 2000." : v.sentence;
+  $("verdict").textContent = empty ? "This area isn't in the current data export yet. Canada is fully covered: choose Canada boreal, or an area inside Canada." : v.sentence;
   $("k-sofar-l").textContent = upTo < 12 ? `So far (Jan–${O.MO[upTo - 1]})` : `Whole year`;
   $("k-sofar").textContent = empty ? "—" : (O.isEst(YEAR, upTo) ? "≈" : "") + O.fmtK(v.sofar);
   $("k-vs").textContent = empty || v.ratio == null ? "—" : v.ratio.toFixed(1) + "×";

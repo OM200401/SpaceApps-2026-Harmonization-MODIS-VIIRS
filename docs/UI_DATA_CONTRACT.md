@@ -1,28 +1,5 @@
-# UI data contract — what the web app reads
-
-The app loads `app/data/index.json` first, then only the tiles an area needs.
-Regenerate everything with:
-
-    python pipeline/build_global.py      # harmonize the whole world -> data/monthly_harmonized_global.parquet
-    python pipeline/export_tiles.py      # -> app/data/index.json, app/data/d/*.json, app/data/c/*.json
-
-index.json:
-{
-  "t0_year": 2000,
-  "levels": {"d": {"cell": 0.25, "tile": 10}, "c": {"cell": 1.0, "tile": 30}},
-  "tiles": {"d": {"40_-130": [cell_months, bytes], ...}, "c": {...}},   key = tile's south-west corner "lat_lon"
-  "end": {"year": 2026, "month": 10},                                    last month with data
-  "archive_end": {...}, "provisional_from": {"year": 2026, "month": 8}
-}
-
-Tiles: `app/data/d/<lat>_<lon>.json` holds 0.25-degree cells of one 10x10-degree tile;
-`app/data/c/<lat>_<lon>.json` holds 1-degree cells (sums of 16 detail cells) of one 30x30-degree tile.
-Each tile is a `cells` block in the layout below. The app uses detail tiles unless the tiles an area
-touches hold more than 700,000 cell-months; then it switches to 1-degree cells (shared.js DETAIL_MAX).
-harmonized_count is rounded to 1 dp in tiles.
-
----
-Cells block layout (also the shape of the old single-file app/data/monthly.json, kept for reference):
+# UI data contract — for the pipeline (Codex) — UI reads ONLY this file
+Path: app/data/monthly.json  (regenerate with pipeline/export_json.py, or any code that matches this shape)
 
 {
   "region_monthly": [ {"year":2023,"month":5,"modis":132,"viirs":414,"total":546,"harmonized":752.1,"mean_frp":20.5}, ... ],
