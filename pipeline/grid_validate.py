@@ -1,11 +1,14 @@
 """Comparable grid-path holdout: region-month MAPE and bias.
-The holdout fits on 2012-2020 (including Jan 2012, as before) and predicts S-NPP for 2021-2023 from MODIS alone."""
+The holdout fits on 2012-2020 and predicts S-NPP for 2021-2023 from MODIS alone. It starts in Jan 2012
+(S-NPP's partial first month) so old- and new-rule numbers stay comparable with earlier docs; the
+production fit starts in Feb 2012 (grid_calibrate.FIT_START). Starting the holdout fit in Feb instead
+lowers Canada's new-rule MAPE from 13.6% to 13.1% (see docs/VALIDATION.md)."""
 import argparse, pandas as pd
 from grid_calibrate import KEYS, STRATA, add_strata, ratios, convert, fit_rule
 HOLDOUT_FIT = ((2012, 1), 2020)
-def holdout_rule(s):
+def holdout_rule(s, fallback=None, start=HOLDOUT_FIT[0]):
  """The optimised rule fitted only on the holdout's calibration years."""
- return fit_rule(s, start=HOLDOUT_FIT[0], end_year=HOLDOUT_FIT[1])
+ return fit_rule(s, start=start, end_year=HOLDOUT_FIT[1], fallback=fallback)
 def holdout(s, r, years=(2021, 2023)):
  """Predict S-NPP for the holdout years from MODIS alone. `r` is a fitted rule (dict) or an old ratio table.
  Returns all months, months with S-NPP (with ape/bias), MODIS rows, S-NPP rows."""

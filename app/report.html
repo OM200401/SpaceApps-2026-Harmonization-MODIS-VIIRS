@@ -161,7 +161,7 @@ function renderCalendar() {
       const at = `data-y="${y}" data-m="${m}" tabindex="-1"`;
       if (O.isPartial(y, m)) { h += O.tOf(y, m) === O.tOf(O.state.END.year, O.state.END.month) + 1 ? `<td class="partial" ${at} aria-label="${O.MO[m - 1]} ${y}: partial month, not shown">partial</td>` : `<td ${at} aria-label="${O.MO[m - 1]} ${y}: no data yet"></td>`; continue; }
       const r = BY.get(O.tOf(y, m)); let txt = "·", bg = "#f4f5f7", ink = "#737b86";
-      if (r) { let v; if (MODE === "anomaly") { v = MED[m] ? r.harmonized / MED[m] : 0; txt = v.toFixed(1) + "×"; } else { v = MODE === "total" ? r.total : r.harmonized; txt = O.fmt(v); }
+      if (r) { let v; if (MODE === "anomaly") { v = MED[m] ? r.harmonized / MED[m] : 0; txt = MED[m] ? v.toFixed(1) + "×" : "—"; } else { v = MODE === "total" ? r.total : r.harmonized; txt = O.fmt(v); }
         const c = O.rampRGB(MODE === "anomaly" ? (v - 1) / 4 : Math.pow(v / Math.max(max, 1), O.POW)); bg = `rgb(${c})`; ink = O.inkFor(c); }
       const prov = r && O.isProv(y, m), est = r && MODE !== "total" && O.isEst(y, m), cls = [prov && "prov", est && "est"].filter(Boolean).join(" ");
       h += `<td${cls ? ` class="${cls}"` : ""} ${at} style="background:${bg};color:${ink}" aria-label="${O.describe(BY, MED, y, m)}">${est ? "≈" : ""}${txt}${prov ? "*" : ""}</td>`;

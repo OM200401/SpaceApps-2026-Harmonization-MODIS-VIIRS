@@ -100,7 +100,7 @@ function setArea(next, { fit = true } = {}) {
   CELLS = O.filterCells(BBOX); BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
   $("area-name").textContent = O.areaName(BBOX);
   syncSelection();
-  if (LEAFLET && fit) LEAFLET.map.fitBounds([[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]]);
+  if (LEAFLET && fit && !FALLBACK) LEAFLET.map.fitBounds([[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]]);
   drawSpark(); renderMonth();
 }
 function applyField() { const b = O.parseBBox($("bbox").value); if (!b) { $("bbox-error").textContent = "Enter W,S,E,N as numbers, with W < E and S < N."; return; } setArea(b); }
@@ -166,6 +166,22 @@ $("scrub").addEventListener("input", e => { stop(); setMonth(+e.target.value); }
 
 // ---- map (Leaflet + region drawing from PR #29; canvas fallback if tiles fail) ----
 function setFallback(msg) { FALLBACK = true; $("leaflet-map").style.display = "none"; $("map-canvas").style.display = "block"; $("map-status").textContent = msg; drawCells(); }
+// From #29: after falling back, probe the tile server a few times and bring the map back if it recovers.
+function tileFallbackNow(msg) {
+  setFallback(msg);
+  [6000, 14000, 30000].forEach(ms => setTimeout(() => {
+    if (!FALLBACK || !LEAFLET) return;
+    const img = new Image();
+    img.onload = () => {
+      if (!FALLBACK) return;
+      FALLBACK = false; $("leaflet-map").style.display = ""; $("map-canvas").style.display = "none";
+      LEAFLET.map.invalidateSize(); LEAFLET.map.fitBounds([[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]]);
+      if (LEAFLET.tiles) LEAFLET.tiles.redraw();
+      drawCells(); $("map-status").textContent = "Map tiles are back. " + $("map-status").textContent;
+    };
+    img.src = "https://tile.openstreetmap.org/2/2/1.png?probe=" + Date.now();
+  }, ms));
+}
 function syncSelection() {
   if (!LEAFLET || FALLBACK) return;
   const b = [[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]];
@@ -193,18 +209,21 @@ function initLeaflet() {
   LEAFLET = { map, cells: L.layerGroup().addTo(map), renderer: L.canvas({ padding: .2 }), selection: null };
   const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
   let ok = false; const errs = new Set();
-  const timer = setTimeout(() => { if (!ok && !FALLBACK) setFallback("Map tiles didn't load in time, so a simple grid view is shown instead."); }, 10000);
+  LEAFLET.tiles = tiles;
+  const timer = setTimeout(() => { if (!ok && !FALLBACK) tileFallbackNow("Map tiles didn't load in time, so a simple grid view is shown instead."); }, 10000);
   tiles.on("tileload", () => { ok = true; clearTimeout(timer); });
-  tiles.on("tileerror", e => { const c = e.coords || {}; errs.add(`${c.x}/${c.y}/${c.z}`); if (!ok && errs.size >= 6 && !FALLBACK) { clearTimeout(timer); setFallback("Map tiles couldn't load, so a simple grid view is shown instead."); } });
+  tiles.on("tileerror", e => { const c = e.coords || {}; errs.add(`${c.x}/${c.y}/${c.z}`); if (!ok && errs.size >= 6 && !FALLBACK) { clearTimeout(timer); tileFallbackNow("Map tiles couldn't load, so a simple grid view is shown instead."); } });
   map.on("moveend", drawCells);
   // Draw a box: pointer events, so mouse, pen and touch all work. Shift+drag box zoom also selects.
-  let start = null, draft = null; const box = map.getContainer();
+  let start = null, draft = null, upHandled = false; const box = map.getContainer();
   const exit = cancel => { SELECT_MODE = false; start = null; map.dragging.enable(); box.style.cursor = ""; if (draft) { draft.remove(); draft = null; } $("draw-region").setAttribute("aria-pressed", "false"); $("draw-region").textContent = "Draw on map"; if (cancel) $("map-status").textContent = "Drawing cancelled."; };
   L.DomEvent.on(box, "pointerdown", e => { if (!SELECT_MODE) return; L.DomEvent.stop(e); start = map.mouseEventToLatLng(e); draft = L.rectangle([start, start], { renderer: LEAFLET.renderer, color: "#c2410c", weight: 2, fillOpacity: .08, interactive: false }).addTo(map); });
   L.DomEvent.on(box, "pointermove", e => { if (SELECT_MODE && start && draft) { L.DomEvent.stop(e); draft.setBounds(L.latLngBounds(start, map.mouseEventToLatLng(e))); } });
-  L.DomEvent.on(box, "pointerup", e => { if (!SELECT_MODE) return; L.DomEvent.stop(e); if (start) { const b = L.latLngBounds(start, map.mouseEventToLatLng(e)); if (b.getWest() < b.getEast() && b.getSouth() < b.getNorth()) setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); } exit(false); });
+  L.DomEvent.on(box, "pointerup", e => { if (!SELECT_MODE) return; upHandled = true; L.DomEvent.stop(e); if (start) { const b = L.latLngBounds(start, map.mouseEventToLatLng(e)); if (b.getWest() < b.getEast() && b.getSouth() < b.getNorth()) setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); } exit(false); });
+  // From #29: releasing outside the map cancels a drawing in progress.
+  L.DomEvent.on(document, "pointerup", e => { if (SELECT_MODE && start && !upHandled) exit(true); upHandled = false; });
   L.DomEvent.on(document, "keydown", e => { if (SELECT_MODE && e.key === "Escape") exit(true); });
-  map.on("boxzoomend", e => { const b = e.boxZoomBounds; setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); });
+  map.on("boxzoomend", e => { const b = e.boxZoomBounds; if (b.getWest() < b.getEast() && b.getSouth() < b.getNorth()) setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); });
   LEAFLET.exitDraw = exit;
 }
 $("draw-region").onclick = () => {
@@ -214,8 +233,9 @@ $("draw-region").onclick = () => {
   $("draw-region").setAttribute("aria-pressed", "true"); $("draw-region").textContent = "Cancel drawing";
   $("map-status").textContent = "Drag on the map to draw an area. Esc cancels.";
 };
-$("clear-region").onclick = () => setArea(O.parseBBox(O.PRESETS[0].bbox));
-$("preset").onchange = e => setArea(O.parseBBox(e.target.value));
+const cancelDrawing = () => { if (SELECT_MODE && LEAFLET && LEAFLET.exitDraw) LEAFLET.exitDraw(true); };
+$("clear-region").onclick = () => { cancelDrawing(); setArea(O.parseBBox(O.PRESETS[0].bbox)); };
+$("preset").onchange = e => { cancelDrawing(); setArea(O.parseBBox(e.target.value)); };
 $("apply").onclick = applyField;
 $("bbox").addEventListener("keydown", e => { if (e.key === "Enter") applyField(); });
 
