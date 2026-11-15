@@ -106,7 +106,7 @@ It should print `PASS`. If you rebuilt from `data-v2` without changing any code,
 **Optional: rerun the Canada holdout on its own**
 
 ```bash
-python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet --ratios data/calibration_regions.json
+python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet
 ```
 
 ## Data

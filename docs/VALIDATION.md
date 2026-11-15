@@ -1,13 +1,47 @@
 # Validation — numbers are from runs, never hand-written
 
-## Estimator definition
+## Estimator definition (shipped, #37)
 Harmonized count (S-NPP VIIRS-equivalent units) per 0.25° cell-month:
 - From Feb 2012: harmonized = observed S-NPP count, zeros included (reference sensor; zero handling fixed in #3).
-- Before that: harmonized = MODIS count × ratio for its season × day/night stratum. Terra-only ratios apply before Aqua's July 2002 start.
-- Ratios are region-wide S-NPP / MODIS detection ratios over the 2012–2020 overlap. Each region uses its own ratios, or the global ones where those score better in the holdout. Canada ships with global ratios (`pipeline/build_regions.py`, see Per-region results).
+- Jul 2002 – Jan 2012: the optimised rule (`fit_rule` / `converted_rule` in `pipeline/grid_calibrate.py`):
+  - **A = MODIS × block ratio.** Each 1° block has its own S-NPP/MODIS ratio per season × day/night, shrunk toward the region ratio: `(block S-NPP + 200 × region ratio) ÷ (block MODIS + 200)`.
+  - **B = A × monthly factor.** The factor is a region-level power law `S-NPP = e^a × MODIS^b` (with smearing correction), fitted per calendar month × day/night on region-month totals, divided by the plain region ratio × region MODIS.
+  - **Harmonized = 0.5 × A + 0.5 × B.**
+- Before Jul 2002 (Terra only): Terra count × the region's own Terra-only ratio for its season × day/night (unchanged path).
+- Each region is fitted on its own overlap, Feb 2012 – Dec 2025. Canada no longer uses global ratios.
+
+## Optimised rule results (2026-11-14, data-v2, #37)
+Command: `python pipeline/build_regions.py`, then `python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet`.
+
+### Holdout (fit 2012–2020, predict S-NPP 2021–2023 from MODIS only)
+| Region | MAPE, old rule (own ratios) | MAPE, old rule (global ratios) | **MAPE, new rule** | WAPE, new rule | Bias, new rule | Top-5 months |
+|---|---:|---:|---:|---:|---:|---:|
+| Canada | 19.6% | 16.9% (was shipped) | **13.6%** | 11.3% | −6.5% | 5/5 |
+| Amazon | 17.9% (was shipped) | 32.9% | **8.3%** | 7.4% | +4.5% | 5/5 |
+| Mediterranean | 20.6% (was shipped) | 26.9% | **15.6%** | 15.9% | +3.5% | 4/5 |
+
+### 2011→2012 sensor jump
+| Region | Raw | Harmonized, old | **Harmonized, new** | MODIS alone |
+|---|---:|---:|---:|---:|
+| Canada | +785.4% | +55.9% | **+60.8%** | +60.5% |
+| Amazon | +656.2% | +60.5% | **+62.4%** | +55.8% |
+| Mediterranean | +496.0% | +29.0% | **+38.2%** | +33.8% |
+
+### How the rule was chosen (leave-one-year-out, 8 regions)
+About 90 variants were scored with a local experiment harness (not in this repo). Each one was fitted on every overlap year but one, predicted the held-out year (13 rounds, 2013–2025), and was scored on Canada, Amazon, Mediterranean, US West, Siberia, southern Africa, SE Asia and northern Australia. The harness first reproduced the old holdout numbers above exactly. Averages over the 8 regions, old → new rule:
+- Total error (WAPE): 12.7% → 8.9%
+- Monthly error (MAPE): 20.8% → 14.0%
+- Mean |bias|: 10.4% → 4.2%
+- Bias in the busiest 10% of months: +2.3% → −0.2%
+- Error on 1° block-months: 30.1% → 25.2%
+
+Tried and not adopted: global ratios, Aqua and Terra as separate predictors, MODIS-FRP bins, region-specific fire seasons, a power law fitted on small blocks, high-confidence-only counts, and gradient-boosted trees (similar error but more biased and slower).
+
+### Effect on the shipped Canada record
+Every month from Feb 2012 is unchanged (observed S-NPP). Every MODIS-era month changed. Yearly totals moved −3% to −15% for 2003–2011, and 2008 by +0.7%. 2001–2002 moved −26% and −11%, mainly because the Terra-only months now use Canada's own Terra ratios instead of the global ones. **That Terra-only path is not covered by any holdout**, because no data exists where only Terra and S-NPP overlap.
 
 ## Real-data results (2026-11-14, data-v2, Canada, own ratios)
-> **Superseded for the shipped data.** This section fits Canada's own ratios. Canada now ships with global ratios, which give a lower holdout error (16.9% vs 19.5%); see Per-region results below.
+> **Superseded.** This section documents the old single-ratio rule. See "Optimised rule results" above.
 
 Input: `monthly_grid_025.parquet` (data-v2) → `build_monthly_from_grid.py` → 565,295 staging rows, 308,806 cell-months (vegetation fires, confidence n/h, Terra/Aqua/S-NPP, Nov 2026 excluded as partial).
 Commands: `python pipeline/grid_calibrate.py` then `python pipeline/grid_validate.py`.
@@ -52,7 +86,8 @@ Error is lowest in fire season, where most detections are. Off-season, especiall
 
 So the harmonized change matches the real change measured by one consistent sensor, and the fake sensor-switch jump is gone.
 
-## Per-region results (2026-11-14, data-v2)
+## Per-region results, old single-ratio rule (2026-11-14, data-v2)
+> **Superseded.** The old rule is kept here for comparison. Every region now ships with the optimised rule above.
 Each app preset region is calibrated on its own 2012–2020 overlap. A stratum with fewer than 50 MODIS detections falls back to the global ratio for that stratum. "Canada core fires" lies inside the Canada box, so it uses Canada's ratios.
 Command: `python pipeline/build_regions.py` (writes `data/monthly_harmonized_all.parquet` and `data/calibration_regions.json`).
 
@@ -85,7 +120,7 @@ Canada with global ratios, by stratum:
 | Off | Night | 21 | 50.6% | −50.6% |
 
 Fire-season error and bias both improve over Canada's own ratios. Off-season nights get worse, because the global off-night ratio (9.47) is lower than Canada's (13.93), but those months carry few detections. The top-5 months still match 5/5: Aug 2023, Jul 2023, Jul 2021, Sep 2023, Jun 2023.
-Check: `python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet --ratios data/calibration_regions.json`.
+Old-rule check (Canada's own ratios): `python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet --old-rule`.
 
 ### 2011→2012 sensor jump by region
 | Region | Raw | Harmonized | MODIS alone |

@@ -1,8 +1,15 @@
 """Grid-path S-NPP calibration; leaves raw-detection calibrate.py untouched.
-Run standalone it fits Canada's own ratios. The shipped data comes from build_regions.py,
-which uses global ratios for Canada (lower holdout error); pass --ratios to reuse them."""
+
+The shipped rule (issue #37) is fit_rule() + converted_rule():
+  A = MODIS x block ratio   (1-degree block ratio, shrunk toward the region ratio)
+  B = A x monthly factor    (region power law for that calendar month and day/night,
+                             divided by the plain region ratio)
+  harmonized MODIS-era count = BLEND_W * A + (1 - BLEND_W) * B
+ratios() and converted() are the previous single-ratio rule, kept for comparison and for the
+Terra-only months before Aqua. Run standalone, this fits the rule on Canada's staging rows."""
 import argparse, json
 from pathlib import Path
+import numpy as np
 import pandas as pd
 
 KEYS = ["cell_lat", "cell_lon", "year", "month"]
@@ -57,6 +64,74 @@ def converted(staging, ratio_table):
     early = d.year * 100 + d.month < AQUA_START[0] * 100 + AQUA_START[1]
     d.loc[early, "weight"] = d.loc[early, "hotspots"] * d.loc[early, "ratio_terra"]
     return d
+# ---- Optimised rule (issue #37): per-area ratios + monthly power law ----
+BLOCK_DEG = 1.0        # block size for per-area ratios
+SHRINK_K = 200         # pseudo-count of MODIS detections pulling a block toward its region ratio
+BLEND_W = 0.5          # weight on A (block ratio); the rest goes to B (A x monthly factor)
+FIT_START = (2012, 2)  # first full S-NPP month
+FIT_END_YEAR = 2025    # last full year; 2026 is partial and partly near-real-time
+
+def _ym(d): return d.year * 100 + d.month
+def _block(x): return np.floor(x / BLOCK_DEG + 1e-9) * BLOCK_DEG
+def _sensor_cols(d):
+    return d.assign(m=np.where(d.sensor.eq("MODIS"), d.hotspots, 0),
+                    s=np.where(d.satellite.eq("SNPP"), d.hotspots, 0))
+
+def fit_rule(staging, start=FIT_START, end_year=FIT_END_YEAR):
+    """Fit the optimised rule on overlap months from `start` (year, month) through `end_year`."""
+    d = staging[(_ym(staging) >= start[0] * 100 + start[1]) & (staging.year <= end_year)]
+    region = ratios(d, years=(start[0], end_year))
+    d = _sensor_cols(add_strata(d)).assign(bla=lambda x: _block(x.cell_lat), blo=lambda x: _block(x.cell_lon))
+    # Per-area ratios: each block's S-NPP/MODIS, shrunk toward the region ratio of the same stratum.
+    blocks = d.groupby(["bla", "blo", *STRATA], as_index=False)[["m", "s"]].sum()
+    blocks = blocks.merge(region[STRATA + ["ratio"]], on=STRATA, how="left")
+    blocks["block_ratio"] = (blocks.s + SHRINK_K * blocks.ratio) / (blocks.m + SHRINK_K)
+    # Monthly factor: power law S-NPP = e^a * MODIS^b on region-month totals, one fit per calendar month x day/night.
+    rm = d.groupby(["year", "month", "daynight"], as_index=False)[["m", "s"]].sum()
+    pl = []
+    for (mo, dn), g in rm.groupby(["month", "daynight"]):
+        pos = g[g.m > 0]
+        x, y = np.log(pos.m.values), np.log1p(pos.s.values)
+        if len(pos) < 5 or np.ptp(x) == 0:
+            b, a, smear = 1.0, float(np.log((pos.s.sum() + 1) / max(pos.m.sum(), 1))), 1.0
+        else:
+            b, a = np.polyfit(x, y, 1)
+            smear = float(np.mean(np.exp(y - (a + b * x))))  # back-transform bias correction
+        missed = g.loc[g.m <= 0, "s"].sum() / max(g.s.sum(), 1)  # S-NPP in months MODIS saw nothing
+        pl.append({"month": mo, "daynight": dn, "a": float(a), "b": float(b), "smear": smear,
+                   "uplift": float(1 / (1 - min(missed, 0.5))), "n_months": int(len(pos))})
+    return {"region": region, "blocks": blocks[["bla", "blo", *STRATA, "m", "s", "block_ratio"]],
+            "power_law": pd.DataFrame(pl), "fit": {"start": list(start), "end_year": end_year}}
+
+def converted_rule(staging, rule):
+    """MODIS rows with `weight` = predicted S-NPP-equivalent detections under the optimised rule."""
+    d = add_strata(staging[staging.sensor.eq("MODIS")]).assign(bla=lambda x: _block(x.cell_lat), blo=lambda x: _block(x.cell_lon))
+    d = d.merge(rule["blocks"][["bla", "blo", *STRATA, "block_ratio"]], on=["bla", "blo", *STRATA], how="left")
+    d = d.merge(rule["region"][STRATA + ["ratio", "ratio_terra"]], on=STRATA, how="left")
+    d["block_ratio"] = d.block_ratio.fillna(d.ratio)  # blocks with no overlap history use the region ratio
+    # Region MODIS total for the same month and day/night drives the monthly factor.
+    d["region_m"] = d.groupby(["year", "month", "daynight"]).hotspots.transform("sum")
+    d = d.merge(rule["power_law"], on=["month", "daynight"], how="left")
+    pl = np.where(d.region_m > 0, np.exp(d.a + d.b * np.log(d.region_m.clip(lower=1))) * d.smear - 1, 0)
+    pl = np.maximum(pl, 0) * d.uplift
+    lin = d.ratio * d.region_m
+    factor = np.where(lin > 0, pl / np.maximum(lin, 1e-9), 1.0)
+    d["weight"] = d.hotspots * d.block_ratio * (BLEND_W + (1 - BLEND_W) * factor)
+    early = _ym(d) < AQUA_START[0] * 100 + AQUA_START[1]
+    d.loc[early, "weight"] = d.loc[early, "hotspots"] * d.loc[early, "ratio_terra"]  # Terra-only path unchanged
+    return d.drop(columns=["a", "b", "smear", "uplift", "n_months"])
+
+def convert(staging, r):
+    """Dispatch: a fitted rule (dict) uses the optimised rule, a ratio table the old single-ratio rule."""
+    return converted_rule(staging, r) if isinstance(r, dict) else converted(staging, r)
+
+def rule_summary(rule):
+    """JSON-friendly parameters of a fitted rule."""
+    return {"block_deg": BLOCK_DEG, "shrink_k": SHRINK_K, "blend_w": BLEND_W, "fit": rule["fit"],
+            "region_strata": rule["region"].round(6).to_dict("records"),
+            "power_law": rule["power_law"].round(6).to_dict("records"),
+            "blocks": int(len(rule["blocks"]))}
+
 def harmonize(s, w, monthly):
     """Staging rows s, converted MODIS rows w, monthly cell table -> monthly with harmonized_count."""
     conv=w.groupby(KEYS,as_index=False).weight.sum().rename(columns={"weight":"modis_converted"})
@@ -69,10 +144,10 @@ def harmonize(s, w, monthly):
     m["harmonized_count"]=m.snpp_observed.where(snpp_era & snpp_has_data, m.modis_converted)
     return m
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument("--staging",default="data/cleaned_canada.parquet"); ap.add_argument("--monthly",default="data/monthly.parquet"); ap.add_argument("--out",default="data/monthly_harmonized.parquet"); ap.add_argument("--calibration-out",default="data/calibration_grid.json"); ap.add_argument("--ratios",help="calibration_regions.json from build_regions.py: use its shipped Canada ratios"); a=ap.parse_args()
-    s=pd.read_parquet(a.staging); r=pd.DataFrame(json.loads(Path(a.ratios).read_text())["regions"]["canada"]["strata"]) if a.ratios else ratios(s); w=converted(s,r)
+    ap=argparse.ArgumentParser(); ap.add_argument("--staging",default="data/cleaned_canada.parquet"); ap.add_argument("--monthly",default="data/monthly.parquet"); ap.add_argument("--out",default="data/monthly_harmonized.parquet"); ap.add_argument("--calibration-out",default="data/calibration_grid.json"); a=ap.parse_args()
+    s=pd.read_parquet(a.staging); rule=fit_rule(s); w=converted_rule(s,rule)
     m=harmonize(s,w,pd.read_parquet(a.monthly))
     m.drop(columns=["modis_converted","snpp_observed"]).to_parquet(a.out,index=False)
-    Path(a.calibration_out).write_text(json.dumps({"reference":"SNPP only","calib_years":[2012,2020],"min_modis_hotspots":50,"strata":r.round(6).to_dict("records")},indent=2))
-    print(r[[*STRATA,"modis","terra","snpp","ratio","ratio_terra","fallback"]].to_string(index=False)); print(f"Wrote {a.out} ({len(m):,} rows)")
+    Path(a.calibration_out).write_text(json.dumps({"reference":"SNPP only","rule":rule_summary(rule)},indent=2))
+    print(rule["region"][[*STRATA,"modis","terra","snpp","ratio","ratio_terra","fallback"]].to_string(index=False)); print(f"Wrote {a.out} ({len(m):,} rows)")
 if __name__=="__main__": main()
