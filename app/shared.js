@@ -127,6 +127,28 @@
   function pageLink(page, extra) { const q = new URLSearchParams(location.search); Object.entries(extra || {}).forEach(([k, v]) => v == null ? q.delete(k) : q.set(k, v)); const s = q.toString(); return page + (s ? "?" + s : ""); }
   function updateNavLinks() { document.querySelectorAll("[data-page-link]").forEach(a => { a.href = pageLink(a.dataset.pageLink); }); }
 
+  // ---- theme: system by default; the header toggle stores an explicit choice (each page sets it early in <head>) ----
+  const THEME_KEY = "obc-theme";
+  const sysDark = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : { matches: false, addEventListener() {} };
+  const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === "dark" : sysDark.matches; };
+  const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  // Colours for canvas charts, which can't read CSS variables themselves.
+  const colors = () => ({ ink: cssVar("--ink"), ink2: cssVar("--ink-2"), ink3: cssVar("--ink-3"), grid: cssVar("--grid"), spark: cssVar("--spark"),
+    ember: cssVar("--ember"), blue: cssVar("--blue"), blueSoft: cssVar("--blue-soft"), card: cssVar("--card"), cellEmpty: cssVar("--cell-empty"), canvasBg: cssVar("--canvas-bg") });
+  function themeChanged() { updateThemeToggle(); document.dispatchEvent(new CustomEvent("obc-theme")); }
+  function setTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem(THEME_KEY, t); } catch (e) { } themeChanged(); }
+  function updateThemeToggle() {
+    const b = document.getElementById("theme-toggle"); if (!b) return;
+    const dark = isDark();
+    b.innerHTML = dark ? '<span class="ico" aria-hidden="true">☀</span> Light' : '<span class="ico" aria-hidden="true">☾</span> Dark';
+    b.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+    b.setAttribute("aria-pressed", String(dark));
+  }
+  sysDark.addEventListener && sysDark.addEventListener("change", () => { if (!document.documentElement.dataset.theme) themeChanged(); });
+  // Charts get the card colour painted behind them, so exported PNGs match the theme instead of being transparent.
+  if (window.Chart) Chart.register({ id: "obcBackground", beforeDraw(c) { const x = c.ctx; x.save(); x.globalCompositeOperation = "destination-over"; x.fillStyle = cssVar("--card"); x.fillRect(0, 0, c.width, c.height); x.restore(); } });
+  const onTheme = fn => document.addEventListener("obc-theme", fn);
+
   // ---- chrome ----
   const FLAME = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2c1 3.5-1.5 5-1.5 7.5 0 1.4 1 2.5 2.3 2.5 1.6 0 2.4-1.4 2.2-3 2 1.6 3.5 4 3.5 6.6C18.5 19.5 15.6 22 12 22s-6.5-2.5-6.5-6.4C5.5 10.4 10.6 7.6 12 2z"/></svg>';
   function renderHeader(active) {
@@ -135,8 +157,10 @@
     el.className = "site-header";
     el.innerHTML = `<div class="wrap"><a class="brand" data-page-link="index.html" href="index.html"><span class="brand-mark">${FLAME}</span>One Burning Calendar</a>
       <nav class="nav" aria-label="Main">${link("index.html", "Map")}${link("report.html", "Area report")}${link("how-it-works.html", "How it works")}</nav>
-      <span class="header-meta" id="data-through"></span></div>`;
-    updateNavLinks();
+      <span class="header-meta" id="data-through"></span>
+      <button class="theme-toggle" id="theme-toggle" type="button"></button></div>`;
+    document.getElementById("theme-toggle").onclick = () => setTheme(isDark() ? "light" : "dark");
+    updateThemeToggle(); updateNavLinks();
   }
   function setDataThrough() { const el = document.getElementById("data-through"); if (el && state.END.year) el.textContent = `Data through ${MONTH[state.END.month - 1]} ${state.END.year}`; }
   function renderFooter() {
@@ -161,5 +185,5 @@
   window.OBC = { MO, MONTH, BASE, FIRST_YEAR, SNPP_T, POW, PRESETS, DEFAULT_BBOX, state, rampRGB, ramp, inkFor, fmt, fmtK, ordinal, tOf,
     loadData, isPartial, isProv, isEst, parseBBox, formatBBox, presetFor, areaName, filterCells, seriesFor, val, quantile, monthStats,
     status, verdict, describe, getState, setState, pageLink, updateNavLinks, renderHeader, renderFooter, setDataThrough, presetOptions,
-    downloadCSV, downloadCanvas };
+    downloadCSV, downloadCanvas, isDark, setTheme, colors, onTheme };
 })();

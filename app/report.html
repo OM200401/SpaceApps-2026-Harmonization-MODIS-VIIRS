@@ -3,6 +3,7 @@
 <title>Area report — One Burning Calendar</title>
 <meta name="description" content="Fire history report for an area: this year against the normal range, every month since 2001, and downloads.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23c2410c%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
+<script>try{var t=localStorage.getItem("obc-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="stylesheet" href="shared.css">
 <style>
 .report-head{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
@@ -123,7 +124,7 @@ function renderSummary() {
 }
 
 function renderSeason() {
-  const est = YEAR < 2012, labels = O.MO;
+  const est = YEAR < 2012, labels = O.MO, C = O.colors();
   const yearData = labels.map((_, i) => O.val(BY, YEAR, i + 1));
   const prov = labels.map((_, i) => O.isProv(YEAR, i + 1));
   $("season-year").textContent = YEAR;
@@ -131,16 +132,16 @@ function renderSeason() {
   $("year-swatch").style.borderTopStyle = est ? "dotted" : "solid";
   const p10 = labels.map((_, i) => STATS[i + 1].p10), p90 = labels.map((_, i) => STATS[i + 1].p90), p50 = labels.map((_, i) => STATS[i + 1].p50);
   const ds = [
-    { label: "90th percentile", data: p90, borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: "rgba(42,111,214,.16)" },
+    { label: "90th percentile", data: p90, borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: C.blueSoft },
     { label: "10th percentile", data: p10, borderWidth: 0, pointRadius: 0, fill: false },
-    { label: "Median", data: p50, borderColor: "#2a6fd6", borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
-    { label: String(YEAR), data: yearData, borderColor: "#c2410c", borderWidth: 2.5, borderDash: est ? [3, 3] : [], pointRadius: 4, pointHoverRadius: 6,
-      pointBackgroundColor: prov.map(p => p ? "#fff" : "#c2410c"), pointBorderColor: "#c2410c", pointBorderWidth: 2, fill: false, spanGaps: false }];
+    { label: "Median", data: p50, borderColor: C.blue, borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false },
+    { label: String(YEAR), data: yearData, borderColor: C.ember, borderWidth: 2.5, borderDash: est ? [3, 3] : [], pointRadius: 4, pointHoverRadius: 6,
+      pointBackgroundColor: prov.map(p => p ? C.card : C.ember), pointBorderColor: C.ember, pointBorderWidth: 2, fill: false, spanGaps: false }];
   const opts = { responsive: true, maintainAspectRatio: false, animation: { duration: 300 }, interaction: { mode: "index", intersect: false },
     plugins: { legend: { display: false }, tooltip: { callbacks: {
       label: c => c.datasetIndex === 1 ? null : `${c.dataset.label}: ${c.raw == null ? "not yet" : O.fmt(c.raw)}${c.datasetIndex === 3 && prov[c.dataIndex] ? " (provisional)" : ""}`,
       afterBody: items => { const i = items[0].dataIndex; return `Normal range: ${O.fmt(p10[i])}–${O.fmt(p90[i])}`; } } } },
-    scales: { y: { beginAtZero: true, ticks: { color: "#737b86", callback: v => O.fmtK(v) }, grid: { color: "#eceef1" } }, x: { ticks: { color: "#737b86" }, grid: { display: false } } } };
+    scales: { y: { beginAtZero: true, ticks: { color: C.ink3, callback: v => O.fmtK(v) }, grid: { color: C.grid } }, x: { ticks: { color: C.ink3 }, grid: { display: false } } } };
   if (!CHART) CHART = new Chart($("season"), { type: "line", data: { labels, datasets: ds }, options: opts });
   else { CHART.data.datasets = ds; CHART.options = opts; CHART.update(); }
   const notes = [];
@@ -151,6 +152,7 @@ function renderSeason() {
 
 // ---- calendar (accessible version from #28) ----
 function renderCalendar() {
+  const C = O.colors();
   const y0 = Math.max(O.FIRST_YEAR, +$("y0").value || O.FIRST_YEAR), y1 = Math.min(O.state.END.year, +$("y1").value || O.state.END.year);
   let max = 0;
   for (let y = y0; y <= y1; y++) for (let m = 1; m <= 12; m++) { const r = BY.get(O.tOf(y, m)); if (!r || O.isPartial(y, m)) continue; const v = MODE === "anomaly" ? (MED[m] ? r.harmonized / MED[m] : 0) : MODE === "total" ? r.total : r.harmonized; if (v > max) max = v; }
@@ -160,7 +162,7 @@ function renderCalendar() {
     for (let m = 1; m <= 12; m++) {
       const at = `data-y="${y}" data-m="${m}" tabindex="-1"`;
       if (O.isPartial(y, m)) { h += O.tOf(y, m) === O.tOf(O.state.END.year, O.state.END.month) + 1 ? `<td class="partial" ${at} aria-label="${O.MO[m - 1]} ${y}: partial month, not shown">partial</td>` : `<td ${at} aria-label="${O.MO[m - 1]} ${y}: no data yet"></td>`; continue; }
-      const r = BY.get(O.tOf(y, m)); let txt = "·", bg = "#f4f5f7", ink = "#737b86";
+      const r = BY.get(O.tOf(y, m)); let txt = "·", bg = C.cellEmpty, ink = C.ink3;
       if (r) { let v; if (MODE === "anomaly") { v = MED[m] ? r.harmonized / MED[m] : 0; txt = MED[m] ? v.toFixed(1) + "×" : "—"; } else { v = MODE === "total" ? r.total : r.harmonized; txt = O.fmt(v); }
         const c = O.rampRGB(MODE === "anomaly" ? (v - 1) / 4 : Math.pow(v / Math.max(max, 1), O.POW)); bg = `rgb(${c})`; ink = O.inkFor(c); }
       const prov = r && O.isProv(y, m), est = r && MODE !== "total" && O.isEst(y, m), cls = [prov && "prov", est && "est"].filter(Boolean).join(" ");
@@ -221,6 +223,7 @@ $("csv").onclick = () => O.downloadCSV(CELLS, `fire-cells-${(O.presetFor(BBOX) |
 $("print").onclick = () => window.print();
 $("copy").onclick = async () => { try { await navigator.clipboard.writeText(location.href); $("copy-msg").textContent = "Link copied"; } catch { $("copy-msg").textContent = "Copy this page's address from the address bar"; } setTimeout(() => $("copy-msg").textContent = "", 3000); };
 
+O.onTheme(() => { if (YEAR != null) { renderSeason(); renderCalendar(); } });
 O.loadData().then(() => {
   O.setDataThrough();
   const end = O.state.END.year;
