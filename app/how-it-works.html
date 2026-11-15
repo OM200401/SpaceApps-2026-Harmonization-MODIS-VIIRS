@@ -47,32 +47,40 @@ details.more .body{margin-top:10px}
  <section class="card" aria-labelledby="s-title">
   <h2 id="s-title" style="margin-bottom:12px">How the conversion works</h2>
   <div class="steps">
-   <div class="step"><span class="n">1</span><h3>Learn from the overlap</h3><p>From 2012 to 2025 both satellites were flying. In every 1° area (about 100&nbsp;km) we learn how many VIIRS detections each MODIS detection corresponds to, by season and day or night, leaning on the regional average where an area has few fires.</p></div>
-   <div class="step"><span class="n">2</span><h3>Adjust for busy and quiet months</h3><p>A second estimate rescales each month with a curve fitted per calendar month, because October fires don't behave like July fires. The final number is the average of the two estimates.</p></div>
+   <div class="step"><span class="n">1</span><h3>Learn from clean overlap years</h3><p>Both satellites flew together from 2012, but the MODIS satellites' orbits drift after 2021, so we learn only from June 2012 to 2021. We drop days when any satellite was down, and gas flares that the fire data counts as vegetation fires.</p></div>
+   <div class="step"><span class="n">2</span><h3>Convert with one worldwide model</h3><p>In every 1° area (about 100&nbsp;km), each month and day or night, a model learns how many VIIRS detections each MODIS detection is worth. It looks at how hot and how spread out the fires were, the other half of the day, the months around it and the neighbouring areas. Where MODIS saw nothing, it adds the small fires VIIRS usually finds there.</p></div>
    <div class="step"><span class="n">3</span><h3>Join the records</h3><p>Before Feb 2012 we show the converted MODIS counts, marked ≈ as estimates. From Feb 2012 we show what VIIRS actually observed. Every number is in "VIIRS-equivalent detections".</p></div>
   </div>
  </section>
 
  <section class="card" aria-labelledby="a-title">
   <h2 id="a-title">How accurate is it?</h2>
-  <p class="small" style="color:var(--ink-2);margin:6px 0 12px">Fit on 2012–2020, then predict 2021–2023 from MODIS alone and compare with what VIIRS really saw.</p>
+  <p class="small" style="color:var(--ink-2);margin:6px 0 12px">Hide one year of 2012–2021 at a time, predict it from MODIS alone, and compare with what VIIRS really saw. Monthly error is total |error| over all months ÷ total fire.</p>
   <div style="overflow-x:auto"><table class="facts">
-   <tr><th>Region</th><th>Monthly error, previous method</th><th>Monthly error, now</th><th>Bias, now</th><th>Busiest 5 months found</th></tr>
-   <tr><td>Canada</td><td>16.9%</td><td><strong>13.6%</strong></td><td>−6.5%</td><td>5 of 5</td></tr>
-   <tr><td>Amazon</td><td>17.9%</td><td><strong>8.3%</strong></td><td>+4.5%</td><td>5 of 5</td></tr>
-   <tr><td>Mediterranean</td><td>20.6%</td><td><strong>15.6%</strong></td><td>+3.5%</td><td>4 of 5</td></tr>
+   <tr><th>Region</th><th>Monthly error, previous method</th><th>Monthly error, now</th><th>Yearly error, now</th><th>Bias, now</th></tr>
+   <tr><td>Canada</td><td>11.3%</td><td><strong>6.5%</strong></td><td>4.3%</td><td>−2.3%</td></tr>
+   <tr><td>Amazon</td><td>2.9%</td><td><strong>2.7%</strong></td><td>1.3%</td><td>+0.5%</td></tr>
+   <tr><td>Mediterranean</td><td>8.2%</td><td><strong>7.5%</strong></td><td>3.6%</td><td>+2.3%</td></tr>
+   <tr><td>US West</td><td>6.3%</td><td><strong>5.2%</strong></td><td>3.0%</td><td>−1.2%</td></tr>
+   <tr><td>Siberia</td><td>8.6%</td><td><strong>4.4%</strong></td><td>2.2%</td><td>+0.5%</td></tr>
+   <tr><td>Southern Africa</td><td>2.4%</td><td><strong>2.0%</strong></td><td>1.3%</td><td>0.0%</td></tr>
+   <tr><td>SE Asia</td><td>4.6%</td><td><strong>3.9%</strong></td><td>2.4%</td><td>+1.5%</td></tr>
+   <tr><td>Northern Australia</td><td>6.0%</td><td><strong>3.3%</strong></td><td>1.2%</td><td>−0.7%</td></tr>
+   <tr><td>Whole world</td><td>2.1%</td><td><strong>1.5%</strong></td><td>0.7%</td><td>−0.1%</td></tr>
   </table></div>
   <details class="more"><summary>More checks</summary><div class="body small" style="color:var(--ink-2)">
-   Hiding one year at a time (2013–2025) across 8 regions: a typical month lands within 14%, total fire is off by 8.9%, and 8 of 10 estimated months fall between −28% and +13%. A stricter check that chose the settings without ever seeing 2021–2023 gave nearly identical results.
+   Both methods were scored on the same cleaned data. Fitting on 2012–2018 and predicting 2019–2021 gives similar numbers (Canada 6.7%, world 1.7%). With only Terra (as in 2000–2002), the world error is 2.7% against 5.8% for the previous Terra ratio. For comparison, predicting S-NPP from NOAA-20, an identical VIIRS instrument, gives 1–4% per region: that is the best any conversion could do.
   </div></details>
  </section>
 
  <section class="card" aria-labelledby="l-title">
   <details class="more" style="margin:0"><summary><h2 id="l-title" style="display:inline;font-size:18px;color:var(--ink)">What to keep in mind</h2></summary>
   <ul class="plain" style="margin-top:10px">
-   <li><strong>Before 2012 is an estimate.</strong> MODIS misses many small fires that VIIRS sees, and no conversion can recover what was never detected. Quiet months tend to come out about 8% low.</li>
-   <li><strong>Outside the tested regions, accuracy varies.</strong> The whole world is converted with the same method, fitted per 30° area. Across 69 areas a typical month lands within about 14%, but sparse places (the Arctic, deserts, small islands) are much less certain.</li>
-   <li><strong>2000–2002 are least certain.</strong> Only the Terra satellite was flying, and no period exists where Terra alone overlaps with VIIRS to check against.</li>
+   <li><strong>Before 2012 is an estimate.</strong> MODIS misses many small fires that VIIRS sees. Where MODIS saw nothing we add what VIIRS usually finds there, so single months in quiet places can be well off.</li>
+   <li><strong>Megafire months are the hardest.</strong> In huge fires (NWT 2014, British Columbia 2018) smoke hides fire from MODIS, and those months can come out 10–25% low.</li>
+   <li><strong>Outside the tested regions, accuracy varies.</strong> The whole world is converted with the same model, but sparse places (the Arctic, deserts, small islands) are much less certain.</li>
+   <li><strong>2000–2002 are less certain.</strong> Only the Terra satellite was flying. We tested this by hiding Aqua in 2012–2021, but the satellite itself was younger then.</li>
+   <li><strong>Gas flares are left out.</strong> Spots that burn all year, mostly at night (oil and gas flares), are removed from every year, so some oil-field areas show less than the raw data.</li>
    <li><strong>The latest months are provisional.</strong> They use NASA's near-real-time data, which is replaced by the final archive a few months later.</li>
    <li><strong>A detection is not a fire.</strong> One large fire can produce hundreds of hotspot detections. Counts measure burning activity, not the number of separate fires.</li>
    <li><strong>Small areas are noisier.</strong> Error grows as the area you draw gets smaller (about 25% for a single 1° box).</li>
