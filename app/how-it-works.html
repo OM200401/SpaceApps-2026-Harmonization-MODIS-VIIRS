@@ -71,6 +71,7 @@ details.more .body{margin-top:10px}
   <details class="more" style="margin:0"><summary><h2 id="l-title" style="display:inline;font-size:18px;color:var(--ink)">What to keep in mind</h2></summary>
   <ul class="plain" style="margin-top:10px">
    <li><strong>Before 2012 is an estimate.</strong> MODIS misses many small fires that VIIRS sees, and no conversion can recover what was never detected. Quiet months tend to come out about 8% low.</li>
+   <li><strong>Outside the tested regions, accuracy varies.</strong> The whole world is converted with the same method, fitted per 30° area. Across 69 areas a typical month lands within about 14%, but sparse places (the Arctic, deserts, small islands) are much less certain.</li>
    <li><strong>2000–2002 are least certain.</strong> Only the Terra satellite was flying, and no period exists where Terra alone overlaps with VIIRS to check against.</li>
    <li><strong>The latest months are provisional.</strong> They use NASA's near-real-time data, which is replaced by the final archive a few months later.</li>
    <li><strong>A detection is not a fire.</strong> One large fire can produce hundreds of hotspot detections. Counts measure burning activity, not the number of separate fires.</li>
@@ -113,8 +114,10 @@ $("view").addEventListener("click", e => { const b = e.target.closest("button");
 O.onTheme(() => { if (AGG) render(); });
 O.loadData().then(() => {
   O.setDataThrough();
-  const cells = O.filterCells(S.bbox);
   $("area-name").textContent = O.areaName(S.bbox);
+  return O.areaCells(S.bbox);
+}).then(r => {
+  const cells = r.cells;
   AGG = {}; YEARS.forEach(y => AGG[y] = { total: 0, harmonized: 0, modis: 0 });
   cells.forEach(c => { const a = AGG[c.year]; if (a) { a.total += c.total_count; a.harmonized += c.harmonized_count; a.modis += c.modis_count; } });
   render();
