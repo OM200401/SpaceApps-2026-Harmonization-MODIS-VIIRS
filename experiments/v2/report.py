@@ -2,12 +2,13 @@
 
 Usage: python report.py shipped gbm_lin gbm_lin+gbm_s1+gbm_s2 [--metric WAPE]
 """
-import sys
+import argparse
 import pandas as pd
 import h2
 
 pd.set_option("display.width", 250)
 KEY = ["region", "bla", "blo", "year", "month", "dn"]
+METRICS = ("MAPE", "MAPE_main", "WAPE", "bias", "year_APE", "year_max")
 
 
 def get(name):
@@ -21,8 +22,11 @@ def get(name):
     return p.reset_index()
 
 
-args = [a for a in sys.argv[1:] if not a.startswith("--")]
-out = {n: h2.score_all(get(n)) * 100 for n in args}
-for m in ("MAPE", "MAPE_main", "WAPE", "bias", "year_APE", "year_max"):
+ap = argparse.ArgumentParser()
+ap.add_argument("variants", nargs="+")
+ap.add_argument("--metric", choices=METRICS, help="print only this metric")
+a = ap.parse_args()
+out = {n: h2.score_all(get(n)) * 100 for n in a.variants}
+for m in [a.metric] if a.metric else METRICS:
     print(f"\n== {m} (%)")
     print(pd.DataFrame({n: s[m] for n, s in out.items()}).round(1).to_string())

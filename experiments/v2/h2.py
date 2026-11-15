@@ -97,8 +97,32 @@ def score_frame(d, pred_col="pred", actual="s_n"):
             "year_max": ((yr[pred_col] - yr[actual]).abs() / yr[actual]).max(), "n": len(rm)}
 
 
+def in_box(d, name):
+    """Blocks inside a preset's bounds. The boxes overlap (Canada and US West share 42-49 N), so scoring
+    uses the bounds, not the single `region` label each unit carries."""
+    w, s, e, n = REGIONS[name]
+    return d.bla.between(s, n) & d.blo.between(w, e)
+
+
+# Calibration regions of the shipped rule (pipeline/build_global.py): the three validated regions, in this
+# order, then 30-degree boxes everywhere else.
+CAL_NAMED = ("canada", "amazon", "mediterranean")
+CAL_BOX = 30
+
+
+def cal_region(d):
+    out = ("box_" + (np.floor(d.bla / CAL_BOX) * CAL_BOX).astype(int).astype(str) + "_"
+           + (np.floor(d.blo / CAL_BOX) * CAL_BOX).astype(int).astype(str)).values.astype(object)
+    done = np.zeros(len(d), bool)
+    for k in CAL_NAMED:
+        m = in_box(d, k).values & ~done
+        out[m] = k
+        done |= m
+    return out
+
+
 def score_all(p, pred_col="pred", actual="s_n"):
-    rows = {r: score_frame(p[p.region == r], pred_col, actual) for r in REGIONS}
+    rows = {r: score_frame(p[in_box(p, r)], pred_col, actual) for r in REGIONS}
     rows["WORLD"] = score_frame(p, pred_col, actual)
     return pd.DataFrame(rows).T
 

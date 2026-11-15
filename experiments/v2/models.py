@@ -17,35 +17,57 @@ def _season(month):
 
 
 # ---------------------------------------------------------------- old and shipped rules, per region
+MIN_MODIS = 50  # pipeline/grid_calibrate.py: thinner region strata use the global ratio
+
+
+def _cal(d):
+    """Shipped rule's calibration regions (3 named regions + 30-degree boxes), as in pipeline/build_global.py."""
+    from h2 import cal_region
+    return d.assign(cal=cal_region(d), se=_season(d.month.values))
+
+
+def _region_ratios(d):
+    reg = d.groupby(["cal", "se", "dn"])[["s_n", "m"]].sum()
+    glb = d.groupby(["se", "dn"])[["s_n", "m"]].sum()
+    r_glb = _ratio(glb)
+    rr = _ratio(reg)
+    thin = (reg.m < MIN_MODIS).values
+    g = r_glb.reindex(pd.MultiIndex.from_arrays([reg.index.get_level_values("se"), reg.index.get_level_values("dn")])).values
+    rr[thin] = g[thin]
+    return rr, r_glb
+
+
 class OldRatio:
-    """Single ratio per region x fixed season x day/night (the rule before issue #37)."""
+    """Single ratio per calibration region x fixed season x day/night (the rule before issue #37)."""
     def fit(self, tr):
-        g = tr.assign(se=_season(tr.month.values)).groupby(["region", "se", "dn"])[["s_n", "m"]].sum()
-        self.r = _ratio(g)
+        self.r, self.r_glb = _region_ratios(_cal(tr))
         return self
 
     def predict(self, te):
-        idx = pd.MultiIndex.from_arrays([te.region.values, _season(te.month.values), te.dn.values])
-        return te.m.values * self.r.reindex(idx).fillna(self.r.mean()).values
+        d = _cal(te)
+        r = self.r.reindex(pd.MultiIndex.from_arrays([d.cal.values, d.se.values, d.dn.values])).values
+        g = self.r_glb.reindex(pd.MultiIndex.from_arrays([d.se.values, d.dn.values])).values
+        return te.m.values * np.where(np.isnan(r), g, r)
 
 
 class Shipped:
-    """Issue #37 rule: 1-degree block ratio shrunk to the region ratio, blended 50/50 with the same
-    estimate rescaled by a region power law per calendar month x day/night."""
+    """Issue #37 rule as shipped in pipeline/build_global.py: 1-degree block ratio shrunk to the calibration
+    region ratio, blended 50/50 with the same estimate rescaled by a region power law per calendar
+    month x day/night. Calibration regions are Canada, Amazon, Mediterranean and 30-degree boxes; thin
+    strata use the global ratio."""
     def __init__(self, k=200, w=0.5):
         self.k, self.w = k, w
 
     def fit(self, tr):
-        d = tr.assign(se=_season(tr.month.values))
-        reg = d.groupby(["region", "se", "dn"])[["s_n", "m"]].sum()
-        self.rr = _ratio(reg)
-        b = d.groupby([*BK, "se", "dn"])[["s_n", "m"]].sum()
+        d = _cal(tr)
+        self.rr, self.r_glb = _region_ratios(d)
+        b = d.groupby(["cal", "bla", "blo", "se", "dn"])[["s_n", "m"]].sum()
         prior = self.rr.reindex(pd.MultiIndex.from_arrays(
-            [b.index.get_level_values("region"), b.index.get_level_values("se"), b.index.get_level_values("dn")])).values
+            [b.index.get_level_values("cal"), b.index.get_level_values("se"), b.index.get_level_values("dn")])).values
         self.rb = _ratio(b, prior, self.k)
-        rm = d.groupby(["region", "year", "month", "dn"], as_index=False)[["s_n", "m"]].sum()
+        rm = d.groupby(["cal", "year", "month", "dn"], as_index=False)[["s_n", "m"]].sum()
         self.pl = {}
-        for key, g in rm.groupby(["region", "month", "dn"]):
+        for key, g in rm.groupby(["cal", "month", "dn"]):
             pos = g[g.m > 0]
             x, y = np.log(pos.m.values), np.log1p(pos.s_n.values)
             if len(pos) < 5 or np.ptp(x) == 0:
@@ -57,12 +79,15 @@ class Shipped:
         return self
 
     def predict(self, te):
-        se = _season(te.month.values)
-        rr = self.rr.reindex(pd.MultiIndex.from_arrays([te.region.values, se, te.dn.values])).values
-        rb = self.rb.reindex(pd.MultiIndex.from_arrays([te.region.values, te.bla.values, te.blo.values, se, te.dn.values])).values
+        d = _cal(te)
+        se, cal = d.se.values, d.cal.values
+        rr = self.rr.reindex(pd.MultiIndex.from_arrays([cal, se, te.dn.values])).values
+        g = self.r_glb.reindex(pd.MultiIndex.from_arrays([se, te.dn.values])).values
+        rr = np.where(np.isnan(rr), g, rr)
+        rb = self.rb.reindex(pd.MultiIndex.from_arrays([cal, te.bla.values, te.blo.values, se, te.dn.values])).values
         rb = np.where(np.isnan(rb), rr, rb)
-        region_m = te.groupby(["region", "t", "dn"]).m.transform("sum").values
-        P = np.array([self.pl.get(k, (np.nan, np.nan, np.nan)) for k in zip(te.region.values, te.month.values, te.dn.values)])
+        region_m = d.groupby(["cal", "t", "dn"]).m.transform("sum").values
+        P = np.array([self.pl.get(k, (np.nan, np.nan, np.nan)) for k in zip(cal, te.month.values, te.dn.values)])
         plp = np.maximum(np.exp(P[:, 0] + P[:, 1] * np.log(np.maximum(region_m, 1))) * P[:, 2] - 1, 0)
         lin = rr * region_m
         fac = np.where(np.isnan(P[:, 0]) | ~(lin > 0), 1.0, plp / np.maximum(lin, 1e-9))
