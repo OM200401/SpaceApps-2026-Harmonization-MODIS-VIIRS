@@ -1,5 +1,5 @@
 /* One Burning Calendar: the explore page.
-   One selection (area, month) drives everything: the map, the calendar (grid, ridges or clock) and the briefing cards.
+   One selection (area, month) drives everything: the map, the calendar and the briefing cards.
    Hovering a calendar month previews it on the map; clicking selects it. Data helpers live in shared.js (window.OBC). */
 (function () {
   const O = window.OBC, $ = id => document.getElementById(id);
@@ -11,13 +11,13 @@
     <button id="csv" title="One row per grid cell and month in the chosen years, with estimate and provisional flags">CSV</button>
     <button id="png" title="The calendar as a one-page image">PNG</button>`);
 
-  const VIEWS = ["grid", "ridges", "clock"], MODES = ["harmonized", "total", "anomaly"];
+  const MODES = ["harmonized", "total", "anomaly"];
   const STORIES = [{ label: "Canada 2023", preset: "canada", year: 2023 }, { label: "US West 2020", preset: "us-west", year: 2020 },
     { label: "Siberia 2021", preset: "siberia", year: 2021 }, { label: "Amazon 2007", preset: "amazon", year: 2007 }, { label: "Whole world", preset: "world", year: null }];
   const S0 = O.getState(), Q = S0.q;
   const A = { bbox: S0.bbox, cells: [], cellDeg: .25, level: "d", byT: new Map(), by: new Map(), stats: {}, med: {}, loaded: false, loadId: 0,
-    y: null, m: null, hover: null, mode: MODES.includes(Q.mode) ? Q.mode : "harmonized", view: VIEWS.includes(Q.view) ? Q.view : "grid",
-    y0: O.FIRST_YEAR, y1: null, ref: 1, timer: null, pendingYear: null, geo: null };
+    y: null, m: null, hover: null, mode: MODES.includes(Q.mode) ? Q.mode : "harmonized",
+    y0: O.FIRST_YEAR, y1: null, ref: 1, timer: null, pendingYear: null };
   const body = $("cal-body"), END = () => O.state.END;
   const endT = () => O.tOf(END().year, END().month);
   const years = () => { const a = []; for (let y = A.y0; y <= A.y1; y++) a.push(y); return a; };
@@ -74,31 +74,19 @@
     const same = (!h && !A.hover) || (h && A.hover && h.y === A.hover.y && h.m === A.hover.m);
     A.hover = h;
     if (h && ev) showTip(tipHTML(h.y, h.m), ev.clientX, ev.clientY); else hideTip();
-    if (!same) { drawMap(); if (A.view === "clock") clockCentre(); }
+    if (!same) drawMap();
   }
   function markSel() {
-    if (A.view !== "grid") return renderCal();
     body.querySelectorAll(".c.sel").forEach(e => { e.classList.remove("sel"); e.tabIndex = -1; });
     body.querySelectorAll(".cur").forEach(e => e.classList.remove("cur"));
     const el = body.querySelector(`.c[data-y="${A.y}"][data-m="${A.m}"]`);
     if (el) { el.classList.add("sel"); el.tabIndex = 0; el.parentElement.classList.add("cur"); }
     const mb = body.querySelector(`.mb[data-mo="${A.m}"]`); if (mb) mb.classList.add("cur");
   }
-  // Which month is under the pointer. Grid and clock cells carry data-y / data-m; ridges are picked by geometry,
-  // front ridge first, so pointing at a tall peak selects that year and not the one it overlaps.
+  // Which month is under the pointer: calendar cells carry data-y / data-m.
   function cellAt(ev) {
     const el = ev.target.closest && ev.target.closest("[data-y][data-m]");
-    if (el) return { y: +el.dataset.y, m: +el.dataset.m };
-    if (A.view !== "ridges" || !A.geo) return null;
-    const r = body.getBoundingClientRect(), g = A.geo, x = ev.clientX - r.left, yy = ev.clientY - r.top, ys = years();
-    const m = Math.floor((x - g.padL) / g.colW) + 1; if (m < 1 || m > 12) return null;
-    const fx = (x - g.padL) / g.colW - .5;
-    for (let i = ys.length - 1; i >= 0; i--) {
-      const base = g.top + (i + 1) * g.rowH, row = g.ys[i]; if (yy > base || !row.length) continue;
-      const a = Math.max(0, Math.min(row.length - 1, Math.floor(fx))), b = Math.min(row.length - 1, a + 1), f = Math.max(0, Math.min(1, fx - a));
-      if (yy >= row[a] + (row[b] - row[a]) * f) return { y: ys[i], m };
-    }
-    return { y: ys[Math.max(0, Math.min(ys.length - 1, Math.ceil((yy - g.top) / g.rowH - 1)))], m };
+    return el ? { y: +el.dataset.y, m: +el.dataset.m } : null;
   }
   body.addEventListener("pointermove", ev => { if (ev.pointerType === "touch") return; const c = cellAt(ev); setHover(c && !O.isPartial(c.y, c.m) ? c : null, ev); });
   body.addEventListener("pointerleave", () => setHover(null));
@@ -116,14 +104,13 @@
     ev.preventDefault(); stop();
     const y = A.y + mv[0], m = A.m + mv[1]; if (m < 1 || m > 12 || y < A.y0 || y > A.y1 || O.isPartial(y, m)) return;
     setSel(y, m);
-    if (A.view === "grid") { const el = body.querySelector(`.c[data-y="${y}"][data-m="${m}"]`); if (el) el.focus(); }
+    const el = body.querySelector(`.c[data-y="${y}"][data-m="${m}"]`); if (el) el.focus();
   });
 
-  // ---- calendar: three shapes of the same year-by-month record ----
+  // ---- calendar: year rows by month columns ----
   function renderCal() {
-    body.className = "v-" + A.view; body.tabIndex = A.view === "grid" ? -1 : 0;
     if (!A.loaded) { body.innerHTML = `<p class="muted small">Loading the fire record…</p>`; return; }
-    ({ grid: renderGrid, ridges: renderRidges, clock: renderClock })[A.view]();
+    renderGrid();
     renderScale();
   }
   const calLabel = () => `Burning activity calendar for ${O.areaName(A.bbox)}, ${A.y0} to ${A.y1}`;
@@ -146,87 +133,17 @@
     body.innerHTML = h;
   }
 
-  // Monotone cubic through the points: smooth, but never overshoots below a neighbour (so no ridge dips under its baseline).
-  function smooth(p) {
-    const n = p.length, f = v => v.toFixed(1); if (!n) return "";
-    let d = `M${f(p[0][0])},${f(p[0][1])}`;
-    if (n < 3) { for (let i = 1; i < n; i++) d += `L${f(p[i][0])},${f(p[i][1])}`; return d; }
-    const s = [], t = []; for (let i = 0; i < n - 1; i++) s.push((p[i + 1][1] - p[i][1]) / (p[i + 1][0] - p[i][0] || 1));
-    t[0] = s[0]; t[n - 1] = s[n - 2]; for (let i = 1; i < n - 1; i++) t[i] = s[i - 1] * s[i] <= 0 ? 0 : 2 * s[i - 1] * s[i] / (s[i - 1] + s[i]);
-    for (let i = 0; i < n - 1; i++) { const dx = (p[i + 1][0] - p[i][0]) / 3; d += `C${f(p[i][0] + dx)},${f(p[i][1] + t[i] * dx)} ${f(p[i + 1][0] - dx)},${f(p[i + 1][1] - t[i + 1] * dx)} ${f(p[i + 1][0])},${f(p[i + 1][1])}`; }
-    return d;
-  }
-  function renderRidges() {
-    const W = Math.max(body.clientWidth, 280), H = Math.max(body.clientHeight, 300), ys = years(), n = ys.length, padL = 38, padR = 6, padT = 6, padB = 20;
-    const OV = Math.min(5, Math.max(1.6, n / 5));   // the busiest month rises this many rows
-    const rows = ys.map(y => { const v = []; for (let m = 1; m <= 12; m++) { const k = metric(y, m); if (!k) break; v.push(k.v); } return v; });
-    const max = Math.max(1, ...rows.map(v => Math.max(0, ...v)));
-    let hr = .3; rows.forEach((v, i) => { hr = Math.max(hr, Math.max(0, ...v) / max * OV - i - 1); });   // head-room rows above the first year
-    const rowH = (H - padT - padB) / (n + hr), top = padT + hr * rowH, colW = (W - padL - padR) / 12, X = j => padL + (j + .5) * colW;
-    const tot = ys.map(yearTotal), tmax = Math.max(1, ...tot.map(t => t.v)), every = rowH < 10 ? 5 : rowH < 13 ? 2 : 1;
-    let h = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${calLabel()}, one ridge per year. Arrow keys move between months; the Grid view reads out every month.">`, dot = "";
-    O.MO.forEach((mo, j) => { h += `<text x="${X(j).toFixed(1)}" y="${H - 5}" text-anchor="middle">${mo}</text>`; });
-    if (A.y != null) h += `<line class="guide" x1="${X(A.m - 1).toFixed(1)}" x2="${X(A.m - 1).toFixed(1)}" y1="${padT}" y2="${H - padB}"/>`;
-    const geoYs = [];
-    ys.forEach((y, i) => {
-      const v = rows[i], base = top + (i + 1) * rowH, pts = v.map((val, j) => [X(j), base - val / max * OV * rowH]);
-      geoYs.push(pts.map(p => p[1]));
-      const cur = y === A.y, lab = cur || i === 0 || i === n - 1 || y % every === 0;
-      h += `<g class="ridge${y < 2012 && A.mode !== "total" ? " est" : ""}${cur ? " cur" : ""}">`;
-      if (pts.length) {
-        const right = pts[pts.length - 1][0] + colW / 2, line = smooth([[padL, pts[0][1]], ...pts, [right, pts[pts.length - 1][1]]]);
-        const area = `M${padL},${base.toFixed(1)}L${line.slice(1)}L${right.toFixed(1)},${base.toFixed(1)}Z`;
-        const c = A.mode === "anomaly" ? (() => { const r = O.verdict(A.by, y, upToFor(y)).ratio; return r == null ? null : O.divRGB(divT(r)); })() : tot[i].v > 0 ? O.rampRGB(Math.pow(tot[i].v / tmax, .6)) : null;
-        h += `<path d="${area}" fill="var(--card)"/><path class="area" d="${area}" fill="${c ? `rgb(${c})` : "var(--cell-empty)"}" fill-opacity=".9"/><path class="line" d="${line}"/>`;
-        if (cur && pts[A.m - 1]) dot = `<circle class="dot" cx="${pts[A.m - 1][0].toFixed(1)}" cy="${pts[A.m - 1][1].toFixed(1)}" r="5"/>`;
-      }
-      if (lab) h += `<text x="${padL - 6}" y="${(base - 2).toFixed(1)}" text-anchor="end">${y}</text>`;
-      h += `</g>`;
-    });
-    body.innerHTML = h + dot + `</svg>`;
-    A.geo = { padL, colW, top, rowH, ys: geoYs };
-  }
-
-  function renderClock() {
-    const ys = years(), n = ys.length, R1 = 226, R0 = n > 14 ? 80 : 104, th = (R1 - R0) / n, max = scaleMax(), gap = th > 5 ? .8 : .3;
-    const P = (r, a) => `${(r * Math.cos(a * Math.PI / 180)).toFixed(1)},${(r * Math.sin(a * Math.PI / 180)).toFixed(1)}`;
-    let h = `<svg class="clock" viewBox="-262 -262 524 524" role="img" aria-label="${calLabel()}, as a clock: months go round, years go outward. Arrow keys move between months; the Grid view reads out every month.">`, selPath = "";
-    ys.forEach((y, i) => {
-      const ri = R0 + i * th, ro = ri + th - gap;
-      for (let m = 1; m <= 12; m++) {
-        const a0 = (m - 1) * 30 - 90 + .6, a1 = m * 30 - 90 - .6, k = metric(y, m), c = fillRGB(k, max), sel = y === A.y && m === A.m;
-        const p = `<path d="M${P(ro, a0)}A${ro.toFixed(1)},${ro.toFixed(1)} 0 0 1 ${P(ro, a1)}L${P(ri, a1)}A${ri.toFixed(1)},${ri.toFixed(1)} 0 0 0 ${P(ri, a0)}Z" data-y="${y}" data-m="${m}" class="${!k ? "partial" : !c ? "none" : ""}${sel ? " sel" : ""}"${c ? ` fill="rgb(${c})"` : ""}/>`;
-        if (sel) selPath = p; else h += p;
-      }
-    });
-    h += selPath;
-    if (A.y0 < 2012 && A.y1 >= 2012 && A.mode !== "total") h += `<circle class="guide" r="${(R0 + (2012 - A.y0) * th - gap / 2).toFixed(1)}" fill="none" pointer-events="none"/>`;
-    O.MO.forEach((mo, j) => { h += `<text x="${P(R1 + 16, (j + .5) * 30 - 90).split(",")[0]}" y="${P(R1 + 16, (j + .5) * 30 - 90).split(",")[1]}" text-anchor="middle" dominant-baseline="central">${mo}</text>`; });
-    const step = n > 18 ? 5 : n > 8 ? 2 : 1;
-    ys.forEach((y, i) => { if (i === 0 || i === n - 1 || (y % step === 0 && i > 1 && i < n - 2)) h += `<text class="halo" x="0" y="${(-(R0 + i * th + th / 2)).toFixed(1)}" text-anchor="middle" dominant-baseline="central" pointer-events="none" style="fill:var(--ink)">${y}</text>`; });
-    body.innerHTML = h + `<g id="clock-c"></g></svg>`;
-    clockCentre();
-  }
-  function clockCentre() {
-    const g = document.getElementById("clock-c"), s = shown(); if (!g || !s) return;
-    const k = metric(s.y, s.m), ratio = k && A.mode !== "total" && k.ratio != null;
-    g.innerHTML = `<text class="c-mo" y="-24" text-anchor="middle">${O.MO[s.m - 1]} ${s.y}</text>
-      <text class="c-big" y="8" text-anchor="middle">${!k ? "—" : ratio ? k.ratio.toFixed(1) + "×" : O.fmtK(k.v)}</text>
-      <text class="c-sub" y="27" text-anchor="middle">${!k ? "" : ratio ? "a typical " + O.MO[s.m - 1] : A.mode === "total" ? "raw detections" : "detections"}</text>
-      <text class="c-sub" y="41" text-anchor="middle">${k && ratio ? O.fmtK(k.h) + " detections" : ""}</text>`;
-  }
-
   function renderScale() {
     const max = scaleMax(), an = A.mode === "anomaly";
     const stops = Array.from({ length: 11 }, (_, i) => an ? `rgb(${O.divRGB(i / 5 - 1)})` : O.ramp(i / 10)).join(",");
     const ticks = an ? ["≤0.2×", "typical", "≥5×"] : [0, .25, .5, .75, 1].map(t => O.fmtK(max * Math.pow(t, 1 / O.POW)));
     const what = an ? "Times a typical month (2003–2020 median)" : A.mode === "total" ? "Raw detections per month" : "Harmonized detections per month";
-    $("scale").innerHTML = `<span class="lab">${A.view === "ridges" ? "Ridge height = detections; colour = " + (an ? "year vs typical" : "year total") : what}</span><div class="bar"><div class="grad" style="background:linear-gradient(to right,${stops})"></div><div class="ticks">${(A.view === "ridges" && !an ? ["quiet year", "busiest year"] : ticks).map(t => `<span>${t}</span>`).join("")}</div></div>`;
+    $("scale").innerHTML = `<span class="lab">${what}</span><div class="bar"><div class="grad" style="background:linear-gradient(to right,${stops})"></div><div class="ticks">${ticks.map(t => `<span>${t}</span>`).join("")}</div></div>`;
     const keys = [];
-    if (A.view !== "ridges") keys.push(`<span><i></i>${an ? "No baseline" : "No fire detected"}</span>`);
-    if (A.y0 < 2012 && A.mode !== "total") keys.push(`<span><i class="k-est"></i>${{ grid: "Above the line", ridges: "Dashed outline", clock: "Inside the dashed ring" }[A.view]}: estimated from MODIS</span>`);
-    if (A.view === "grid" && O.state.PROV && A.y1 >= O.state.PROV.year) keys.push(`<span><i class="k-prov"></i>Provisional</span>`);
-    if (A.view !== "ridges" && A.y1 === END().year && END().month < 12) keys.push(`<span><i class="k-part"></i>Not in the record yet</span>`);
+    keys.push(`<span><i></i>${an ? "No baseline" : "No fire detected"}</span>`);
+    if (A.y0 < 2012 && A.mode !== "total") keys.push(`<span><i class="k-est"></i>Above the line: estimated from MODIS</span>`);
+    if (O.state.PROV && A.y1 >= O.state.PROV.year) keys.push(`<span><i class="k-prov"></i>Provisional</span>`);
+    if (A.y1 === END().year && END().month < 12) keys.push(`<span><i class="k-part"></i>Not in the record yet</span>`);
     $("keys").innerHTML = keys.join("");
   }
 
@@ -465,12 +382,11 @@
   // ---- theme, resize ----
   function paintLegend() { $("map-grad").style.background = `linear-gradient(to right,${lut().filter((_, i) => i % 8 === 0 || i === 47).join(",")})`; }
   O.onTheme(() => { if (MAP) { TILES.setUrl(tileURL("Base")); LABELS.setUrl(tileURL("Reference")); syncBox(); } paintLegend(); renderAll(); });
-  let RAF = 0;
-  if (window.ResizeObserver) new ResizeObserver(() => { if (A.view !== "ridges" || !A.loaded) return; cancelAnimationFrame(RAF); RAF = requestAnimationFrame(renderRidges); }).observe(body);
   document.addEventListener("click", e => { const d = $("coords"); if (d.open && !d.contains(e.target)) d.open = false; });
 
   // ---- start ----
-  paintLegend(); seg("view", "view", "v"); seg("mode", "mode", "m"); renderCal();
+  paintLegend(); seg("mode", "mode", "m"); renderCal();
+  if ("view" in Q) O.setState({ view: null });   // links from before the calendar had a single shape
   O.loadData().then(() => {
     O.setDataThrough();
     const end = END().year, opts = Array.from({ length: end - O.FIRST_YEAR + 1 }, (_, i) => `<option>${O.FIRST_YEAR + i}</option>`).join("");
