@@ -217,7 +217,7 @@ function initLeaflet() {
   // Draw a box: pointer events, so mouse, pen and touch all work. Shift+drag box zoom also selects.
   let start = null, draft = null, upHandled = false; const box = map.getContainer();
   const exit = cancel => { SELECT_MODE = false; start = null; map.dragging.enable(); box.style.cursor = ""; if (draft) { draft.remove(); draft = null; } $("draw-region").setAttribute("aria-pressed", "false"); $("draw-region").textContent = "Draw on map"; if (cancel) $("map-status").textContent = "Drawing cancelled."; };
-  L.DomEvent.on(box, "pointerdown", e => { if (!SELECT_MODE) return; L.DomEvent.stop(e); start = map.mouseEventToLatLng(e); draft = L.rectangle([start, start], { renderer: LEAFLET.renderer, color: "#c2410c", weight: 2, fillOpacity: .08, interactive: false }).addTo(map); });
+  L.DomEvent.on(box, "pointerdown", e => { if (!SELECT_MODE) return; L.DomEvent.stop(e); upHandled = false; start = map.mouseEventToLatLng(e); draft = L.rectangle([start, start], { renderer: LEAFLET.renderer, color: "#c2410c", weight: 2, fillOpacity: .08, interactive: false }).addTo(map); });
   L.DomEvent.on(box, "pointermove", e => { if (SELECT_MODE && start && draft) { L.DomEvent.stop(e); draft.setBounds(L.latLngBounds(start, map.mouseEventToLatLng(e))); } });
   L.DomEvent.on(box, "pointerup", e => { if (!SELECT_MODE) return; upHandled = true; L.DomEvent.stop(e); if (start) { const b = L.latLngBounds(start, map.mouseEventToLatLng(e)); if (b.getWest() < b.getEast() && b.getSouth() < b.getNorth()) setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); } exit(false); });
   // From #29: releasing outside the map cancels a drawing in progress.
