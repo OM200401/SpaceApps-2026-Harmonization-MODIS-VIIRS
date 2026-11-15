@@ -8,8 +8,9 @@ values were fixed independently of the production pipeline.
 Independence rules:
   * Never imports or copies pipeline/grid_calibrate.py, build_regions.py,
     export_json.py or calibrate.py. Aggregation over the raw grid is done in
-    DuckDB SQL; the method refit is implemented here from the written spec
-    in docs/VALIDATION.md.
+    DuckDB SQL; the method refit is an independent implementation of the
+    project's calibration rules (docs/VALIDATION.md and the production
+    calibration code).
   * Read-only against the repo: writes only docs/AUDIT_REPORT.md and
     pipeline/audit_results.json. Fault injection runs on in-memory copies.
     (--pin is the one exception: it rewrites the claims registry, and only
@@ -174,16 +175,16 @@ def discover_docs(root):
         try:
             if p.stat().st_size > 2_000_000:
                 continue
-            text = p.read_text(errors="replace")
+            text = p.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         first = text.splitlines()[0] if text.splitlines() else ""
         swept[rel] = {"role": _role_for(rel, first)}
-    docs = {rel: (root / rel).read_text(errors="replace") for rel in swept}
+    docs = {rel: (root / rel).read_text(encoding="utf-8", errors="replace") for rel in swept}
     return docs, swept
 
 def load_ctx(root):
-    data = json.loads((root / "app/data/monthly.json").read_text())
+    data = json.loads((root / "app/data/monthly.json").read_text(encoding="utf-8"))
     docs, swept = discover_docs(root)
     return {"data": data, "dec": decode_cells(data["cells"]),
             "docs": docs, "swept": swept}
@@ -637,7 +638,8 @@ STRATA4 = [("fire", "D"), ("fire", "N"), ("off", "D"), ("off", "N")]
 def ratios_calc(st, years, fallback=None):
     """Spec: S-NPP/MODIS per season x day/night from summed overlap counts.
     Thin strata (<50 MODIS) take the fallback table's ratio, else the pooled
-    day/night ratio. Implemented from docs/VALIDATION.md, not copied."""
+    day/night ratio. Rules: docs/VALIDATION.md and the production calibration code;
+    implemented here, not copied."""
     import pandas as pd
     d = st[st["year"].between(*years)]
     def ssum(mask):
@@ -871,7 +873,8 @@ def write_report(A, root, grid_note, record):
              f"Artifact audited: `app/data/monthly.json` (md5 {digest}) — every value in it, per cell and "
              "per month, plus the Canada validation numbers in the claims registry. Engine: "
              "`pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL "
-             "aggregation over the raw grid; method refit implemented from docs/VALIDATION.md). "
+             "aggregation over the raw grid; method refit implemented from the project's calibration "
+             "rules, docs/VALIDATION.md and the production calibration code). "
              "Claims and tolerances: `pipeline/audit_claims.json`.",
              f"Grid: {grid_note}",
              f"**RECORD: {record['status']}** — {record['detail']}",
@@ -924,7 +927,7 @@ def write_report(A, root, grid_note, record):
 
 def _atomic_write(path, text):
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text)
+    tmp.write_text(text, encoding="utf-8", newline="")
     os.replace(tmp, path)
 
 def do_pin(A, root, meta, cur_md5):
@@ -968,8 +971,12 @@ def do_pin(A, root, meta, cur_md5):
     return True
 
 def run_audit(a):
+    try:
+        sys.stdout.reconfigure(errors="replace")  # console glyphs must never kill a finished audit
+    except Exception:
+        pass
     root = Path(a.root)
-    meta = json.loads((root / "pipeline/audit_claims.json").read_text())
+    meta = json.loads((root / "pipeline/audit_claims.json").read_text(encoding="utf-8"))
     claims = meta["claims"]
     ctx = load_ctx(root)
     cur_md5 = artifact_md5(root)
@@ -1004,20 +1011,20 @@ def run_audit(a):
     grid = Path(a.grid) if a.grid else root / "data/derived/monthly_grid_025.parquet"
     if grid.exists():
         try:
-            st, world = layer_L3(A, ctx, claims, str(grid))
+            st, world = layer_L3(A, ctx, claims, grid.as_posix())
             layer_L4(A, ctx, claims, st, world)
-            grid_note = f"`{grid}` present; L3/L4 ran in full."
+            grid_note = f"`{grid.as_posix()}` present; L3/L4 ran in full."
         except Exception as exc:
             for lid, name in [("L3", "Raw-input recomputation"), ("L4", "Method refit and holdout")]:
                 A.add(lid, "blocked", name, "readable grid parquet",
                       f"{type(exc).__name__}: {exc}", BLOCKED,
                       "The grid exists but could not be read; fix its permissions or format and re-run.")
-            grid_note = f"`{grid}` present but UNREADABLE; L3/L4 BLOCKED."
+            grid_note = f"`{grid.as_posix()}` present but UNREADABLE; L3/L4 BLOCKED."
     else:
         for lid, name in [("L3", "Raw-input recomputation"), ("L4", "Method refit and holdout")]:
-            A.add(lid, "blocked", name, "grid parquet present", f"{grid} not found", BLOCKED,
+            A.add(lid, "blocked", name, "grid parquet present", f"{grid.as_posix()} not found", BLOCKED,
                   "Place the data-v2 monthly_grid_025.parquet at data/derived/ and re-run.")
-        grid_note = f"`{grid}` NOT found; L3/L4 BLOCKED."
+        grid_note = f"`{grid.as_posix()}` NOT found; L3/L4 BLOCKED."
     sci_fail, pub_fail, blocked = write_report(A, root, grid_note, record)
     stale_rows = [r for r in A.rows if r["verdict"] == STALE and r["layer"] != "LP"]
     for r in A.rows:

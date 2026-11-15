@@ -1,7 +1,7 @@
 # Audit Report — independent recomputation of the shipped Canada record
 
-Artifact audited: `app/data/monthly.json` (md5 dbb934b1681e) — every value in it, per cell and per month, plus the Canada validation numbers in the claims registry. Engine: `pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL aggregation over the raw grid; method refit implemented from docs/VALIDATION.md). Claims and tolerances: `pipeline/audit_claims.json`.
-Grid: `data\derived\monthly_grid_025.parquet` present; L3/L4 ran in full.
+Artifact audited: `app/data/monthly.json` (md5 dbb934b1681e) — every value in it, per cell and per month, plus the Canada validation numbers in the claims registry. Engine: `pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL aggregation over the raw grid; method refit implemented from the project's calibration rules, docs/VALIDATION.md and the production calibration code). Claims and tolerances: `pipeline/audit_claims.json`.
+Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 **RECORD: CURRENT** — artifact md5 dbb934b1681e matches the pinned record.
 
 **NUMBERS verdict: PASS** — 142 checks passed, 0 failed, 1 unverifiable, 0 blocked.

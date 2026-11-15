@@ -122,7 +122,7 @@ Do not take our word for any number in this project. The audit engine recomputes
 python pipeline/audit_engine.py --selftest
 ```
 
-The production pipeline is pandas. The audit rebuilds the data from the 55M-row grid in SQL (DuckDB), refits the harmonization rule from the written spec in `docs/VALIDATION.md`, and compares everything against expected values that were written down in advance (`pipeline/audit_claims.json`). The full report is `docs/AUDIT_REPORT.md`.
+The production pipeline is pandas. The audit rebuilds the data from the 55M-row grid in SQL (DuckDB), refits the harmonization rule from the project's calibration rules (`docs/VALIDATION.md` and the production calibration code), and compares everything against expected values that were written down in advance (`pipeline/audit_claims.json`). The full report is `docs/AUDIT_REPORT.md`.
 
 On the shipped record, it verifies:
 
