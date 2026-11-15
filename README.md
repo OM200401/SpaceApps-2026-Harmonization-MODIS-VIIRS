@@ -201,7 +201,7 @@ We used AI assistants to speed up building this project. The team directed and r
 |---|---|
 | Claude (Anthropic) | Code (`summarise/build_monthly_grid.py`, parts of `pipeline/` and `app/`), data checks on the FIRMS tables, and documentation (READMEs, `docs/`) |
 | Codex (OpenAI) | Code in `pipeline/` |
-| Quill | Code and documentation |
+| Muse Code | Documentation |
 | GitHub Copilot Autofix | One fix in `app/index.html` (median calculation) |
 
 - **Ideas and method:** choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, season × day/night ratios, and the 2012–2020 calibration with 2021–2023 holdout.
