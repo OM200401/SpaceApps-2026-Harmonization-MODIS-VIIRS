@@ -49,6 +49,7 @@ About 90 variants were scored with the harness in `experiments/` (run order in `
 - **Untouched 2021–2023 holdout, chosen settings vs old rule (own ratios), mean over 8 regions:** MAPE **24.9% → 18.0%**, WAPE **14.3% → 11.0%**, bias −1.3% → +0.8%. Per region: Canada MAPE 19.6% → 13.7%, Amazon 17.9% → 8.6%, Mediterranean 20.6% → 15.7%. These are within 0.3 points of the shipped settings' numbers in the table above.
 - **One exception:** Canada's 2021–2023 WAPE is higher under the new rule (8.8% → 11.0%) even though its MAPE and bias improve.
 - The choice of method family itself (from about 90 variants) was still made with all years, so this check covers the settings but not that first choice.
+- **Why 1° blocks still ship, not 2°:** 2° wins by only 0.3 points of WAPE on the inner folds, and on the untouched holdout the two are within 0.3 points of each other. 1° blocks follow the spatial pattern of fires more closely for the 0.25° cells the app shows, and every shipped number and check in this document was produced with 1°. Switching would change every MODIS-era cell for a gain inside that margin.
 
 Tried and not adopted: global ratios, Aqua and Terra as separate predictors, MODIS-FRP bins, region-specific fire seasons, a power law fitted on small blocks, high-confidence-only counts, and gradient-boosted trees (similar error but more biased and slower).
 

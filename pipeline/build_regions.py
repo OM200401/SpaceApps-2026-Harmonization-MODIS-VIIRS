@@ -53,7 +53,9 @@ def main():
     out_dir = Path(a.outdir); out_dir.mkdir(parents=True, exist_ok=True)
     calib = {"reference": "SNPP only", "rule": "block ratio + monthly power law (issue #37)",
              "holdout_fit": [2012, 2020], "holdout_years": [2021, 2023],
-             "min_modis_hotspots": MIN_MODIS, "global": global_r.round(6).to_dict("records"), "regions": {}}
+             "min_modis_hotspots": MIN_MODIS, "global": global_fit.round(6).to_dict("records"),  # fallback used by the shipped fit
+             "global_holdout": global_r.round(6).to_dict("records"),  # fallback used by the 2012-2020 holdout
+             "regions": {}}
     harmonized, summary = [], []
     for name, bbox in REGIONS.items():
         s, monthly = build(raw[name])
@@ -81,7 +83,7 @@ def main():
         print(rule["power_law"][["month", "daynight", "a", "b", "smear", "n_months"]].round(3).to_string(index=False))
 
     print("\n== global fallback ratios")
-    print(global_r[[*STRATA, "modis", "snpp", "ratio", "ratio_terra"]].round(3).to_string(index=False))
+    print(global_fit[[*STRATA, "modis", "snpp", "ratio", "ratio_terra"]].round(3).to_string(index=False))
     all_m = pd.concat(harmonized, ignore_index=True)
     assert not all_m.duplicated(["cell_id", "year", "month"]).any(), "regions overlap"
     all_m.to_parquet(a.out, index=False)
