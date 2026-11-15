@@ -20,12 +20,14 @@ table.facts th{font-size:12.5px;color:var(--ink-3);font-weight:600}
 .jumps{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:14px}
 ul.plain{margin:6px 0 0;padding-left:20px;font-size:14px;color:var(--ink-2)}
 ul.plain li{margin:4px 0}
+details.more{margin-top:14px}
+details.more .body{margin-top:10px}
 </style></head><body>
 <header id="site-header"></header>
 <main class="wrap">
  <div class="hero">
   <h1>Two satellites, one fire record</h1>
-  <p>NASA has watched fires from space since 2000, first with MODIS (1&nbsp;km pixels), then with VIIRS (375&nbsp;m pixels) from 2012. VIIRS sees many more small fires, so putting the two records side by side makes fire look as if it exploded in 2012. We convert the older MODIS record into today's VIIRS units, so every year can be compared fairly.</p>
+  <p>MODIS (since 2000) and VIIRS (since 2012) count fires differently. VIIRS sees far more small fires, so joined naively, fire seems to explode in 2012. We convert MODIS into VIIRS units so every year compares fairly.</p>
  </div>
 
  <section class="card" aria-labelledby="p-title">
@@ -39,12 +41,7 @@ ul.plain li{margin:4px 0}
   </div>
   <div style="position:relative;height:280px"><canvas id="jump" role="img" aria-label="Yearly fire detections 2005 to 2018 for the selected area, raw versus harmonized">Raw totals jump in 2012; harmonized totals do not.</canvas></div>
   <p class="verdict" id="jump-text" style="font-size:19px;margin-top:12px"></p>
-  <div class="jumps">
-   <div class="kpi"><div class="l">2011 → 2012, raw</div><div class="v" id="j-raw">—</div></div>
-   <div class="kpi"><div class="l">2011 → 2012, harmonized</div><div class="v" id="j-harm">—</div></div>
-   <div class="kpi"><div class="l">2011 → 2012, MODIS alone</div><div class="v" id="j-modis">—</div></div>
-  </div>
-  <p class="small muted" style="margin:10px 0 0">MODIS alone is one consistent instrument across both years, so its change shows the real change in fire. The harmonized record should, and does, land close to it.</p>
+  <p class="small muted" style="margin:6px 0 0">MODIS alone is one consistent instrument across both years, so its change is the real change in fire.</p>
  </section>
 
  <section class="card" aria-labelledby="s-title">
@@ -58,39 +55,36 @@ ul.plain li{margin:4px 0}
 
  <section class="card" aria-labelledby="a-title">
   <h2 id="a-title">How accurate is it?</h2>
-  <p class="small" style="color:var(--ink-2);margin:6px 0 12px">We hide years the method never saw, predict them from MODIS alone, and compare with what VIIRS really detected. Test: fit on 2012–2020, predict 2021–2023 (36 months). Monthly error is the average gap between prediction and reality.</p>
+  <p class="small" style="color:var(--ink-2);margin:6px 0 12px">Fit on 2012–2020, then predict 2021–2023 from MODIS alone and compare with what VIIRS really saw.</p>
   <div style="overflow-x:auto"><table class="facts">
    <tr><th>Region</th><th>Monthly error, previous method</th><th>Monthly error, now</th><th>Bias, now</th><th>Busiest 5 months found</th></tr>
    <tr><td>Canada</td><td>16.9%</td><td><strong>13.6%</strong></td><td>−6.5%</td><td>5 of 5</td></tr>
    <tr><td>Amazon</td><td>17.9%</td><td><strong>8.3%</strong></td><td>+4.5%</td><td>5 of 5</td></tr>
    <tr><td>Mediterranean</td><td>20.6%</td><td><strong>15.6%</strong></td><td>+3.5%</td><td>4 of 5</td></tr>
   </table></div>
-  <div class="jumps" style="margin-top:16px">
-   <div class="kpi"><div class="l">Typical month, 8 test regions</div><div class="v">within 14%</div></div>
-   <div class="kpi"><div class="l">Total fire missed or added</div><div class="v">8.9%</div></div>
-   <div class="kpi"><div class="l">8 of 10 estimated months</div><div class="v">−28% to +13%</div></div>
-  </div>
-  <p class="small muted" style="margin:10px 0 0">The bottom row comes from hiding one year at a time from 2013 to 2025 across 8 regions (Canada, Amazon, Mediterranean, US West, Siberia, southern Africa, SE Asia, northern Australia). A stricter check, which chose the method's settings without ever seeing 2021–2023, gave nearly identical results.</p>
+  <details class="more"><summary>More checks</summary><div class="body small" style="color:var(--ink-2)">
+   Hiding one year at a time (2013–2025) across 8 regions: a typical month lands within 14%, total fire is off by 8.9%, and 8 of 10 estimated months fall between −28% and +13%. A stricter check that chose the settings without ever seeing 2021–2023 gave nearly identical results.
+  </div></details>
  </section>
 
  <section class="card" aria-labelledby="l-title">
-  <h2 id="l-title">What to keep in mind</h2>
-  <ul class="plain">
+  <details class="more" style="margin:0"><summary><h2 id="l-title" style="display:inline;font-size:18px;color:var(--ink)">What to keep in mind</h2></summary>
+  <ul class="plain" style="margin-top:10px">
    <li><strong>Before 2012 is an estimate.</strong> MODIS misses many small fires that VIIRS sees, and no conversion can recover what was never detected. Quiet months tend to come out about 8% low.</li>
    <li><strong>2000–2002 are least certain.</strong> Only the Terra satellite was flying, and no period exists where Terra alone overlaps with VIIRS to check against.</li>
    <li><strong>The latest months are provisional.</strong> They use NASA's near-real-time data, which is replaced by the final archive a few months later.</li>
    <li><strong>A detection is not a fire.</strong> One large fire can produce hundreds of hotspot detections. Counts measure burning activity, not the number of separate fires.</li>
    <li><strong>Small areas are noisier.</strong> Error grows as the area you draw gets smaller (about 25% for a single 1° box).</li>
-  </ul>
+  </ul></details>
  </section>
 
  <section class="card" aria-labelledby="d-title">
-  <h2 id="d-title">Data and code</h2>
-  <ul class="plain">
+  <details class="more" style="margin:0"><summary><h2 id="d-title" style="display:inline;font-size:18px;color:var(--ink)">Data and code</h2></summary>
+  <ul class="plain" style="margin-top:10px">
    <li>NASA FIRMS active fire detections: MODIS Collection 6.1 (Terra and Aqua) and VIIRS 375&nbsp;m S-NPP Collection 2, via NASA Earthdata. Vegetation fires only, nominal and high confidence.</li>
    <li>Counted per 0.25° grid cell (about 25&nbsp;km) and month, by satellite and day or night.</li>
    <li>Full method, validation numbers and the experiment scripts: <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/blob/main/docs/VALIDATION.md">VALIDATION.md</a> and the <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">GitHub repository</a>.</li>
-  </ul>
+  </ul></details>
   <p style="margin:14px 0 0"><a class="btn btn-primary" data-page-link="index.html" href="index.html">Explore the map →</a> <a class="btn" data-page-link="report.html" href="report.html">Open an area report</a></p>
  </section>
 </main>
@@ -114,9 +108,6 @@ function render() {
   $("jump-text").textContent = !jr ? "No fire detected here in 2011, so the switch-over can't be shown for this area." : isRaw
     ? `Raw, fire seems to jump ${jr > 0 ? "+" : ""}${jr}% from 2011 to 2012. That's the satellite changing, not the fires.`
     : `Harmonized, the change is ${jh > 0 ? "+" : ""}${jh}%, close to the ${jm > 0 ? "+" : ""}${jm}% that MODIS alone shows. The fake jump is gone.`;
-  $("j-raw").textContent = jr ? (jr > 0 ? "+" : "") + jr + "%" : "—";
-  $("j-harm").textContent = jh ? (jh > 0 ? "+" : "") + jh + "%" : "—";
-  $("j-modis").textContent = jm ? (jm > 0 ? "+" : "") + jm + "%" : "—";
 }
 $("view").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; VIEW = b.dataset.v; $("view").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
 O.onTheme(() => { if (AGG) render(); });

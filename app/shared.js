@@ -140,7 +140,8 @@
   function updateThemeToggle() {
     const b = document.getElementById("theme-toggle"); if (!b) return;
     const dark = isDark();
-    b.innerHTML = dark ? '<span class="ico" aria-hidden="true">☀</span> Light' : '<span class="ico" aria-hidden="true">☾</span> Dark';
+    b.innerHTML = dark ? '<span class="ico" aria-hidden="true">☀</span>' : '<span class="ico" aria-hidden="true">☾</span>';
+    b.title = dark ? "Light theme" : "Dark theme";
     b.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
     b.setAttribute("aria-pressed", String(dark));
   }
@@ -156,7 +157,7 @@
     const link = (page, label) => `<a data-page-link="${page}" href="${page}"${active === page ? ' aria-current="page"' : ""}>${label}</a>`;
     el.className = "site-header";
     el.innerHTML = `<div class="wrap"><a class="brand" data-page-link="index.html" href="index.html"><span class="brand-mark">${FLAME}</span>One Burning Calendar</a>
-      <nav class="nav" aria-label="Main">${link("index.html", "Map")}${link("report.html", "Area report")}${link("how-it-works.html", "How it works")}</nav>
+      <nav class="nav" aria-label="Main">${link("index.html", "Map")}${link("report.html", "Report")}${link("how-it-works.html", "Method")}</nav>
       <span class="header-meta" id="data-through"></span>
       <button class="theme-toggle" id="theme-toggle" type="button"></button></div>`;
     document.getElementById("theme-toggle").onclick = () => setTheme(isDark() ? "light" : "dark");
@@ -166,9 +167,8 @@
   function renderFooter() {
     const el = document.getElementById("site-footer"); if (!el) return;
     el.className = "site-footer";
-    el.innerHTML = `<div class="wrap">Data: NASA FIRMS active fire detections (MODIS Collection 6.1 and VIIRS 375 m S-NPP Collection 2) via NASA Earthdata.
-      Harmonized counts are S-NPP VIIRS-equivalent; values before Feb 2012 are estimates from MODIS. Team Murphy, NASA Space Apps Challenge 2026.
-      <span class="no-print">· <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">Source and method on GitHub</a></span></div>`;
+    el.innerHTML = `<div class="wrap">NASA FIRMS MODIS C6.1 + VIIRS S-NPP C2 · counts in S-NPP VIIRS units, pre-2012 estimated · Team Murphy, NASA Space Apps 2026
+      <span class="no-print">· <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">GitHub</a></span></div>`;
   }
   function presetOptions(selectEl, bbox) {
     const cur = formatBBox(bbox);
