@@ -25,6 +25,17 @@ table{border-collapse:collapse}td,th{border:1px solid #e5e8e8;width:54px;height:
 th{background:#f4f6f6;font-weight:600}
 .legend{font-size:12px;color:var(--mut);margin-top:8px}
 .busy{display:flex;gap:28px;flex-wrap:wrap}.busy ol{margin:4px 0 0;padding-left:22px;line-height:1.7;font-size:14px}.busy h3{font-size:13px;color:var(--mut);margin:0;font-weight:600}
+td.prov{outline:2px dashed var(--mut);outline-offset:-3px}
+td.est{font-style:italic}
+tr.snpp-start>*{border-top:2px solid var(--ink)}
+#grid td{cursor:pointer}
+#grid td:focus{outline:3px solid #1f6feb;outline-offset:-3px}
+#grid td.sel{box-shadow:inset 0 0 0 2px var(--ink)}
+.scale{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12px;color:var(--mut);flex-wrap:wrap}
+.scale .bar{width:300px;max-width:100%}
+.scale .grad{height:12px;border-radius:3px;border:1px solid var(--line)}
+.scale .ticks{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:var(--ink)}
+.cellinfo{margin:8px 0 0;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#f8f9f9;font-size:13.5px;line-height:1.45;min-height:1.45em}
 td.partial{background:repeating-linear-gradient(45deg,#f4f6f6,#f4f6f6 4px,#fff 4px,#fff 8px);color:var(--mut);font-style:italic}
 .note{background:#fef9e7;border:1px solid #f0d97a;border-radius:8px;padding:10px 14px;line-height:1.45}
 #map,#chart{max-width:100%}
@@ -56,6 +67,8 @@ footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;ma
 </div>
 <h2>Burning-activity calendar — region total per month</h2>
 <div id="grid" style="overflow-x:auto">Loading data…</div>
+<div class="scale" id="scale" aria-hidden="true"></div>
+<p class="cellinfo" id="cellinfo" aria-live="polite">Click or tap a month, or use Tab and the arrow keys, to see its details.</p>
 <div class="legend" id="legend"></div>
 <p class="note"><strong>The proof moment:</strong> switch to <em>Raw</em> and look at 2012 — the record jumps because the satellite changed, not the fires. Switch back to <em>Harmonized</em>: the jump shrinks. Then open <em>Anomaly</em>: May 2023 stands out against the 2003–2020 median — Canada's record season, only trustworthy once the sensors agree.</p>
 </div>
@@ -92,9 +105,21 @@ let LEAFLET=null, MAP_CELLS=[], SELECT_MODE=false, FALLBACK=false, HAS_SELECTION
 const BASE=[2003,2020]; // both MODIS satellites flying all year
 let END={year:0,month:12}; // last full month in the export (the partial month is dropped upstream); set on load
 const isPartial=(y,m)=>y*12+m>END.year*12+END.month;
+let PROV=null; // first month built on near-real-time FIRMS data (provisional_from in the export); null = none
+const isProv=(y,m)=>!!PROV&&y*12+m>=PROV.year*12+PROV.month;
+function provRange(){if(!PROV||isPartial(PROV.year,PROV.month))return "";const a=MO[PROV.month-1]+(PROV.year===END.year?"":" "+PROV.year),b=MO[END.month-1]+" "+END.year;return PROV.year===END.year&&PROV.month===END.month?b:a+"–"+b}
 const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 document.getElementById("mm").innerHTML=MO.map((m,i)=>`<option value="${i+1}"${i===4?" selected":""}>${m}</option>`).join("");
-function ramp(t){t=Math.min(1,Math.max(0,t));const stops=[[255,255,204],[254,204,92],[253,141,60],[240,59,32],[189,0,38]];const x=t*(stops.length-1),i=Math.min(stops.length-2,Math.floor(x)),f=x-i;const c=stops[i].map((v,j)=>Math.round(v+(stops[i+1][j]-v)*f));return `rgb(${c[0]},${c[1]},${c[2]})`}
+// Cividis (colour-blind safe, perceptually uniform), reversed so low = light and high = dark.
+const CIVIDIS=[[255,234,70],[208,190,103],[182,169,113],[158,150,119],[135,132,121],[114,115,116],[94,98,110],[72,82,107],[42,64,108],[0,48,111],[0,32,77]];
+function rampRGB(t){t=Math.min(1,Math.max(0,t));const x=t*(CIVIDIS.length-1),i=Math.min(CIVIDIS.length-2,Math.floor(x)),f=x-i;return CIVIDIS[i].map((v,j)=>Math.round(v+(CIVIDIS[i+1][j]-v)*f))}
+function ramp(t){const c=rampRGB(t);return `rgb(${c[0]},${c[1]},${c[2]})`}
+// Black or white text, whichever has the higher WCAG contrast on a ramp colour (always at least 4.5:1).
+function inkFor(c){const L=c.map(v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)}),l=0.2126*L[0]+0.7152*L[1]+0.0722*L[2];return (l+0.05)/0.05>=1.05/(l+0.05)?"#000":"#fff"}
+const SNPP_T=2012*12+2; // harmonized values before Feb 2012 are converted from MODIS (estimates)
+const isEst=(y,m)=>MODE!=="total"&&y*12+m<SNPP_T;
+const POW=0.35; // colour scale compression for counts
+let LAST={by:{},med:{}}, SEL=null;
 function decodeCells(c){const out=[];let i=0;c.n_months.forEach((n,k)=>{for(const end=i+n;i<end;i++){const t=c.t[i],modis=c.modis_count[i],viirs=c.viirs_count[i];out.push({cell_lat:c.cell_lat[k],cell_lon:c.cell_lon[k],year:c.t0_year+Math.floor(t/12),month:t%12+1,modis_count:modis,viirs_count:viirs,total_count:modis+viirs,harmonized_count:c.harmonized_count[i]})}});return out}
 function formatBBox(b){return [b.west,b.south,b.east,b.north].map(v=>+v.toFixed(4)).join(",")}
 function parseBBox(text){const p=text.split(",").map(v=>Number(v.trim()));if(p.length!==4||p.some(v=>!Number.isFinite(v)))return null;const[west,south,east,north]=p;if(west>=east||south>=north||west<-180||east>180||south<-90||north>90)return null;return{west,south,east,north}}
@@ -109,24 +134,82 @@ function renderAll(){
  const cells=filteredCells(), s=series(cells), med=medians(s), by={}; s.forEach(r=>by[r.year+"-"+r.month]=r);
  const y0=+document.getElementById("y0").value, y1=+document.getElementById("y1").value;
  let max=0; s.forEach(r=>{const v=MODE==="anomaly"?(med[r.month]?r.harmonized/med[r.month]:0):(MODE==="total"?r.total:r.harmonized); if(v>max)max=v});
- let h="<table><tr><th>Year</th>"+MO.map(m=>"<th>"+m+"</th>").join("")+"</tr>";
- for(let y=y0;y<=y1;y++){h+="<tr><th>"+y+"</th>";for(let m=1;m<=12;m++){if(isPartial(y,m)){if(y*12+m===END.year*12+END.month+1)h+=`<td class="partial" title="${MO[m-1]} ${y}: partial month, not shown">partial</td>`;else h+="<td></td>";continue}const r=by[y+"-"+m];let txt="·",bg="#f8f9f9";if(r){let v;if(MODE==="anomaly"){v=med[m]?r.harmonized/med[m]:0;txt=v.toFixed(1)+"×"}else{v=MODE==="total"?r.total:r.harmonized;txt=Math.round(v).toLocaleString()}bg=ramp(MODE==="anomaly"?Math.min(1,(v-1)/4):Math.pow(v/max,0.35))}h+=`<td style="background:${bg}" title="${MO[m-1]} ${y}: ${txt}">${txt}</td>`}h+="</tr>"}
+ LAST={by,med,max};
+ let h=`<table aria-label="Burning-activity calendar, ${y0} to ${y1}"><tr><th scope="col">Year</th>`+MO.map(m=>`<th scope="col">${m}</th>`).join("")+"</tr>";
+ for(let y=y0;y<=y1;y++){h+=`<tr${y===2012&&MODE!=="total"?' class="snpp-start"':""}><th scope="row">${y}</th>`;for(let m=1;m<=12;m++){
+  const at=`data-y="${y}" data-m="${m}" tabindex="-1"`;
+  if(isPartial(y,m)){if(y*12+m===END.year*12+END.month+1)h+=`<td class="partial" ${at} aria-label="${MO[m-1]} ${y}: partial month, not shown">partial</td>`;else h+=`<td ${at} aria-label="${MO[m-1]} ${y}: no data yet"></td>`;continue}
+  const r=by[y+"-"+m];let txt="·",bg="#f8f9f9",ink="var(--mut)";
+  if(r){let v;if(MODE==="anomaly"){v=med[m]?r.harmonized/med[m]:0;txt=v.toFixed(1)+"×"}else{v=MODE==="total"?r.total:r.harmonized;txt=Math.round(v).toLocaleString()}const c=rampRGB(MODE==="anomaly"?(v-1)/4:Math.pow(v/max,POW));bg=`rgb(${c[0]},${c[1]},${c[2]})`;ink=inkFor(c)}
+  const prov=r&&isProv(y,m), est=r&&isEst(y,m), cls=[prov&&"prov",est&&"est"].filter(Boolean).join(" ");
+  h+=`<td${cls?` class="${cls}"`:""} ${at} style="background:${bg};color:${ink}" aria-label="${describe(y,m)}">${est?"≈":""}${txt}${prov?"*":""}</td>`}h+="</tr>"}
  document.getElementById("grid").innerHTML=h+"</table>";
- document.getElementById("legend").textContent=MODE==="anomaly"?"Value = × the 2003–2020 median for that month. 1.0× = a typical month. The current month is partial and not shown.":"Value = "+(MODE==="total"?"raw detections (MODIS + VIIRS, uncorrected)":"harmonized detections (VIIRS-equivalent)")+". Colour scale is square-root compressed so ordinary months stay readable next to extremes.";
+ initGridFocus();
+ renderScale(max);
+ const pr=provRange(), provNote=pr&&y1>=PROV.year?` * Dashed cells (${pr}) are provisional: they come from near-real-time FIRMS data, which NASA later replaces with the standard archive, so these values may change.`:"";
+ const estNote=MODE!=="total"&&y0<2012?" ≈ Italic values before Feb 2012 are estimates: MODIS counts converted to what S-NPP VIIRS would have seen. The line above 2012 marks where observed S-NPP data begins.":"";
+ document.getElementById("legend").textContent=(MODE==="anomaly"?"Value = × the 2003–2020 median for that month. 1.0× = a typical month. The current month is partial and not shown.":"Value = "+(MODE==="total"?"raw detections (MODIS + VIIRS, uncorrected)":"harmonized detections (VIIRS-equivalent)")+". The colour scale is compressed so ordinary months stay readable next to extremes.")+estNote+provNote;
  const peak=s.reduce((a,r)=>r.harmonized>(a?a.harmonized:-1)?r:a,null);
  if(peak)document.getElementById("c-peak").textContent=MO[peak.month-1]+" "+peak.year+" · "+Math.round(peak.harmonized).toLocaleString();
  const full=s.filter(r=>!isPartial(r.year,r.month)), latest=full.reduce((a,r)=>!a||r.year*12+r.month>a.year*12+a.month?r:a,null);
  document.getElementById("c-anom").textContent=latest&&med[latest.month]?(latest.harmonized/med[latest.month]).toFixed(1)+"×":"—";
- document.getElementById("c-anom-label").textContent=latest?`${MO[latest.month-1]} ${latest.year} (latest full month) vs ${BASE[0]}–${BASE[1]} ${MO[latest.month-1]} median`:"Latest full month vs 2003–2020 median";
+ document.getElementById("c-anom-label").textContent=latest?`${MO[latest.month-1]} ${latest.year} (latest full month${isProv(latest.year,latest.month)?", provisional":""}) vs ${BASE[0]}–${BASE[1]} ${MO[latest.month-1]} median`:"Latest full month vs 2003–2020 median";
  renderBusy(full.filter(r=>r.year>=y0&&r.year<=y1));
  const t11=by["2011-1"], rawJump=(()=>{const a=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.total,0),b=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.total,0),c=s.filter(r=>r.year===2011).reduce((x,r)=>x+r.harmonized,0),d=s.filter(r=>r.year===2012).reduce((x,r)=>x+r.harmonized,0);return a&&c?`${((b-a)/a*100).toFixed(0)}% → ${((d-c)/c*100).toFixed(0)}%`:"—"})(); document.getElementById("c-jump").textContent=rawJump;
  const yrs=s.map(r=>r.year); document.getElementById("c-years").textContent=yrs.length?Math.min(...yrs)+"–"+Math.max(...yrs):"—";
  drawMap(cells); updateLeafletCells(cells); drawChart(s,med);
 }
+// Plain-text description of one calendar month; used for the details line and screen readers.
+function describe(y,m){
+ const name=MO[m-1]+" "+y;
+ if(isPartial(y,m))return y*12+m===END.year*12+END.month+1?`${name}: partial month, not shown.`:`${name}: no data yet.`;
+ const r=LAST.by[y+"-"+m];
+ if(!r)return `${name}: no fire detections in this region.`;
+ const med=LAST.med[m], parts=[`${name}: ${Math.round(r.harmonized).toLocaleString()} harmonized detections (S-NPP VIIRS-equivalent)`,
+  `raw ${Math.round(r.total).toLocaleString()} (MODIS + S-NPP, uncorrected)`];
+ if(med)parts.push(`${(r.harmonized/med).toFixed(1)}× the ${BASE[0]}–${BASE[1]} ${MO[m-1]} median`);
+ let s=parts.join("; ")+".";
+ if(y*12+m<SNPP_T)s+=" Estimate: converted from MODIS, because observed S-NPP data begins in Feb 2012.";
+ if(isProv(y,m))s+=" Provisional: near-real-time data, may change.";
+ return s;
+}
+function renderScale(max){
+ const stops=Array.from({length:11},(_,i)=>ramp(i/10)).join(",");
+ const ticks=MODE==="anomaly"?["≤1×","2×","3×","4×","≥5×"]:[0,0.25,0.5,0.75,1].map(t=>{const v=max*Math.pow(t,1/POW);return v>=1000?Math.round(v/100)/10+"k":Math.round(v).toString()});
+ document.getElementById("scale").innerHTML=`<span>${MODE==="anomaly"?"× median":MODE==="total"?"Raw detections":"Harmonized detections"}</span><div class="bar"><div class="grad" style="background:linear-gradient(to right,${stops})"></div><div class="ticks">${ticks.map(t=>`<span>${t}</span>`).join("")}</div></div>`;
+}
+// Calendar keyboard and pointer support: one cell is in the tab order; arrow keys move between months.
+function gridCells(){return [...document.querySelectorAll("#grid td[data-y]")]}
+function initGridFocus(){
+ const cells=gridCells();if(!cells.length)return;
+ let cur=SEL&&cells.find(c=>+c.dataset.y===SEL.y&&+c.dataset.m===SEL.m);
+ if(!cur)cur=cells.find(c=>LAST.by[c.dataset.y+"-"+c.dataset.m])||cells[0];
+ cur.tabIndex=0;
+ if(SEL&&cur.dataset.y==SEL.y&&cur.dataset.m==SEL.m){cur.classList.add("sel");document.getElementById("cellinfo").textContent=describe(SEL.y,SEL.m)}
+}
+function selectCell(td){
+ gridCells().forEach(c=>{c.tabIndex=-1;c.classList.remove("sel")});
+ td.tabIndex=0;td.classList.add("sel");
+ SEL={y:+td.dataset.y,m:+td.dataset.m};
+ document.getElementById("cellinfo").textContent=describe(SEL.y,SEL.m);
+}
+const gridEl=document.getElementById("grid");
+gridEl.addEventListener("focusin",e=>{const td=e.target.closest("td[data-y]");if(td)selectCell(td)});
+gridEl.addEventListener("click",e=>{const td=e.target.closest("td[data-y]");if(td){td.focus();selectCell(td)}});
+gridEl.addEventListener("keydown",e=>{
+ const td=e.target.closest("td[data-y]");if(!td)return;
+ const rows=[...gridEl.querySelectorAll("tr")].slice(1),ri=rows.indexOf(td.parentElement),ci=[...td.parentElement.children].indexOf(td);
+ const move={ArrowLeft:[0,-1],ArrowRight:[0,1],ArrowUp:[-1,0],ArrowDown:[1,0]}[e.key];
+ let next=null;
+ if(move){const r=rows[ri+move[0]];next=r&&r.children[ci+move[1]];if(next&&!next.matches("td[data-y]"))next=null}
+ else if(e.key==="Home")next=td.parentElement.querySelector("td[data-y]");
+ else if(e.key==="End"){const all=td.parentElement.querySelectorAll("td[data-y]");next=all[all.length-1]}
+ if(next){e.preventDefault();next.focus()}
+});
 function renderBusy(full){
  const li=(t,v)=>`<li>${t} · ${Math.round(v).toLocaleString()}</li>`, none="<li>No data for this selection</li>";
  const months=[...full].sort((a,b)=>b.harmonized-a.harmonized).slice(0,5);
- document.getElementById("busy-months").innerHTML=months.length?months.map(r=>li(MO[r.month-1]+" "+r.year,r.harmonized)).join(""):none;
+ document.getElementById("busy-months").innerHTML=months.length?months.map(r=>li(MO[r.month-1]+" "+r.year+(isProv(r.year,r.month)?" (provisional)":""),r.harmonized)).join(""):none;
  const yr={};full.forEach(r=>yr[r.year]=(yr[r.year]||0)+r.harmonized);
  const years=Object.entries(yr).sort((a,b)=>b[1]-a[1]).slice(0,5);
  document.getElementById("busy-years").innerHTML=years.length?years.map(([y,v])=>li(+y===END.year&&END.month<12?`${y} (to ${MO[END.month-1]}, partial)`:y,v)).join(""):none;
@@ -137,7 +220,7 @@ function drawMap(cells){
  const sel=cells.filter(c=>+c.year===y&&+c.month===m); const max=Math.max(1,...sel.map(c=>+c.harmonized_count));
  x.strokeStyle="#c9d4d8"; for(let gx=0;gx<=8;gx++){x.beginPath();x.moveTo(gx*cv.width/8,0);x.lineTo(gx*cv.width/8,cv.height);x.stroke()} for(let gy=0;gy<=4;gy++){x.beginPath();x.moveTo(0,gy*cv.height/4);x.lineTo(cv.width,gy*cv.height/4);x.stroke()}
  sel.forEach(c=>{const px=(+c.cell_lon-w)/(e-w)*cv.width, py=(1-(+c.cell_lat-so)/(n-so))*cv.height, pw=Math.max(3,(0.25/(e-w))*cv.width), ph=Math.max(3,(0.25/(n-so))*cv.height); x.fillStyle=ramp(Math.pow(+c.harmonized_count/max,0.4)); x.fillRect(px,py-ph,pw,ph)});
- x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(`${MO[m-1]} ${y} — ${sel.length.toLocaleString()} active cells`,12,20);
+ x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(`${MO[m-1]} ${y}${isProv(y,m)&&!isPartial(y,m)?" (provisional: near-real-time data, may change)":""} — ${sel.length.toLocaleString()} active cells`,12,20);
 }
 function setFallback(message){FALLBACK=true;document.getElementById("leaflet-map").style.display="none";document.getElementById("map").classList.remove("map-fallback");document.getElementById("map-status").textContent=message}
 function updateLeafletCells(cells){
@@ -163,9 +246,10 @@ function drawChart(s,med){
  const y=+document.getElementById("my").value,cv=document.getElementById("chart"),x=cv.getContext("2d");x.clearRect(0,0,cv.width,cv.height);
  const by={};s.forEach(r=>by[r.year+"-"+r.month]=r); const vals=[];for(let m=1;m<=12;m++)vals.push(by[y+"-"+m]?by[y+"-"+m].harmonized:0);
  const max=Math.max(1,...vals,...Object.values(med)); const bw=cv.width/14;
- vals.forEach((v,i)=>{const bh=(v/max)*(cv.height-50);x.fillStyle="#e67e22";x.fillRect((i+0.7)*bw,cv.height-30-bh,bw*0.6,bh);x.fillStyle="#17202a";x.font="11px sans-serif";x.fillText(MO[i],(i+0.8)*bw,cv.height-12)});
+ const prov=vals.map((v,i)=>v>0&&isProv(y,i+1));
+ vals.forEach((v,i)=>{const bh=(v/max)*(cv.height-50),bx=(i+0.7)*bw,by=cv.height-30-bh;x.fillStyle=prov[i]?"rgba(230,126,34,0.45)":"#e67e22";x.fillRect(bx,by,bw*0.6,bh);if(prov[i]){x.setLineDash([4,3]);x.strokeStyle="#5d6d7e";x.strokeRect(bx,by,bw*0.6,bh);x.setLineDash([])}x.fillStyle="#17202a";x.font="11px sans-serif";x.fillText(MO[i]+(prov[i]?"*":""),(i+0.8)*bw,cv.height-12)});
  x.strokeStyle="#b03a2e";x.lineWidth=2;x.beginPath();for(let m=1;m<=12;m++){const px=(m+0.0)*bw,py=cv.height-30-(med[m]/max)*(cv.height-50);m===1?x.moveTo(px,py):x.lineTo(px,py)}x.stroke();x.lineWidth=1;
- x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(y+" monthly harmonized totals (bars) vs "+BASE[0]+"–"+BASE[1]+" median (line)",12,18);
+ x.fillStyle="#17202a";x.font="13px sans-serif";x.fillText(y+" monthly harmonized totals (bars) vs "+BASE[0]+"–"+BASE[1]+" median (line)"+(prov.some(Boolean)?" · * dashed bars are provisional (near-real-time data, may change)":""),12,18);
 }
 document.getElementById("mode").addEventListener("click",e=>{if(e.target.dataset.m){MODE=e.target.dataset.m;document.querySelectorAll("#mode button").forEach(b=>b.classList.toggle("on",b.dataset.m===MODE));renderAll()}});
 document.getElementById("preset").onchange=e=>{const next=parseBBox(e.target.value);if(next){setBBox(next,{select:true});renderAll()}};
@@ -174,5 +258,5 @@ document.getElementById("draw-region").onclick=()=>{if(!LEAFLET||FALLBACK){docum
 document.getElementById("clear-region").onclick=()=>{HAS_SELECTION=false;document.getElementById("preset").selectedIndex=0;setBBox({west:-140,south:42,east:-52,north:72});renderAll()};
 document.getElementById("csv").onclick=()=>{const cells=filteredCells();const rows=[["cell_lat","cell_lon","year","month","modis_count","viirs_count","total_count","harmonized_count"],...cells.map(c=>[c.cell_lat,c.cell_lon,c.year,c.month,c.modis_count,c.viirs_count,c.total_count,c.harmonized_count])];const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"}));a.download="murphy_hotspots_selection.csv";a.click()};
 document.getElementById("png").onclick=()=>{const src=document.getElementById("chart");const a=document.createElement("a");a.href=src.toDataURL("image/png");a.download="murphy_chart.png";a.click()};
-fetch("data/monthly.json").then(r=>r.json()).then(d=>{DATA=d;CELLS=decodeCells(d.cells);END=d.region_monthly.reduce((a,r)=>r.year*12+r.month>a.year*12+a.month?{year:r.year,month:r.month}:a,{year:0,month:1});initLeaflet();renderAll()}).catch(()=>{document.getElementById("grid").textContent="Could not load valid monthly data — the pipeline export must meet the UI contract.";setFallback("Interactive map unavailable; data loading needs attention.")});
+fetch("data/monthly.json").then(r=>r.json()).then(d=>{DATA=d;CELLS=decodeCells(d.cells);END=d.region_monthly.reduce((a,r)=>r.year*12+r.month>a.year*12+a.month?{year:r.year,month:r.month}:a,{year:0,month:1});PROV=d.provisional_from||null;initLeaflet();renderAll()}).catch(()=>{document.getElementById("grid").textContent="Could not load valid monthly data — the pipeline export must meet the UI contract.";setFallback("Interactive map unavailable; data loading needs attention.")});
 </script></body></html>
