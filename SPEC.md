@@ -3,6 +3,12 @@ NASA Space Apps Challenge 2026 | Challenge: Harmonization of MODIS and VIIRS Hot
 Team Murphy: Pratham Shah (Toronto), Om Mistry (owner, Calgary), Sparsh Khanna, Ishan
 Deadline: Sun Nov 15, 2026 11:59 PM MT (Om, Calgary) = Mon Nov 16 01:59 AM ET. Target submit: Sun evening ET.
 
+> **Status: historical.** This is the spec written before the build, kept as a record of the plan and
+> the decisions log. What shipped differs in places: the strata are season × day/night (not FRP bin ×
+> season), the conversion uses per-area ratios plus a monthly power law, the baseline is 2003–2020, and
+> the app needs a static server (it does not run from `file://`). `docs/VALIDATION.md` and `README.md`
+> describe what shipped.
+
 ## Problem
 MODIS (1 km, 2000+) and VIIRS (375 m, 2012+) see the same fires differently.
 VIIRS detects many more small fires. Splicing the raw records creates a fake

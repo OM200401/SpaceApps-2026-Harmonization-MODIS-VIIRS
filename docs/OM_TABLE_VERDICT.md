@@ -1,5 +1,8 @@
 # Om monthly-grid table verdict
 
+> Early decision note. The last bullet is superseded: the shipped strata are season × day/night,
+> because mean FRP per cell differs too much between the sensors. See `docs/VALIDATION.md`.
+
 ## Decision
 
 Use Om's GitHub Release `data-v2` asset, `monthly_grid_025.parquet`, as the

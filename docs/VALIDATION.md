@@ -152,7 +152,8 @@ In every region the harmonized change is within 5 points of the single-sensor MO
 ```bash
 python summarise/build_monthly_grid.py --input data/firms --cell-days 0.05   # -> data/derived/monthly_celldays_025.parquet
 python pipeline/build_regions.py --input data/derived/monthly_celldays_025.parquet --outdir data/regions_celldays     --out data/monthly_harmonized_all_celldays.parquet --calibration-out data/calibration_regions_celldays.json     --app-out data/monthly_harmonized_celldays.parquet
-``` Same filters as the detection grid (vegetation, confidence n/h, Terra/Aqua/S-NPP); 165M cell-days worldwide.
+```
+Same filters as the detection grid (vegetation, confidence n/h, Terra/Aqua/S-NPP); 165M cell-days worldwide.
 
 **Ratios shrink a lot:** Canada's fire-season night ratio drops from 8.42 to 2.65. In Canada one cell-day holds 4.4 detections on average, against 2.2 in the Amazon and 1.9 in the Mediterranean. So much of VIIRS's extra count is the same fire detected repeatedly, not extra fires.
 

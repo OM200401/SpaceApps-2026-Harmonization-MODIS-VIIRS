@@ -1,9 +1,60 @@
-# Harmonization of MODIS and VIIRS Hot Spots
+# One Burning Calendar: Harmonization of MODIS and VIIRS Hot Spots
 
-NASA Space Apps Challenge 2026. Team: Om, Ishan, Sparsh, Pratham.
+NASA Space Apps Challenge 2026, challenge "Harmonization of MODIS and VIIRS Hot Spots".
+Team Murphy: Om, Ishan, Sparsh, Pratham.
 
 **Live app:** https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/
-(GitHub Pages, published from the root of `main` and rebuilt on every merge.)
+(GitHub Pages, published from the root of `main` and rebuilt on every merge. No login needed.)
+
+One Burning Calendar joins NASA's two satellite fire records into a single monthly
+record from 2001 to today, so a fire manager can ask "is this month unusual for my area?"
+and get an answer that doesn't depend on which satellite was flying.
+
+![The map page showing Canada in July 2023: 6.3 times a typical July, marked far above normal](docs/img/map-july-2023.png)
+
+## Results at a glance
+
+All numbers are for the Canada region and come from running this repo's scripts on NASA FIRMS data.
+[docs/VALIDATION.md](docs/VALIDATION.md) has the full tables, the other regions and the caveats.
+
+| Check | Result |
+|---|---|
+| Change in yearly detections from 2011 to 2012, raw MODIS + VIIRS added together | **+785.4%** (the satellite changing, not the fires) |
+| Same change in the harmonized record | **+60.8%** |
+| Same change measured by MODIS alone, one consistent sensor | +60.5% |
+| Holdout: fit on 2012–2020, predict VIIRS for 2021–2023 from MODIS alone | monthly error (MAPE) **13.6%**, bias −6.5%, 5 of the 5 busiest months found |
+| May 2023, the start of Canada's record season | **17.9×** the 2003–2020 May median |
+
+Harmonized counts are in S-NPP VIIRS units. Before February 2012 they are estimates
+converted from MODIS, and the app marks them with ≈.
+
+The problem, as the app's Method page shows it. Raw counts jump in 2012, when VIIRS starts:
+
+![Bar chart of raw yearly detections for Canada, 2005 to 2018, jumping +785.4% from 2011 to 2012](docs/img/raw-2012-jump.png)
+
+The area report for Canada in 2023, built on the harmonized record:
+
+![Area report for Canada in 2023: 6.0 times a typical year, the busiest of 25 years, with the season chart and the monthly calendar](docs/img/report-2023.png)
+
+## How it fits together
+
+```
+NASA FIRMS detections (MODIS C6.1 + VIIRS 375 m, 660M rows, mirrored on Hugging Face)
+   │  summarise/build_monthly_grid.py
+   ▼
+Monthly grid: counts per 0.25° cell, month, satellite, day/night   (GitHub Release data-v2)
+   │  pipeline/build_regions.py     fits the MODIS → VIIRS conversion per region, prints the holdout scores
+   ▼
+data/monthly_harmonized.parquet                                    (local, not in Git)
+   │  pipeline/export_json.py
+   ▼
+app/data/monthly.json  →  app/  (static HTML/JS: map, area report, method page)
+```
+
+The app data currently covers **Canada** (W −140, S 42, E −52, N 72). The pipeline also
+harmonizes the Amazon and Mediterranean regions and validates them, but exporting all three makes
+`monthly.json` 17.9 MB instead of 4.2 MB, so those two are not in the app yet. Picking them in the
+app shows a "not in the data export yet" message.
 
 ## The challenge
 
@@ -55,14 +106,22 @@ pipeline/               harmonization: summary table -> calibrated monthly data 
 summarise/              builds the monthly grid summary table from raw FIRMS data
   build_monthly_grid.py
   README.md             full column reference and caveats
-docs/                   validation results, UI data contract, demo script, project page draft
-SPEC.md                 product spec and decisions log
-requirements.txt
+experiments/            scripts that compared about 90 conversion rules and chose the shipped one
+  README.md             run order and how scoring works; needs experiments/requirements.txt
+docs/
+  VALIDATION.md         the shipped method, holdout results and caveats (start here)
+  UI_DATA_CONTRACT.md   the shape of app/data/monthly.json
+  PROJECT_PAGE.md, DEMO_SCRIPT.md   drafts of the Space Apps project page and the 30-second demo
+  OM_TABLE_VERDICT.md   early decision note on using the monthly grid
+  img/                  screenshots of the app used in this README
+SPEC.md                 the original product spec and decisions log (written before the build)
+requirements.txt        Python packages for pipeline/ and summarise/
+LICENSE                 MIT
 ```
 
-The app is live at https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/.
-To run it locally, serve the repo root with any static server (for example
-`python -m http.server`) and open `/app/`.
+To run the app locally, serve the repo root with any static server (for example
+`python -m http.server`) and open `/app/`. Opening the HTML files straight from disk
+does not work, because the pages fetch `data/monthly.json`.
 
 ## Running the pipeline
 
@@ -211,12 +270,42 @@ We used AI assistants to speed up building this project. The team directed and r
 - **Data:** every result comes from NASA FIRMS data run through this repo's scripts. `pipeline/make_synthetic.py` generates AI-assisted **synthetic** test data, used only to check that the pipeline recovers a planted ratio. It is labelled as synthetic everywhere it appears (`data/synthetic/`, the "Pipeline test" section of `docs/VALIDATION.md`) and is never shown as a result.
 - **Images and video:** none in the app or demo are AI-generated. If any are added, they will carry a visible watermark, as the Space Apps rules require.
 
-## Deadline
+## Data sources and references
 
-Project submission closes **Sunday, November 15, 11:59 p.m.** local event time.
-The demo is either up to 7 slides or a video of 30 seconds or less. Every link must be public, with no login needed.
+**NASA data**
 
-## Data source
+- NASA FIRMS (Fire Information for Resource Management System), LANCE / EOSDIS:
+  <https://firms.modaps.eosdis.nasa.gov/>. Active fire detections from the MODIS Collection 6.1
+  product (Terra and Aqua) and the VIIRS 375 m Collection 2 products (S-NPP, NOAA-20, NOAA-21).
+  The harmonized record uses Terra, Aqua and S-NPP only. NOAA-20 and NOAA-21 are in the raw
+  mirror and the monthly grid but are not added to any result.
 
-NASA FIRMS (Fire Information for Resource Management System), LANCE / EOSDIS:
-<https://firms.modaps.eosdis.nasa.gov/>. MODIS Collection 6.1 and VIIRS 375 m Collection 2 active fire products.
+**Algorithm papers for those products**
+
+- Giglio, L., Schroeder, W., & Justice, C. O. (2016). The collection 6 MODIS active fire detection
+  algorithm and fire products. *Remote Sensing of Environment*, 178, 31–41.
+  <https://doi.org/10.1016/j.rse.2016.02.054>
+- Schroeder, W., Oliva, P., Giglio, L., & Csiszar, I. A. (2014). The New VIIRS 375 m active fire
+  detection data product: Algorithm description and initial assessment. *Remote Sensing of
+  Environment*, 143, 85–96. <https://doi.org/10.1016/j.rse.2013.12.008>
+
+**Third-party software and services**
+
+| What | Used for | Licence or terms |
+|---|---|---|
+| [Leaflet](https://leafletjs.com/) 1.9.4 | Map in the app | BSD 2-Clause |
+| [Chart.js](https://www.chartjs.org/) 4.4.1 | Charts in the app | MIT |
+| Esri World Light/Dark Gray Base and Reference tiles | Basemap and place names | Esri terms of use; attribution is shown on the map |
+| [DuckDB](https://duckdb.org/) | Building and querying the monthly grid | MIT |
+| [pandas](https://pandas.pydata.org/), [NumPy](https://numpy.org/) | Pipeline | BSD 3-Clause |
+| [Apache Arrow (pyarrow)](https://arrow.apache.org/) | Parquet files | Apache 2.0 |
+| [huggingface_hub](https://github.com/huggingface/huggingface_hub) | Downloading the raw data mirror | Apache 2.0 |
+| [scikit-learn](https://scikit-learn.org/), [SciPy](https://scipy.org/) | `experiments/` only | BSD 3-Clause |
+| Cividis and inferno colour maps | Colour-blind-safe ramps for the calendar and map | Cividis: Nuñez, Anderton & Renslow (2018), <https://doi.org/10.1371/journal.pone.0199239>. Inferno: matplotlib, CC0 |
+
+The raw FIRMS mirror is hosted on [Hugging Face](https://huggingface.co/datasets/undeadphoenix/firms-fire-data)
+and the monthly grid on a GitHub Release. Both are the team's own copies of NASA FIRMS data.
+
+## Licence
+
+This project's own code and documentation are released under the [MIT License](LICENSE).
