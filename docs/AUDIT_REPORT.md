@@ -81,7 +81,7 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L5 | Calibration window misstated as 2012-2023 overlap in docs/UI_DATA_CONTRACT.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in docs/UI_DATA_CONTRACT.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/VALIDATION.md (history doc: quoted context) | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context) | 0 | 1 | INFO | L54 /FRP bin/ |
+| L5 | Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context) | 0 | 1 | INFO | L59 /FRP bin/ |
 | L5 | Calibration window misstated as 2012-2023 overlap in docs/VALIDATION.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in experiments/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in experiments/README.md (history doc: quoted context) | 0 | 0 | PASS |  |

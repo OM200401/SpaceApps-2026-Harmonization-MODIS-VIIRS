@@ -1,7 +1,9 @@
 # Project page draft: all 8 fields
 
 Every number below comes from `experiments/v2/README.md` (accuracy) or from the app's own data (the 2012 jump, May 2023).
-Items in [BRACKETS] still need a team member to fill in or confirm before submitting.
+Two items in [BRACKETS] still need a team member before submitting: the demo link (field 3) and whether an
+AI assistant helped write the v2 code (field 6). If an AI-made image or video is added to the demo, it needs
+a visible watermark, and field 6 must say so.
 
 Images for the page: `docs/img/` has three screenshots of the app (map, the raw 2012 jump, the 2023
 report). They are PNG and well under the page's 10 MB limit. They are real captures, not AI-generated,
@@ -62,13 +64,13 @@ With the sensor change removed, real extremes stand out. May 2023, the start of 
 
 ## 6. Use of Super Intelligence (SI)
 
-We used AI assistants to speed up building this project. The team directed and reviewed all of it. Claude (Anthropic) helped write code (the summary-table build script, and parts of the pipeline and app), check the FIRMS data tables, and write documentation. Codex (OpenAI) helped write pipeline code. Muse Code helped write documentation. GitHub Copilot Autofix made one fix in the app (median calculation). [Confirm this tool list matches the README table.]
+We used AI assistants to speed up building this project. The team directed and reviewed all of it. Claude (Anthropic) helped write code (the summary-table build script, and parts of the pipeline and app), check the FIRMS data tables, and write documentation. Codex (OpenAI) helped write pipeline code. Muse Code helped write documentation. GitHub Copilot Autofix made one fix in the app (median calculation).
 
 Machine learning is part of the method itself: the estimates before February 2012 come from a gradient-boosted model (LightGBM) that we trained only on NASA FIRMS data. The app marks every one of those values with ≈. [If an AI assistant helped write the v2 code in `experiments/v2/`, name it in the list above.]
 
 Choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, season × day/night ratios, and the 2012–2020 calibration with 2021–2023 holdout. The project idea, challenge selection and harmonization method were documented by the team on Oct 6, 2026, before the build.
 
-Every result comes from NASA FIRMS data run through our scripts. AI-assisted synthetic test data was used only to check the pipeline; it is labelled as synthetic and never shown as a result. No images or video in the app or demo are AI-generated. [Update if that changes: AI-made images and video need a visible watermark.]
+Every result comes from NASA FIRMS data run through our scripts. AI-assisted synthetic test data was used only to check the pipeline; it is labelled as synthetic and never shown as a result. No images or video in the app or demo are AI-generated.
 
 ## 7. NASA data
 
@@ -82,11 +84,11 @@ Standard-processing (archive) data is used up to 31 August 2026 for MODIS and 31
 
 ## 8. Space Agency Partner Data and other references
 
-No Space Agency Partner data is used. [The optional NBAC burned-area check (`pipeline/validate_nbac.py`) was never run, so NBAC is not listed. Add it here only if a result is reported.]
+No Space Agency Partner data is used.
 
 - Giglio, L., Schroeder, W., & Justice, C. O. (2016). The collection 6 MODIS active fire detection algorithm and fire products. Remote Sensing of Environment, 178, 31–41. https://doi.org/10.1016/j.rse.2016.02.054
 - Schroeder, W., Oliva, P., Giglio, L., & Csiszar, I. A. (2014). The New VIIRS 375 m active fire detection data product: Algorithm description and initial assessment. Remote Sensing of Environment, 143, 85–96. https://doi.org/10.1016/j.rse.2013.12.008
-- Canadian Fire Spread Dataset methodology (Nature Scientific Data, 2024), as a design precedent. [Confirm this was used, and add the full citation.]
+- Barber, Q. E., Jain, P., Whitman, E., Thompson, D. K., Guindon, L., Parks, S. A., Wang, X., Hethcoat, M. G., & Parisien, M.-A. (2024). The Canadian Fire Spread Dataset. Scientific Data, 11, 764. https://doi.org/10.1038/s41597-024-03436-4 (methodology used as a design precedent).
 - Open-source software: Leaflet 1.9.4 (BSD 2-Clause), Chart.js 4.4.1 (MIT), DuckDB (MIT), LightGBM (MIT), pandas and NumPy (BSD 3-Clause), Apache Arrow / pyarrow (Apache 2.0), huggingface_hub (Apache 2.0), scikit-learn and SciPy (BSD 3-Clause, experiments only).
 - Basemap tiles: Esri World Light/Dark Gray Base and Reference (Esri, HERE, Garmin, OpenStreetMap contributors).
 - Colour maps: cividis (Nuñez, Anderton & Renslow, 2018, https://doi.org/10.1371/journal.pone.0199239) and inferno (matplotlib, CC0).

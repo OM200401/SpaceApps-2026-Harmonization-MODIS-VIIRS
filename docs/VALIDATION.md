@@ -1,5 +1,10 @@
 # Validation — numbers are from runs, never hand-written
 
+> **This document covers the previous rule (#37).** The app now shows the worldwide v2 rule, which is
+> documented and validated in `experiments/v2/README.md`. The Canada-only `app/data/monthly.json` and the
+> independent audit (`docs/AUDIT_REPORT.md`) still use the rule described here. Where this document says
+> "shipped", it means that previous rule.
+
 ## Estimator definition (shipped, #37)
 Harmonized count (S-NPP VIIRS-equivalent units) per 0.25° cell-month:
 - From Feb 2012: harmonized = observed S-NPP count, zeros included (reference sensor; zero handling fixed in #3).

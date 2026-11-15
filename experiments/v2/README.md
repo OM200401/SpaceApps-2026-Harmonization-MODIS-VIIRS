@@ -141,7 +141,8 @@ World 2011→2012 harmonized jump: shipped +6.8%, v2 +5.6%. Canada preset: +59.8
 ## Not done
 
 - `app/data/monthly.json` (Canada only, read by the check scripts) is not regenerated.
-- `docs/VALIDATION.md` and the project page still describe the shipped rule.
+- `docs/VALIDATION.md` still describes the shipped rule (#37), and now says so at its top. The project page
+  draft (`docs/PROJECT_PAGE.md`) and the README describe v2.
 - Biome prior (MCD12C1 land cover): tested earlier, no out-of-sample gain over block ratios. Dropped.
 - MODIS burned area (MCD64A1) as an extra input for megafire months: not tried, needs a new download.
 - The flare mask is built from S-NPP 2012–2021 and applied to all sensors and years, including the app's

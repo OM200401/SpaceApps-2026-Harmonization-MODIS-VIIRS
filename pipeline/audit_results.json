@@ -652,7 +652,7 @@
   {
    "actual": 1,
    "claim": "Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context)",
-   "detail": "L54 /FRP bin/",
+   "detail": "L59 /FRP bin/",
    "expected": 0,
    "id": "method:docs/VALIDATION.md",
    "layer": "L5",
