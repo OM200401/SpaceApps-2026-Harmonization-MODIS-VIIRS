@@ -10,6 +10,12 @@ Harmonized count (S-NPP VIIRS-equivalent units) per 0.25° cell-month:
 - Before Jul 2002 (Terra only): Terra count × the region's own Terra-only ratio for its season × day/night (unchanged path).
 - Each region is fitted on its own overlap, Feb 2012 – Dec 2025. Canada no longer uses global ratios.
 
+Details:
+- **Thin strata.** A region stratum with fewer than 50 MODIS detections uses the global ratio for that stratum, as under the old rule. No stratum is that thin in any of the 3 regions today.
+- **Missed-fire uplift.** Each power-law fit is multiplied by `1 / (1 − missed)`, capped at 2×. `missed` is the share of S-NPP detections that fall in region-months where MODIS saw nothing, which a MODIS-based prediction can't reproduce. It is exactly 1.0 for all 24 month × day/night fits in all 3 regions today, so it changes no current number. It only matters for small or sparse regions.
+- **No fit for a month.** If a month × day/night has no power-law fit (possible in a small new region), the factor is 1 and the estimate falls back to A.
+- **Fit windows.** The shipped fit starts in Feb 2012, S-NPP's first full month. The holdout fit starts in Jan 2012, so its numbers stay comparable with the old-rule results below. Starting the holdout fit in Feb instead gives Canada 13.1% MAPE (bias −6.0%), against 13.6% (−6.5%).
+
 ## Optimised rule results (2026-11-14, data-v2, #37)
 Command: `python pipeline/build_regions.py`, then `python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet`.
 
@@ -28,12 +34,21 @@ Command: `python pipeline/build_regions.py`, then `python pipeline/grid_validate
 | Mediterranean | +496.0% | +29.0% | **+38.2%** | +33.8% |
 
 ### How the rule was chosen (leave-one-year-out, 8 regions)
-About 90 variants were scored with a local experiment harness (not in this repo). Each one was fitted on every overlap year but one, predicted the held-out year (13 rounds, 2013–2025), and was scored on Canada, Amazon, Mediterranean, US West, Siberia, southern Africa, SE Asia and northern Australia. The harness first reproduced the old holdout numbers above exactly. Averages over the 8 regions, old → new rule:
+About 90 variants were scored with the harness in `experiments/` (run order in `experiments/README.md`). Each one was fitted on every overlap year but one, predicted the held-out year (13 rounds, 2013–2025), and was scored on Canada, Amazon, Mediterranean, US West, Siberia, southern Africa, SE Asia and northern Australia. The harness first reproduced the old holdout numbers above exactly. Averages over the 8 regions, old → new rule:
 - Total error (WAPE): 12.7% → 8.9%
 - Monthly error (MAPE): 20.8% → 14.0%
 - Mean |bias|: 10.4% → 4.2%
 - Bias in the busiest 10% of months: +2.3% → −0.2%
 - Error on 1° block-months: 30.1% → 25.2%
+
+**Caveat:** these rounds included 2021–2023, so the holdout table above is not a clean out-of-sample result for the chosen settings.
+
+### Clean check: settings chosen without seeing 2021–2023
+`experiments/run_nested.py`. Block size (0.5°, 1°, 2°), k (50, 200, 1000) and blend weight (0.3, 0.5, 0.7) were chosen using only 2012–2020: leave-one-year-out over 2013–2020, averaged over the 8 regions. The chosen settings were then scored once on the untouched 2021–2023 holdout.
+- **Best settings on 2012–2020 alone:** 2° blocks, k = 200, w = 0.5 (WAPE 7.0%). The shipped settings (1°, k = 200, w = 0.5) rank 8th of 27, at WAPE 7.3%. The old rule scores 11.3% on the same folds.
+- **Untouched 2021–2023 holdout, chosen settings vs old rule (own ratios), mean over 8 regions:** MAPE **24.9% → 18.0%**, WAPE **14.3% → 11.0%**, bias −1.3% → +0.8%. Per region: Canada MAPE 19.6% → 13.7%, Amazon 17.9% → 8.6%, Mediterranean 20.6% → 15.7%. These are within 0.3 points of the shipped settings' numbers in the table above.
+- **One exception:** Canada's 2021–2023 WAPE is higher under the new rule (8.8% → 11.0%) even though its MAPE and bias improve.
+- The choice of method family itself (from about 90 variants) was still made with all years, so this check covers the settings but not that first choice.
 
 Tried and not adopted: global ratios, Aqua and Terra as separate predictors, MODIS-FRP bins, region-specific fire seasons, a power law fitted on small blocks, high-confidence-only counts, and gradient-boosted trees (similar error but more biased and slower).
 
@@ -108,7 +123,7 @@ Every regional stratum had at least 6,307 MODIS detections, so no fallback was n
 | Amazon | 8,400 | 17.9% | 32.9% | **own, 17.9%** | +14.9% | 5/5 |
 | Mediterranean | 3,861 | 20.6% | 26.9% | **own, 20.6%** | −1.1% | 4/5 |
 
-Each region ships with whichever ratios gave the lower holdout error. Regional ratios matter: global ratios alone nearly double the Amazon error. Canada is the exception, so it ships with global ratios (`RATIO_SOURCE` in `build_regions.py`).
+Each region ships with whichever ratios gave the lower holdout error. Regional ratios matter: global ratios alone nearly double the Amazon error. Canada was the exception and shipped with global ratios under the old rule (`RATIO_SOURCE`, removed in #38; every region now ships the optimised rule).
 
 Canada with global ratios, by stratum:
 

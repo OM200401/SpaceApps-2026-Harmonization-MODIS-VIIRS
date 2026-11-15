@@ -77,10 +77,12 @@ def _sensor_cols(d):
     return d.assign(m=np.where(d.sensor.eq("MODIS"), d.hotspots, 0),
                     s=np.where(d.satellite.eq("SNPP"), d.hotspots, 0))
 
-def fit_rule(staging, start=FIT_START, end_year=FIT_END_YEAR):
-    """Fit the optimised rule on overlap months from `start` (year, month) through `end_year`."""
+def fit_rule(staging, start=FIT_START, end_year=FIT_END_YEAR, fallback=None):
+    """Fit the optimised rule on overlap months from `start` (year, month) through `end_year`.
+    `fallback` (e.g. global ratios) replaces a region stratum with fewer than MIN_MODIS detections,
+    as before; without it a thin stratum uses the region's pooled day/night ratio."""
     d = staging[(_ym(staging) >= start[0] * 100 + start[1]) & (staging.year <= end_year)]
-    region = ratios(d, years=(start[0], end_year))
+    region = ratios(d, years=(start[0], end_year), fallback=fallback)
     d = _sensor_cols(add_strata(d)).assign(bla=lambda x: _block(x.cell_lat), blo=lambda x: _block(x.cell_lon))
     # Per-area ratios: each block's S-NPP/MODIS, shrunk toward the region ratio of the same stratum.
     blocks = d.groupby(["bla", "blo", *STRATA], as_index=False)[["m", "s"]].sum()
@@ -97,7 +99,10 @@ def fit_rule(staging, start=FIT_START, end_year=FIT_END_YEAR):
         else:
             b, a = np.polyfit(x, y, 1)
             smear = float(np.mean(np.exp(y - (a + b * x))))  # back-transform bias correction
-        missed = g.loc[g.m <= 0, "s"].sum() / max(g.s.sum(), 1)  # S-NPP in months MODIS saw nothing
+        # Uplift: S-NPP detected in region-months where MODIS saw nothing cannot come from a MODIS-based
+        # prediction, so scale predictions up by 1/(1 - that share), capped at 2x. It is 1.0 whenever
+        # MODIS saw at least one fire in every region-month of this month x day/night (all 3 regions today).
+        missed = g.loc[g.m <= 0, "s"].sum() / max(g.s.sum(), 1)
         pl.append({"month": mo, "daynight": dn, "a": float(a), "b": float(b), "smear": smear,
                    "uplift": float(1 / (1 - min(missed, 0.5))), "n_months": int(len(pos))})
     return {"region": region, "blocks": blocks[["bla", "blo", *STRATA, "m", "s", "block_ratio"]],
@@ -115,7 +120,11 @@ def converted_rule(staging, rule):
     pl = np.where(d.region_m > 0, np.exp(d.a + d.b * np.log(d.region_m.clip(lower=1))) * d.smear - 1, 0)
     pl = np.maximum(pl, 0) * d.uplift
     lin = d.ratio * d.region_m
-    factor = np.where(lin > 0, pl / np.maximum(lin, 1e-9), 1.0)
+    # No power-law fit for this month x day/night (e.g. a small region with no overlap data there):
+    # factor 1, so the estimate falls back to A instead of silently becoming NaN.
+    no_fit = d.a.isna().values
+    factor = np.where(no_fit | ~(lin > 0), 1.0, pl / np.maximum(lin.fillna(0), 1e-9))
+    factor = np.where(np.isfinite(factor), factor, 1.0)
     d["weight"] = d.hotspots * d.block_ratio * (BLEND_W + (1 - BLEND_W) * factor)
     early = _ym(d) < AQUA_START[0] * 100 + AQUA_START[1]
     d.loc[early, "weight"] = d.loc[early, "hotspots"] * d.loc[early, "ratio_terra"]  # Terra-only path unchanged
@@ -148,6 +157,7 @@ def main():
     s=pd.read_parquet(a.staging); rule=fit_rule(s); w=converted_rule(s,rule)
     m=harmonize(s,w,pd.read_parquet(a.monthly))
     m.drop(columns=["modis_converted","snpp_observed"]).to_parquet(a.out,index=False)
-    Path(a.calibration_out).write_text(json.dumps({"reference":"SNPP only","rule":rule_summary(rule)},indent=2))
+    # Top-level "strata" (region ratios) is what check_outputs.py reads; "rule" holds the full parameters.
+    Path(a.calibration_out).write_text(json.dumps({"reference":"SNPP only","strata":rule["region"].round(6).to_dict("records"),"rule":rule_summary(rule)},indent=2))
     print(rule["region"][[*STRATA,"modis","terra","snpp","ratio","ratio_terra","fallback"]].to_string(index=False)); print(f"Wrote {a.out} ({len(m):,} rows)")
 if __name__=="__main__": main()
