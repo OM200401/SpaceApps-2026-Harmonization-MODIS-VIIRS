@@ -41,11 +41,14 @@ app/                    the web app (static HTML/JS, no build step)
   how-it-works.html     raw vs harmonized, method, accuracy and caveats
   shared.js, shared.css data loading, display rules and page chrome used by all three pages
   data/index.json       tile list the app reads first (made by pipeline/export_tiles.py)
-  data/d/, data/c/      worldwide harmonized tiles: 0.25° cells per 10° tile, 1° cells per 30° tile
+  data/d/, data/c/      worldwide harmonized tiles: 0.25° cells per 10° tile, 1° cells per 30° tile.
+                        Not in git: they come from a release (pipeline/fetch_tiles.py)
   data/monthly.json     older Canada-only export, kept for the check scripts
 pipeline/               harmonization: summary table -> calibrated monthly data -> app JSON
   build_global.py         production path: harmonizes the whole world (validated regions + 30° boxes), prints holdout per box
+  build_global_v2.py      v2 rule: swaps in experiments/v2 estimates before Feb 2012, removes gas flares after
   export_tiles.py         writes the app's tiles and index.json
+  fetch_tiles.py          downloads the tiles from their release into app/data/
   build_regions.py        harmonizes the validated regions only (used by build_global.py), prints holdout scores
   build_monthly_from_grid.py, grid_calibrate.py, grid_validate.py
                           slicing, ratio and holdout code that build_regions.py uses
@@ -67,13 +70,16 @@ requirements.txt
 ```
 
 The app is live at https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/.
-To run it locally, serve the repo root with any static server (for example
-`python -m http.server`) and open `/app/`.
+To run it locally, first download the map tiles (`python pipeline/fetch_tiles.py`, 44 MB), then serve the
+repo root with any static server (for example `python -m http.server`) and open `/app/`.
+The site is deployed by `.github/workflows/pages.yml`, which fetches the same tiles before publishing.
 
 ## Running the pipeline
 
 This rebuilds the app's data from the published summary table. For the worldwide tiles the app reads,
-run `python pipeline/build_global.py` then `python pipeline/export_tiles.py` (about 15 minutes);
+run `python pipeline/build_global.py` then `python pipeline/export_tiles.py` (about 15 minutes; for the v2
+rule see `experiments/v2/README.md`). To publish new tiles, zip `index.json`, `c/` and `d/` from `app/data/`,
+upload the zip to a new release and set `TILES_TAG` in `pipeline/fetch_tiles.py`;
 the steps below rebuild the original region-only outputs.
 Run every command from the repo root.
 

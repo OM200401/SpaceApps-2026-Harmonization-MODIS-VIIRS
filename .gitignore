@@ -1,7 +1,11 @@
 # Data: stored on Hugging Face (undeadphoenix/firms-fire-data), never in Git
 data/
-# ...except the web app's exported tiles, which GitHub Pages serves
+# ...except the web app's data folder, which GitHub Pages serves
 !app/data/
+# The map tiles are too big for git: they live on a release and are unpacked by pipeline/fetch_tiles.py
+app/data/c/
+app/data/d/
+app/data/index.json
 firms/
 *.parquet
 *.csv
