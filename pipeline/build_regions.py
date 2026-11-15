@@ -4,7 +4,8 @@
 One pass over the 0.25° grid builds each region's staging rows plus worldwide totals.
 Each region is harmonized with the optimised rule (grid_calibrate.fit_rule, issue #37), fitted
 on its own overlap from Feb 2012 through 2025: 1-degree block ratios shrunk toward the region
-ratio, blended 50/50 with the same estimate rescaled by a monthly region power law.
+ratio, blended 50/50 with the same estimate rescaled by a monthly region power law. A region
+stratum with fewer than MIN_MODIS MODIS detections uses the global ratio for that stratum.
 Outputs data/regions/<name>_*.parquet (incl. block ratios), data/monthly_harmonized_all.parquet
 (all regions, input for the all-region export), data/monthly_harmonized.parquet (APP_REGION only)
 and data/calibration_regions.json. Prints the 2021-2023 holdout for the new rule next to the old
@@ -17,7 +18,8 @@ import argparse, json
 from pathlib import Path
 import pandas as pd
 from build_monthly_from_grid import grid_rows, build
-from grid_calibrate import STRATA, MIN_MODIS, ratios, harmonize, fit_rule, converted_rule, rule_summary
+from grid_calibrate import (STRATA, MIN_MODIS, FIT_START, FIT_END_YEAR, ratios, harmonize,
+                            fit_rule, converted_rule, rule_summary)
 from grid_validate import holdout, holdout_rule, top5
 
 # W, S, E, N. Must cover the app presets; "Canada core fires" is inside "canada".
@@ -45,15 +47,19 @@ def main():
 
     raw, read_rows, kept_rows, world = grid_rows(a.input, REGIONS, global_totals=True)
     print(f"source rows read: {read_rows:,}; kept for regions: {kept_rows:,}")
-    global_r = ratios(world)
+    global_r = ratios(world)  # 2012-2020, for the holdout and the old-rule comparison
+    w_fit = world[world.year * 100 + world.month >= FIT_START[0] * 100 + FIT_START[1]]
+    global_fit = ratios(w_fit, years=(FIT_START[0], FIT_END_YEAR))  # same window as the shipped fit
     out_dir = Path(a.outdir); out_dir.mkdir(parents=True, exist_ok=True)
     calib = {"reference": "SNPP only", "rule": "block ratio + monthly power law (issue #37)",
              "holdout_fit": [2012, 2020], "holdout_years": [2021, 2023],
-             "min_modis_hotspots": MIN_MODIS, "global": global_r.round(6).to_dict("records"), "regions": {}}
+             "min_modis_hotspots": MIN_MODIS, "global": global_fit.round(6).to_dict("records"),  # fallback used by the shipped fit
+             "global_holdout": global_r.round(6).to_dict("records"),  # fallback used by the 2012-2020 holdout
+             "regions": {}}
     harmonized, summary = [], []
     for name, bbox in REGIONS.items():
         s, monthly = build(raw[name])
-        rule = fit_rule(s)
+        rule = fit_rule(s, fallback=global_fit)  # thin strata fall back to global ratios, as before
         m = harmonize(s, converted_rule(s, rule), monthly)
         m = m.drop(columns=["modis_converted", "snpp_observed"])
         s.to_parquet(out_dir / f"{name}_staging.parquet", index=False)
@@ -62,7 +68,7 @@ def main():
         harmonized.append(m.assign(region=name))
         if name == APP_REGION:
             m.to_parquet(a.app_out, index=False)
-        allm, x, _, _ = holdout(s, holdout_rule(s))
+        allm, x, _, _ = holdout(s, holdout_rule(s, fallback=global_r))
         _, _, hits = top5(allm)
         old_own, old_glb = holdout(s, ratios(s, fallback=global_r))[1], holdout(s, global_r)[1]
         calib["regions"][name] = {"bbox": bbox, **rule_summary(rule)}
@@ -77,7 +83,7 @@ def main():
         print(rule["power_law"][["month", "daynight", "a", "b", "smear", "n_months"]].round(3).to_string(index=False))
 
     print("\n== global fallback ratios")
-    print(global_r[[*STRATA, "modis", "snpp", "ratio", "ratio_terra"]].round(3).to_string(index=False))
+    print(global_fit[[*STRATA, "modis", "snpp", "ratio", "ratio_terra"]].round(3).to_string(index=False))
     all_m = pd.concat(harmonized, ignore_index=True)
     assert not all_m.duplicated(["cell_id", "year", "month"]).any(), "regions overlap"
     all_m.to_parquet(a.out, index=False)
