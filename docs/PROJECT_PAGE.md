@@ -6,7 +6,7 @@ AI assistant helped write the v2 code (field 6). If an AI-made image or video is
 a visible watermark, and field 6 must say so.
 
 Images for the page: `docs/img/` has three screenshots of the app (map, the raw 2012 jump, the 2023
-report). They are PNG and well under the page's 10 MB limit. They are real captures, not AI-generated,
+calendar). They are PNG and well under the page's 10 MB limit. They are real captures, not AI-generated,
 so they need no watermark.
 
 ## 1. Project name
@@ -35,7 +35,7 @@ With the sensor change removed, real extremes stand out. May 2023, the start of 
 **What it does.** The app covers the whole world and has three pages.
 
 - **Map.** Pick one of ten preset areas (among them Canada, the Amazon, the Mediterranean, US West, Siberia, southern Africa, SE Asia, northern Australia and the whole world), draw a box, or type coordinates. Scrub or play through every month since 2001. A panel shows how the selected month compares with a typical one, for example "Far above normal, 19.1×".
-- **Area report.** A one-sentence verdict for the chosen year, the season plotted against the normal range, a year × month calendar of every month since 2001 (harmonized, raw, or as a multiple of the median), the busiest months and years, a CSV download, a PNG of the chart, and a printable one-page brief.
+- **Calendar.** A year × month calendar of every month since 2001 (harmonized, raw, or as a multiple of the median), a date range to narrow it, a one-sentence verdict for the chosen year, the season plotted against the normal range, the busiest months and years, a CSV download, a PNG of the chart, and a printable one-page brief.
 - **Method.** A raw versus harmonized toggle that shows the 2012 jump appear and disappear, the conversion in three steps, the accuracy table, and the caveats.
 
 **How the harmonization works.**
@@ -68,7 +68,7 @@ We used AI assistants to speed up building this project. The team directed and r
 
 Machine learning is part of the method itself: the estimates before February 2012 come from a gradient-boosted model (LightGBM) that we trained only on NASA FIRMS data. The app marks every one of those values with ≈. [If an AI assistant helped write the v2 code in `experiments/v2/`, name it in the list above.]
 
-Choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, season × day/night ratios, and the 2012–2020 calibration with 2021–2023 holdout. The project idea, challenge selection and harmonization method were documented by the team on Oct 6, 2026, before the build.
+Choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, learning the conversion only from June 2012 to 2021 (before the MODIS orbits drift), and testing it by hiding one year at a time.
 
 Every result comes from NASA FIRMS data run through our scripts. AI-assisted synthetic test data was used only to check the pipeline; it is labelled as synthetic and never shown as a result. No images or video in the app or demo are AI-generated.
 

@@ -4,7 +4,7 @@ NASA Space Apps Challenge 2026, challenge "Harmonization of MODIS and VIIRS Hot 
 Team Murphy: Om, Ishan, Sparsh, Pratham.
 
 **Live app:** https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/
-(GitHub Pages, published from the root of `main` and rebuilt on every merge. No login needed.)
+(GitHub Pages, deployed by the Pages workflow on every merge to `main`. No login needed.)
 
 One Burning Calendar joins NASA's two satellite fire records into a single monthly
 record from 2001 to today, for any area on Earth. A fire manager can ask "is this month
@@ -36,9 +36,9 @@ The problem, as the app's Method page shows it. Raw counts jump in 2012, when VI
 
 ![Bar chart of raw yearly detections for Canada, 2005 to 2018, jumping +785.4% from 2011 to 2012](docs/img/raw-2012-jump.png)
 
-The area report for Canada in 2023, built on the harmonized record:
+The calendar page for Canada in 2023, built on the harmonized record:
 
-![Area report for Canada in 2023: 5.9 times a typical year, the busiest of 25 years, with the season chart and the monthly calendar](docs/img/report-2023.png)
+![Calendar page for Canada in 2023: 5.9 times a typical year, the busiest of 25 years, with the season chart and the monthly calendar](docs/img/report-2023.png)
 
 ## How it fits together
 
@@ -57,7 +57,7 @@ data/monthly_harmonized_global_v2.parquet                           (local, not 
 Tiles: app/data/index.json, d/, c/                                  (GitHub Release tiles-v2)
    │  pipeline/fetch_tiles.py       run locally, and by the Pages workflow before each deploy
    ▼
-app/  (static HTML/JS: map, area report, method page)
+app/  (static HTML/JS: map, calendar, method page)
 ```
 
 The app covers the **whole world**. It has ten preset areas, among them Canada, the Amazon, the
@@ -104,7 +104,7 @@ The intended users are emergency responders, fire managers, land managers and sc
 index.html              redirects the Pages root URL to app/
 app/                    the web app (static HTML/JS, no build step)
   index.html            homepage: map, month scrubber, "how unusual is this month?" status
-  report.html           area report: verdict, season vs normal range, calendar, downloads
+  report.html           Calendar tab: calendar, date range, verdict, season vs normal range, downloads
   how-it-works.html     raw vs harmonized, method, accuracy and caveats
   shared.js, shared.css data loading, display rules and page chrome used by all three pages
   data/index.json       tile list the app reads first (made by pipeline/export_tiles.py)
@@ -205,7 +205,7 @@ python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet
 
 ## Independent audit
 
-Do not take our word for any number in this project. The audit engine recomputes all of them from the raw data, with completely separate code, and shows its work.
+Do not take our word for any number in this project. The audit engine recomputes the Canada record built with the previous method from the raw data, with completely separate code, and shows its work.
 
 **Scope.** The audit covers the Canada record in `app/data/monthly.json`, which was built with the previous rule (`docs/VALIDATION.md`). The worldwide v2 tiles the app now reads are checked separately, by the hidden-year tests in `experiments/v2/README.md`.
 
@@ -320,7 +320,7 @@ We used AI assistants to speed up building this project. The team directed and r
 | Muse Code | Documentation |
 | GitHub Copilot Autofix | One fix in `app/index.html` (median calculation) |
 
-- **Ideas and method:** choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, season × day/night ratios, and the 2012–2020 calibration with 2021–2023 holdout.
+- **Ideas and method:** choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, learning the conversion only from June 2012 to 2021 (before the MODIS orbits drift), and testing it by hiding one year at a time.
 - **Data:** every result comes from NASA FIRMS data run through this repo's scripts. `pipeline/make_synthetic.py` generates AI-assisted **synthetic** test data, used only to check that the pipeline recovers a planted ratio. It is labelled as synthetic everywhere it appears (`data/synthetic/`, the "Pipeline test" section of `docs/VALIDATION.md`) and is never shown as a result.
 - **Machine learning in the method:** the Space Apps rules count machine learning as AI, so we state it here. The estimates before February 2012 come from a gradient-boosted model (LightGBM) that we trained only on NASA FIRMS data (`experiments/v2/`). The app marks every one of those values with ≈, and values from February 2012 on are observed counts, not model output.
 - **Images and video:** none in the app or demo are AI-generated. The screenshots in `docs/img/` are captures of the running app. If any are added, they will carry a visible watermark, as the Space Apps rules require.
