@@ -36,7 +36,10 @@ The intended users are emergency responders, fire managers, land managers and sc
 ```
 index.html              redirects the Pages root URL to app/
 app/                    the web app (static HTML/JS, no build step)
-  index.html
+  index.html            homepage: map, month scrubber, "how unusual is this month?" status
+  report.html           area report: verdict, season vs normal range, calendar, downloads
+  how-it-works.html     raw vs harmonized, method, accuracy and caveats
+  shared.js, shared.css data loading, display rules and page chrome used by all three pages
   data/monthly.json     harmonized data the app reads (made by pipeline/export_json.py)
 pipeline/               harmonization: summary table -> calibrated monthly data -> app JSON
   build_regions.py        production path: harmonizes every preset region, prints holdout scores
