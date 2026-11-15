@@ -17,6 +17,8 @@
 .areabar{align-items:center}
 .areabar .coords-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .areabar .coords-row input{width:210px}
+.areabar .range{display:flex;gap:6px;align-items:center}
+.areabar .range select{min-width:84px}
 .head-actions{display:flex;gap:6px;flex-wrap:wrap}
 .head-actions button,.ghost{font-size:13px;padding:6px 12px;border-radius:999px}
 .kpis{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
@@ -29,6 +31,7 @@ details.more{margin-top:14px}
  <div class="areabar no-print">
   <label class="field">Area<select id="preset"></select></label>
   <label class="field">Year<select id="year"></select></label>
+  <div class="field" role="group" aria-labelledby="range-l"><span id="range-l">Date range</span><div class="range"><select id="from" aria-label="From year"></select><span aria-hidden="true">to</span><select id="to" aria-label="To year"></select></div></div>
   <details class="more" style="margin:18px 0 0"><summary>Coordinates</summary>
    <div class="coords-row"><input id="bbox" aria-label="Area as west, south, east, north" aria-describedby="bbox-error"><button id="apply">Apply</button><span id="bbox-error" class="field-error" role="alert"></span></div>
   </details>
@@ -48,7 +51,7 @@ details.more{margin-top:14px}
   <div class="kpis" style="margin-top:16px">
    <div class="kpi"><div class="l" id="k-sofar-l">So far</div><div class="v" id="k-sofar">—</div></div>
    <div class="kpi"><div class="l">vs typical</div><div class="v" id="k-vs">—</div></div>
-   <div class="kpi"><div class="l">Rank since 2001</div><div class="v" id="k-rank">—</div></div>
+   <div class="kpi"><div class="l" id="k-rank-l">Rank since 2001</div><div class="v" id="k-rank">—</div></div>
    <div class="kpi"><div class="l">Peak month</div><div class="v" id="k-peak">—</div></div>
   </div>
  </section>
@@ -90,8 +93,10 @@ details.more{margin-top:14px}
 <script>
 const O = window.OBC, $ = id => document.getElementById(id);
 O.renderHeader("report.html"); O.renderFooter();
-let S = O.getState(), BBOX = S.bbox, CELLS = [], LEVEL = "d", LOAD_ID = 0, BY = new Map(), STATS = O.monthStats(new Map()), MED = {}, YEAR = null, MODE = "harmonized", CHART = null, SEL = null;
+let S = O.getState(), BBOX = S.bbox, CELLS = [], LEVEL = "d", LOAD_ID = 0, BY = new Map(), STATS = O.monthStats(new Map()), MED = {}, YEAR = null, Y0 = null, Y1 = null, MODE = "harmonized", CHART = null, SEL = null;
 
+const fullRange = () => Y0 === O.FIRST_YEAR && Y1 === O.state.END.year;
+const rangeText = () => Y0 === Y1 ? String(Y0) : `${Y0}–${Y1}`;
 function upToFor(y) { return y === O.state.END.year ? O.state.END.month : 12; }
 function setArea(b) {
   BBOX = b; $("bbox").value = O.formatBBox(b); $("bbox-error").textContent = ""; O.presetOptions($("preset"), b);
@@ -109,9 +114,10 @@ function applyField() { const b = O.parseBBox($("bbox").value); if (!b) { $("bbo
 function renderAll() { renderSummary(); renderSeason(); renderCalendar(); renderBusy(); }
 
 function renderSummary() {
-  const empty = !CELLS.length, upTo = upToFor(YEAR), v = O.verdict(BY, YEAR, upTo);
+  const empty = !CELLS.length, upTo = upToFor(YEAR), v = O.verdict(BY, YEAR, upTo, Y0, Y1);
   $("area-title").textContent = O.areaName(BBOX);
-  $("area-sub").textContent = `${YEAR} · data through ${O.MO[O.state.END.month - 1]} ${O.state.END.year}${LEVEL === "c" ? " · large area, 1° cells" : ""}`;
+  $("area-sub").textContent = `${YEAR} · data through ${O.MO[O.state.END.month - 1]} ${O.state.END.year}${fullRange() ? "" : ` · date range ${rangeText()}`}${LEVEL === "c" ? " · large area, 1° cells" : ""}`;
+  $("k-rank-l").textContent = fullRange() ? `Rank since ${O.FIRST_YEAR}` : `Rank, ${rangeText()}`;
   $("print-meta").textContent = `One Burning Calendar · burning calendar · ${O.areaName(BBOX)} · ${YEAR} · printed ${new Date().toLocaleDateString()}`;
   const st = empty ? { key: "none", label: "No data for this area" } : v.status;
   $("pill").className = "pill status-" + st.key; $("pill").textContent = st.label;
@@ -153,7 +159,8 @@ function renderSeason() {
 // ---- calendar (accessible version from #28) ----
 function renderCalendar() {
   const C = O.colors();
-  const y0 = O.FIRST_YEAR, y1 = O.state.END.year;
+  const y0 = Y0, y1 = Y1;
+  $("cal-title").textContent = fullRange() ? `Every month since ${O.FIRST_YEAR}` : `Every month, ${rangeText()}`;
   let max = 0;
   for (let y = y0; y <= y1; y++) for (let m = 1; m <= 12; m++) { const r = BY.get(O.tOf(y, m)); if (!r || O.isPartial(y, m)) continue; const v = MODE === "anomaly" ? (MED[m] ? r.harmonized / MED[m] : 0) : MODE === "total" ? r.total : r.harmonized; if (v > max) max = v; }
   let h = `<table class="calendar" aria-label="Fire activity calendar, ${y0} to ${y1}"><tr><th scope="col">Year</th>${O.MO.map(m => `<th scope="col">${m}</th>`).join("")}</tr>`;
@@ -180,14 +187,18 @@ function renderCalendar() {
   $("legend").textContent = notes.join(" ");
   const cells = [...$("grid").querySelectorAll("td[data-y]")];
   let cur = SEL && cells.find(c => +c.dataset.y === SEL.y && +c.dataset.m === SEL.m);
+  if (SEL && !cur) { SEL = null; $("cellinfo").textContent = "Pick a month to see its details."; }   // the selected month left the date range
+  syncCellLink();
   if (!cur) cur = cells.find(c => BY.get(O.tOf(+c.dataset.y, +c.dataset.m))) || cells[0];
   if (cur) { cur.tabIndex = 0; if (SEL && cur.dataset.y == SEL.y && cur.dataset.m == SEL.m) { cur.classList.add("sel"); $("cellinfo").textContent = O.describe(BY, MED, SEL.y, SEL.m); } }
 }
+// The map link follows the selected month; page-link refreshes (setState) reset it, so re-apply after them.
+function syncCellLink() { $("cell-map-link").href = O.pageLink("index.html", SEL ? { year: SEL.y, month: SEL.m } : {}); }
 function selectCell(td) {
   $("grid").querySelectorAll("td[data-y]").forEach(c => { c.tabIndex = -1; c.classList.remove("sel"); });
   td.tabIndex = 0; td.classList.add("sel"); SEL = { y: +td.dataset.y, m: +td.dataset.m };
   $("cellinfo").textContent = O.describe(BY, MED, SEL.y, SEL.m);
-  $("cell-map-link").href = O.pageLink("index.html", { year: SEL.y, month: SEL.m });
+  syncCellLink();
 }
 const grid = $("grid");
 grid.addEventListener("focusin", e => { const td = e.target.closest("td[data-y]"); if (td) selectCell(td); });
@@ -203,7 +214,7 @@ grid.addEventListener("keydown", e => {
 });
 
 function renderBusy() {
-  const rows = [...BY.values()].filter(r => !O.isPartial(r.year, r.month) && r.year >= O.FIRST_YEAR);
+  const rows = [...BY.values()].filter(r => !O.isPartial(r.year, r.month) && r.year >= Y0 && r.year <= Y1);
   const li = (t, v) => `<li>${t} · ${O.fmt(v)}</li>`, none = "<li>No data for this area</li>";
   const months = [...rows].sort((a, b) => b.harmonized - a.harmonized).slice(0, 5);
   $("busy-months").innerHTML = months.length ? months.map(r => li(`${O.isEst(r.year, r.month) ? "≈ " : ""}${O.MO[r.month - 1]} ${r.year}${O.isProv(r.year, r.month) ? " (provisional)" : ""}`, r.harmonized)).join("") : none;
@@ -213,12 +224,24 @@ function renderBusy() {
 }
 
 $("mode").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; MODE = b.dataset.m; $("mode").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); renderCalendar(); });
-$("year").onchange = e => { YEAR = +e.target.value; O.setState({ year: YEAR, month: null }); renderSummary(); renderSeason(); };
+$("year").onchange = e => { YEAR = +e.target.value; O.setState({ year: YEAR, month: null }); renderSummary(); renderSeason(); syncCellLink(); };
+function yearOptions() {
+  $("year").innerHTML = Array.from({ length: Y1 - Y0 + 1 }, (_, i) => Y1 - i).map(y => `<option value="${y}">${y}${y < 2012 ? " (estimated)" : ""}</option>`).join("");
+  if (YEAR == null || YEAR < Y0 || YEAR > Y1) YEAR = Y1;
+  $("year").value = YEAR;
+}
+function setRange(y0, y1, changed) {
+  if (y0 > y1) { if (changed === "from") y1 = y0; else y0 = y1; }
+  Y0 = y0; Y1 = y1; $("from").value = Y0; $("to").value = Y1; yearOptions();
+  O.setState({ year: YEAR, from: Y0 === O.FIRST_YEAR ? null : Y0, to: Y1 === O.state.END.year ? null : Y1 });
+}
+$("from").onchange = e => { setRange(+e.target.value, Y1, "from"); renderAll(); };
+$("to").onchange = e => { setRange(Y0, +e.target.value, "to"); renderAll(); };
 $("preset").onchange = e => setArea(O.parseBBox(e.target.value));
 $("apply").onclick = applyField;
 $("bbox").addEventListener("keydown", e => { if (e.key === "Enter") applyField(); });
 $("png").onclick = () => O.downloadCanvas($("season"), `fire-season-${YEAR}.png`);
-$("csv").onclick = () => O.downloadCSV(CELLS, `fire-cells-${(O.presetFor(BBOX) || { id: "custom-area" }).id}.csv`);
+$("csv").onclick = () => O.downloadCSV(fullRange() ? CELLS : CELLS.filter(c => c.year >= Y0 && c.year <= Y1), `fire-cells-${(O.presetFor(BBOX) || { id: "custom-area" }).id}${fullRange() ? "" : `-${Y0}-${Y1}`}.csv`);
 $("print").onclick = () => window.print();
 $("copy").onclick = async () => { try { await navigator.clipboard.writeText(location.href); $("copy-msg").textContent = "Link copied"; } catch { $("copy-msg").textContent = "Copy this page's address from the address bar"; } setTimeout(() => $("copy-msg").textContent = "", 3000); };
 
@@ -226,8 +249,13 @@ O.onTheme(() => { if (YEAR != null) { renderSeason(); renderCalendar(); } });
 O.loadData().then(() => {
   O.setDataThrough();
   const end = O.state.END.year;
-  $("year").innerHTML = Array.from({ length: end - O.FIRST_YEAR + 1 }, (_, i) => end - i).map(y => `<option value="${y}">${y}${y < 2012 ? " (estimated)" : ""}</option>`).join("");
-  YEAR = S.year && S.year >= O.FIRST_YEAR && S.year <= end ? S.year : end; $("year").value = YEAR;
+  const opts = Array.from({ length: end - O.FIRST_YEAR + 1 }, (_, i) => O.FIRST_YEAR + i).map(y => `<option value="${y}">${y}</option>`).join("");
+  $("from").innerHTML = opts; $("to").innerHTML = opts;
+  const ok = y => y != null && y >= O.FIRST_YEAR && y <= end;
+  YEAR = ok(S.year) ? S.year : null;
+  let y0 = ok(S.from) ? S.from : O.FIRST_YEAR, y1 = ok(S.to) ? S.to : end;
+  if (YEAR != null) { y0 = Math.min(y0, YEAR); y1 = Math.max(y1, YEAR); }   // a linked year always stays inside the range
+  setRange(Math.min(y0, y1), Math.max(y0, y1));
   setArea(BBOX);
 }).catch(err => { console.error(err); $("verdict").textContent = "Couldn't load the fire data. Try reloading the page."; });
 </script>

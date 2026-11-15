@@ -113,10 +113,10 @@
     return { key: "below", label: "Below normal" };
   }
   // Year-to-date verdict: Jan..upTo of `year` against the median Jan..upTo of the baseline years.
-  function verdict(byT, year, upTo) {
+  function verdict(byT, year, upTo, y0, y1) {
     const sum = y => { let s = 0; for (let m = 1; m <= upTo; m++) s += val(byT, y, m) || 0; return s; };
     const sofar = sum(year), typical = quantile(baseYears().map(sum), .5);
-    const years = []; for (let y = FIRST_YEAR; y <= state.END.year; y++) if (!isPartial(y, upTo)) years.push({ y, v: sum(y) });
+    const years = []; for (let y = y0 || FIRST_YEAR; y <= (y1 || state.END.year); y++) if (!isPartial(y, upTo)) years.push({ y, v: sum(y) });
     years.sort((a, b) => b.v - a.v);
     const rank = years.findIndex(o => o.y === year) + 1, ratio = typical > 0 ? sofar / typical : null, st = status(ratio);
     let peak = null; for (let m = 1; m <= upTo; m++) { const v = val(byT, year, m); if (v != null && (!peak || v > peak.v)) peak = { m, v }; }
@@ -124,7 +124,7 @@
     const word = { far: "far above", above: "above", near: "close to", below: "below", none: "without a baseline for" }[st.key];
     const est = isEst(year, upTo) ? " (estimated from MODIS)" : "";
     const sentence = ratio == null ? `No fire was detected here in the ${BASE[0]}–${BASE[1]} baseline, so ${year} can't be compared yet.`
-      : `${year}${upTo < 12 ? " so far" : ""} is ${word} normal: ${ratio.toFixed(1)}× a typical ${span === "year" ? "year" : span}${est}, the ${rank === 1 ? "" : ordinal(rank) + " "}busiest of ${years.length} years.`;
+      : `${year}${upTo < 12 ? " so far" : ""} is ${word} normal: ${ratio.toFixed(1)}× a typical ${span === "year" ? "year" : span}${est}${years.length > 1 ? `, the ${rank === 1 ? "" : ordinal(rank) + " "}busiest of ${years.length} years` : ""}.`;
     return { sofar, typical, ratio, rank, nYears: years.length, status: st, peak, span, sentence };
   }
   function describe(byT, med, y, m) {
@@ -145,12 +145,13 @@
     const q = new URLSearchParams(location.search);
     const bbox = parseBBox(q.get("bbox")) || { ...DEFAULT_BBOX };
     const y = parseInt(q.get("year"), 10), m = parseInt(q.get("month"), 10);
-    return { bbox, year: Number.isFinite(y) ? y : null, month: m >= 1 && m <= 12 ? m : null };
+    const f = parseInt(q.get("from"), 10), t = parseInt(q.get("to"), 10);
+    return { bbox, year: Number.isFinite(y) ? y : null, month: m >= 1 && m <= 12 ? m : null, from: Number.isFinite(f) ? f : null, to: Number.isFinite(t) ? t : null };
   }
   function setState(s) {
     const q = new URLSearchParams(location.search);
     if (s.bbox) q.set("bbox", formatBBox(s.bbox));
-    ["year", "month"].forEach(k => { if (k in s) { if (s[k] == null) q.delete(k); else q.set(k, s[k]); } });
+    ["year", "month", "from", "to"].forEach(k => { if (k in s) { if (s[k] == null) q.delete(k); else q.set(k, s[k]); } });
     history.replaceState(null, "", location.pathname + "?" + q.toString());
     updateNavLinks();
   }
