@@ -70,7 +70,7 @@ footer{color:var(--mut);font-size:12.5px;padding:0 32px 28px;max-width:1180px;ma
 <div class="controls">
 <label>Year<input id="my" type="number" value="2023" style="width:84px"></label>
 <label>Month<select id="mm"></select></label>
-<button id="mapgo">Show month</button><button id="draw-region" class="ghost" aria-pressed="false">Select region</button></div>
+<button id="mapgo">Show month</button><button id="draw-region" class="ghost" aria-pressed="false">Select region</button><button id="clear-region" class="ghost" style="display:none">Clear selection</button></div>
 <div id="leaflet-map" aria-label="Interactive fire map. Use Draw region, then drag a rectangle to select an area."></div>
 <canvas id="map" class="map-fallback" width="1040" height="430" style="margin-top:10px;border:1px solid var(--line);border-radius:8px"></canvas>
 <div id="map-status" class="map-status"></div>
@@ -105,6 +105,7 @@ function series(cells){const k={};cells.forEach(c=>{const key=c.year+"-"+c.month
 function medians(s){const med={};for(let m=1;m<=12;m++){const v=s.filter(r=>r.month===m&&r.year>=BASE[0]&&r.year<=BASE[1]).map(r=>r.harmonized).sort((a,b)=>a-b);med[m]=v.length?(v[Math.floor((v.length-1)/2)]+v[Math.floor(v.length/2)])/2:0}return med}
 function filteredCells(){return CELLS.filter(c=>+c.cell_lon>=BBOX.west&&+c.cell_lon<=BBOX.east&&+c.cell_lat>=BBOX.south&&+c.cell_lat<=BBOX.north)}
 function renderAll(){
+ document.getElementById("clear-region").style.display=HAS_SELECTION?"":"none";
  const cells=filteredCells(), s=series(cells), med=medians(s), by={}; s.forEach(r=>by[r.year+"-"+r.month]=r);
  const y0=+document.getElementById("y0").value, y1=+document.getElementById("y1").value;
  let max=0; s.forEach(r=>{const v=MODE==="anomaly"?(med[r.month]?r.harmonized/med[r.month]:0):(MODE==="total"?r.total:r.harmonized); if(v>max)max=v});
@@ -170,6 +171,7 @@ document.getElementById("mode").addEventListener("click",e=>{if(e.target.dataset
 document.getElementById("preset").onchange=e=>{const next=parseBBox(e.target.value);if(next){setBBox(next,{select:true});renderAll()}};
 document.getElementById("apply").onclick=()=>{if(applyBBoxField()){HAS_SELECTION=true;syncLeafletSelection();renderAll()}}; document.getElementById("bbox").addEventListener("keydown",e=>{if(e.key==="Enter"&&applyBBoxField()){HAS_SELECTION=true;syncLeafletSelection();renderAll()}});document.getElementById("mapgo").onclick=renderAll;
 document.getElementById("draw-region").onclick=()=>{if(!LEAFLET||FALLBACK){document.getElementById("map-status").textContent="Interactive map unavailable. Type W,S,E,N and choose Apply to select a region.";return}if(SELECT_MODE){LEAFLET.exitDraw(true);return}SELECT_MODE=true;LEAFLET.map.dragging.disable();LEAFLET.map.getContainer().style.cursor="crosshair";document.getElementById("draw-region").setAttribute("aria-pressed","true");document.getElementById("draw-region").textContent="Cancel selection";document.getElementById("map-status").textContent="Drag on the map to draw your region. Esc cancels."};
+document.getElementById("clear-region").onclick=()=>{HAS_SELECTION=false;document.getElementById("preset").selectedIndex=0;setBBox({west:-140,south:42,east:-52,north:72});renderAll()};
 document.getElementById("csv").onclick=()=>{const cells=filteredCells();const rows=[["cell_lat","cell_lon","year","month","modis_count","viirs_count","total_count","harmonized_count"],...cells.map(c=>[c.cell_lat,c.cell_lon,c.year,c.month,c.modis_count,c.viirs_count,c.total_count,c.harmonized_count])];const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"}));a.download="murphy_hotspots_selection.csv";a.click()};
 document.getElementById("png").onclick=()=>{const src=document.getElementById("chart");const a=document.createElement("a");a.href=src.toDataURL("image/png");a.download="murphy_chart.png";a.click()};
 fetch("data/monthly.json").then(r=>r.json()).then(d=>{DATA=d;CELLS=decodeCells(d.cells);END=d.region_monthly.reduce((a,r)=>r.year*12+r.month>a.year*12+a.month?{year:r.year,month:r.month}:a,{year:0,month:1});initLeaflet();renderAll()}).catch(()=>{document.getElementById("grid").textContent="Could not load valid monthly data — the pipeline export must meet the UI contract.";setFallback("Interactive map unavailable; data loading needs attention.")});
