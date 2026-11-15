@@ -1,0 +1,27 @@
+name: audit
+on:
+  pull_request:
+    paths: ["app/**", "pipeline/**", "docs/**", "README.md", "SPEC.md", ".github/workflows/audit.yml"]
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy pandas pyarrow duckdb
+      - name: Fetch the data-v2 grid
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download data-v2 --pattern monthly_grid_025.parquet --dir data/derived
+      - name: Run the independent audit (science gate; publication findings print to the log)
+        run: python pipeline/audit_engine.py --selftest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-report
+          path: docs/AUDIT_REPORT.md

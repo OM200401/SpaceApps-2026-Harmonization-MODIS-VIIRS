@@ -48,6 +48,8 @@ pipeline/               harmonization: summary table -> calibrated monthly data 
   export_json.py          writes app/data/monthly.json
   verify_all.py           checks the harmonized data and the app JSON agree
   check_outputs.py        stage-by-stage output checks
+  audit_engine.py         independent audit: recomputes every shipped number from the raw grid
+  audit_claims.json       the audit's claims registry (expected values and tolerances)
   clean_firms.py, calibrate.py, validate_holdout.py
                           earlier path that works from raw FIRMS detections
   make_synthetic.py       synthetic test data (pipeline tests only, never results)
@@ -55,7 +57,7 @@ pipeline/               harmonization: summary table -> calibrated monthly data 
 summarise/              builds the monthly grid summary table from raw FIRMS data
   build_monthly_grid.py
   README.md             full column reference and caveats
-docs/                   validation results, UI data contract, demo script, project page draft
+docs/                   validation results, audit report, UI data contract, demo script, project page draft
 SPEC.md                 product spec and decisions log
 requirements.txt
 ```
@@ -111,6 +113,26 @@ It should print `PASS`. If you rebuilt from `data-v2` without changing any code,
 ```bash
 python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet
 ```
+
+## Independent audit
+
+Do not take our word for any number in this project. The audit engine recomputes all of them from the raw data, with completely separate code, and shows its work.
+
+```bash
+python pipeline/audit_engine.py --selftest
+```
+
+The production pipeline is pandas. The audit rebuilds the data from the 55M-row grid in SQL (DuckDB), refits the harmonization rule from the project's calibration rules (`docs/VALIDATION.md` and the production calibration code), and compares everything against expected values that were written down in advance (`pipeline/audit_claims.json`). The full report is `docs/AUDIT_REPORT.md`.
+
+On the shipped record, it verifies:
+
+- 308,806 cell-months rebuilt from the grid, zero differences
+- May 2023 = 208,476, and the 2011 to 2012 jump: +785.4% raw, +60.8% harmonized
+- every cell's harmonized value, refit independently, largest difference 0.005, which is the file's own rounding
+- the holdout: fit 2012 to 2020, predict 2021 to 2023, MAPE 13.6%
+- itself: it corrupts copies of the data 8 ways (quiet drift, swapped values, planted stale numbers) and must catch all 8. It does.
+
+One limit, stated plainly: the audit certifies the Canada record the app ships, and the Terra-only months before July 2002 have no holdout coverage, here or anywhere in the project.
 
 ## Data
 
