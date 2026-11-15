@@ -1,7 +1,7 @@
 # Om monthly-grid table verdict
 
-> Early decision note. The last bullet is superseded: the shipped strata are season × day/night,
-> because mean FRP per cell differs too much between the sensors. See `docs/VALIDATION.md`.
+> Early decision note. The last bullet is superseded: mean FRP per cell differs too much between the
+> sensors, so those strata were dropped. See `docs/VALIDATION.md` and `experiments/v2/README.md`.
 
 ## Decision
 

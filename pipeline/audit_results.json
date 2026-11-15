@@ -1,0 +1,1688 @@
+{
+ "artifact_md5": "dbb934b1681e",
+ "rows": [
+  {
+   "actual": "artifact md5 dbb934b1681e",
+   "claim": "Record pin",
+   "detail": "Artifact matches the pinned record.",
+   "expected": "artifact md5 dbb934b1681e",
+   "id": "pin",
+   "layer": "LP",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 308806,
+   "claim": "Shipped cell-month entries",
+   "detail": "|diff|=0 tol=0",
+   "expected": 308806,
+   "id": "entries",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 308806,
+   "claim": "sum(n_months) equals entry count",
+   "detail": "",
+   "expected": 308806,
+   "id": "n_months_sum",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 18060,
+   "claim": "Distinct cells",
+   "detail": "|diff|=0 tol=0",
+   "expected": 18060,
+   "id": "cells",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 312,
+   "claim": "Region-month rows",
+   "detail": "|diff|=0 tol=0",
+   "expected": 312,
+   "id": "region_months",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "region_monthly total = modis + viirs, violations",
+   "detail": "",
+   "expected": 0,
+   "id": "totals_identity",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": true,
+   "claim": "All counts finite and non-negative",
+   "detail": "",
+   "expected": true,
+   "id": "finite_nonneg",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 312,
+   "claim": "Region-months are exactly Nov 2000..Oct 2026 (no Nov 2026, no gaps)",
+   "detail": "missing=[] extra=[]",
+   "expected": 312,
+   "id": "span",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 312,
+   "claim": "Decoded cell months match region_monthly months",
+   "detail": "",
+   "expected": 312,
+   "id": "cell_months_match",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Cell entries outside Canada bbox",
+   "detail": "",
+   "expected": 0,
+   "id": "bbox",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": true,
+   "claim": "Decode -> re-encode reproduces the shipped arrays exactly",
+   "detail": "",
+   "expected": true,
+   "id": "roundtrip",
+   "layer": "L0",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 42442,
+   "claim": "May 2023 MODIS",
+   "detail": "|diff|=0 tol=0",
+   "expected": 42442,
+   "id": "may23_modis",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 208476,
+   "claim": "May 2023 VIIRS",
+   "detail": "|diff|=0 tol=0",
+   "expected": 208476,
+   "id": "may23_viirs",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 208476.0,
+   "claim": "May 2023 harmonized",
+   "detail": "|diff|=0 tol=0.01",
+   "expected": 208476.0,
+   "id": "may23_harm",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "2023-08",
+   "claim": "Peak harmonized month is Aug 2023",
+   "detail": "",
+   "expected": "2023-08",
+   "id": "peak_month",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 440006.0,
+   "claim": "Aug 2023 harmonized",
+   "detail": "|diff|=0 tol=440.006",
+   "expected": 440006.0,
+   "id": "aug23_harm",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Cell harmonized sums agree with region_monthly every month",
+   "detail": "max excess over tolerance=0.0000",
+   "expected": 0,
+   "id": "cell_rm_agree",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 4505.0,
+   "claim": "Prairies May 2023 harmonized (cells)",
+   "detail": "|diff|=0 tol=2",
+   "expected": 4505.0,
+   "id": "prairies_harm",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 227,
+   "claim": "Prairies May 2023 entries",
+   "detail": "|diff|=0 tol=0",
+   "expected": 227,
+   "id": "prairies_n",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 48859,
+   "claim": "Raw total 2011",
+   "detail": "|diff|=0 tol=0",
+   "expected": 48859,
+   "id": "raw_2011",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 432574,
+   "claim": "Raw total 2012",
+   "detail": "|diff|=0 tol=0",
+   "expected": 432574,
+   "id": "raw_2012",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 785.351726396365,
+   "claim": "Raw jump 2011->2012 (%)",
+   "detail": "|diff|=0.0017264 tol=0.1",
+   "expected": 785.35,
+   "id": "jump_raw",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 60.757724255623444,
+   "claim": "Harmonized jump 2011->2012 (%)",
+   "detail": "|diff|=0.00227574 tol=0.15",
+   "expected": 60.76,
+   "id": "jump_harm",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 60.53951165598968,
+   "claim": "MODIS-alone jump 2011->2012 (%)",
+   "detail": "|diff|=0.000488344 tol=0.1",
+   "expected": 60.54,
+   "id": "jump_modis",
+   "layer": "L1",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "SNPP-era cells: harmonized != VIIRS observed, count",
+   "detail": "",
+   "expected": 0,
+   "id": "snpp_era_cells",
+   "layer": "L2",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "SNPP-era months: harmonized != VIIRS observed, count",
+   "detail": "zero-VIIRS months (converted-MODIS exception path): none",
+   "expected": 0,
+   "id": "snpp_era_months",
+   "layer": "L2",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "MODIS-era months with conversion ratio outside [0.5, 20]",
+   "detail": "[]",
+   "expected": 0,
+   "id": "modis_era_band",
+   "layer": "L2",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "20 months: 2000-11..2002-06",
+   "claim": "Terra-only months (before Jul 2002) have no holdout coverage",
+   "detail": "",
+   "expected": "unvalidated by design",
+   "id": "terra_era",
+   "layer": "L2",
+   "verdict": "INFO"
+  },
+  {
+   "actual": "Canada boreal=18060; Canada core fires=9461; Amazon=0; Mediterranean=0; US West=2582; Siberia=0; Southern Africa=0; SE Asia=0; Northern Australia=0; Whole world=18060",
+   "claim": "App region presets vs shipped cell coverage (distinct cells)",
+   "detail": "Presets with 0 cells lie outside the Canada export; the app shows an honest no-data state for them. Stated so a preset change is never silent.",
+   "expected": "coverage stated",
+   "id": "preset_coverage",
+   "layer": "L2",
+   "verdict": "INFO"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in README.md",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in README.md",
+   "detail": "",
+   "expected": 0,
+   "id": "method:README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in README.md",
+   "detail": "",
+   "expected": 0,
+   "id": "window:README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in README.md match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in SPEC.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:SPEC.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 3,
+   "claim": "Rejected FRP-stratified method described as shipped in SPEC.md (history doc: quoted context)",
+   "detail": "L45 /FRP bin/; L45 /FRP\u00d7season/; L77 /FRP bin/",
+   "expected": 0,
+   "id": "method:SPEC.md",
+   "layer": "L5",
+   "verdict": "INFO"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in SPEC.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:SPEC.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in app/how-it-works.html",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:app/how-it-works.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in app/how-it-works.html",
+   "detail": "",
+   "expected": 0,
+   "id": "method:app/how-it-works.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in app/how-it-works.html",
+   "detail": "",
+   "expected": 0,
+   "id": "window:app/how-it-works.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in app/how-it-works.html match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:app/how-it-works.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in app/index.html",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:app/index.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in app/index.html",
+   "detail": "",
+   "expected": 0,
+   "id": "method:app/index.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in app/index.html",
+   "detail": "",
+   "expected": 0,
+   "id": "window:app/index.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in app/index.html match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:app/index.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in app/report.html",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:app/report.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in app/report.html",
+   "detail": "",
+   "expected": 0,
+   "id": "method:app/report.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in app/report.html",
+   "detail": "",
+   "expected": 0,
+   "id": "window:app/report.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in app/report.html match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:app/report.html",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in app/shared.css",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:app/shared.css",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in app/shared.css",
+   "detail": "",
+   "expected": 0,
+   "id": "method:app/shared.css",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in app/shared.css",
+   "detail": "",
+   "expected": 0,
+   "id": "window:app/shared.css",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in app/shared.css match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:app/shared.css",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in app/shared.js",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:app/shared.js",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in app/shared.js",
+   "detail": "",
+   "expected": 0,
+   "id": "method:app/shared.js",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in app/shared.js",
+   "detail": "",
+   "expected": 0,
+   "id": "window:app/shared.js",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in app/shared.js match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:app/shared.js",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in docs/DEMO_SCRIPT.md",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:docs/DEMO_SCRIPT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in docs/DEMO_SCRIPT.md",
+   "detail": "",
+   "expected": 0,
+   "id": "method:docs/DEMO_SCRIPT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in docs/DEMO_SCRIPT.md",
+   "detail": "",
+   "expected": 0,
+   "id": "window:docs/DEMO_SCRIPT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in docs/DEMO_SCRIPT.md match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:docs/DEMO_SCRIPT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in docs/OM_TABLE_VERDICT.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:docs/OM_TABLE_VERDICT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in docs/OM_TABLE_VERDICT.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:docs/OM_TABLE_VERDICT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in docs/OM_TABLE_VERDICT.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:docs/OM_TABLE_VERDICT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in docs/PROJECT_PAGE.md",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:docs/PROJECT_PAGE.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in docs/PROJECT_PAGE.md",
+   "detail": "",
+   "expected": 0,
+   "id": "method:docs/PROJECT_PAGE.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in docs/PROJECT_PAGE.md",
+   "detail": "",
+   "expected": 0,
+   "id": "window:docs/PROJECT_PAGE.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in docs/PROJECT_PAGE.md match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:docs/PROJECT_PAGE.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in docs/UI_DATA_CONTRACT.md",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:docs/UI_DATA_CONTRACT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in docs/UI_DATA_CONTRACT.md",
+   "detail": "",
+   "expected": 0,
+   "id": "method:docs/UI_DATA_CONTRACT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in docs/UI_DATA_CONTRACT.md",
+   "detail": "",
+   "expected": 0,
+   "id": "window:docs/UI_DATA_CONTRACT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in docs/UI_DATA_CONTRACT.md match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:docs/UI_DATA_CONTRACT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in docs/VALIDATION.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:docs/VALIDATION.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 1,
+   "claim": "Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context)",
+   "detail": "L54 /FRP bin/",
+   "expected": 0,
+   "id": "method:docs/VALIDATION.md",
+   "layer": "L5",
+   "verdict": "INFO"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in docs/VALIDATION.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:docs/VALIDATION.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/README.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/README.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/README.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/harness.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/harness.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 1,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/harness.py (history doc: quoted context)",
+   "detail": "L293 /FRP bin/",
+   "expected": 0,
+   "id": "method:experiments/harness.py",
+   "layer": "L5",
+   "verdict": "INFO"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/harness.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/harness.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/prep.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/prep.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/prep.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/prep.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/prep.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/prep.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/requirements.txt (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/requirements.txt",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/requirements.txt (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/requirements.txt",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/requirements.txt (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/requirements.txt",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/run_baseline.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/run_baseline.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/run_baseline.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/run_baseline.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/run_baseline.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/run_baseline.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/run_conf.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/run_conf.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/run_conf.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/run_conf.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/run_conf.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/run_conf.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/run_final.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/run_final.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/run_final.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/run_final.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/run_final.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/run_final.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/run_nested.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/run_nested.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/run_nested.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/run_nested.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/run_nested.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/run_nested.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/run_suite.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/run_suite.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/run_suite.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/run_suite.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/run_suite.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/run_suite.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/run_suite_d.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/run_suite_d.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/run_suite_d.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/run_suite_d.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/run_suite_d.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/run_suite_d.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/run_suite_e.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/run_suite_e.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/run_suite_e.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/run_suite_e.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/run_suite_e.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/run_suite_e.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/README.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/README.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/README.md (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/apply_modis_era.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/apply_modis_era.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/apply_modis_era.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/apply_modis_era.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/apply_modis_era.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/apply_modis_era.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/build_daily.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/build_daily.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/build_daily.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/build_daily.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/build_daily.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/build_daily.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/build_month.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/build_month.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/build_month.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/build_month.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/build_month.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/build_month.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/build_static.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/build_static.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/build_static.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/build_static.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/build_static.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/build_static.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/gbm.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/gbm.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/gbm.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/gbm.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/gbm.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/gbm.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/h2.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/h2.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/h2.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/h2.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/h2.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/h2.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/models.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/models.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/models.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/models.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/models.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/models.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/report.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/report.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/report.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/report.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/report.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/report.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/run_base.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/run_base.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/run_base.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/run_base.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/run_base.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/run_base.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in experiments/v2/run_gbm.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:experiments/v2/run_gbm.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in experiments/v2/run_gbm.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "method:experiments/v2/run_gbm.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in experiments/v2/run_gbm.py (history doc: quoted context)",
+   "detail": "",
+   "expected": 0,
+   "id": "window:experiments/v2/run_gbm.py",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in requirements.txt",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:requirements.txt",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in requirements.txt",
+   "detail": "",
+   "expected": 0,
+   "id": "method:requirements.txt",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in requirements.txt",
+   "detail": "",
+   "expected": 0,
+   "id": "window:requirements.txt",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in requirements.txt match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:requirements.txt",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Stale pre-v2 numbers in summarise/README.md",
+   "detail": "",
+   "expected": 0,
+   "id": "stale:summarise/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rejected FRP-stratified method described as shipped in summarise/README.md",
+   "detail": "",
+   "expected": 0,
+   "id": "method:summarise/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Calibration window misstated as 2012-2023 overlap in summarise/README.md",
+   "detail": "",
+   "expected": 0,
+   "id": "window:summarise/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Numbers stated in prose in summarise/README.md match the verified values",
+   "detail": "",
+   "expected": 0,
+   "id": "prose:summarise/README.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Unfilled placeholders in docs/PROJECT_PAGE.md",
+   "detail": "",
+   "expected": 0,
+   "id": "placeholders:docs/PROJECT_PAGE.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Unfilled placeholders in docs/DEMO_SCRIPT.md",
+   "detail": "",
+   "expected": 0,
+   "id": "placeholders:docs/DEMO_SCRIPT.md",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "missing: none",
+   "claim": "Experiments harness hard-codes the old-rule reproduction expectations (Canada own 0.1955, global 0.1691, Amazon 0.1792, Mediterranean 0.2062)",
+   "detail": "",
+   "expected": "all present",
+   "id": "baseline_expectations",
+   "layer": "L5",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['cell_rm_agree']",
+   "claim": "Fault injection caught: cell harmonized +1 in smallest MODIS-era month",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:cell harmonized +1 in smallest MODIS-era month",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['cell_rm_agree', 'may23_harm', 'snpp_era_months']",
+   "claim": "Fault injection caught: May 2023 region harmonized +100",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:May 2023 region harmonized +100",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['cell_rm_agree', 'snpp_era_months']",
+   "claim": "Fault injection caught: Jun/Jul 2021 region harmonized swapped",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:Jun/Jul 2021 region harmonized swapped",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['cell_months_match', 'cell_rm_agree', 'region_months', 'span']",
+   "claim": "Fault injection caught: Nov 2026 region-month injected",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:Nov 2026 region-month injected",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['totals_identity']",
+   "claim": "Fault injection caught: region_monthly total != modis + viirs",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:region_monthly total != modis + viirs",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['snpp_era_cells']",
+   "claim": "Fault injection caught: SNPP-era cell harmonized set to MODIS x 3.69",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:SNPP-era cell harmonized set to MODIS x 3.69",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['bbox']",
+   "claim": "Fault injection caught: cell longitude moved to -30",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:cell longitude moved to -30",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "['prose:README.md', 'stale:README.md']",
+   "claim": "Fault injection caught: stale 209,913 planted in README",
+   "detail": "",
+   "expected": ">=1 new FAIL",
+   "id": "mutation:stale 209,913 planted in README",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "8/8",
+   "claim": "Fault-injection score",
+   "detail": "",
+   "expected": "8/8",
+   "id": "score",
+   "layer": "L6",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs ['prose:app/zz_new_page.html', 'stale:app/zz_new_page.html']",
+   "claim": "Change simulation: new app page with a stale number is caught",
+   "detail": "",
+   "expected": "new FAILs ['stale:app/zz_new_page.html']",
+   "id": "change:new app page with a stale number is caught",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs []",
+   "claim": "Change simulation: new clean app page adds no finding",
+   "detail": "",
+   "expected": "new FAILs none",
+   "id": "change:new clean app page adds no finding",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs ['method:docs/zz_new_doc.md']",
+   "claim": "Change simulation: new doc with the rejected method text is caught",
+   "detail": "",
+   "expected": "new FAILs ['method:docs/zz_new_doc.md']",
+   "id": "change:new doc with the rejected method text is caught",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs ['missing:docs/PROJECT_PAGE.md']",
+   "claim": "Change simulation: deleted submission doc is a finding, not a pass",
+   "detail": "",
+   "expected": "new FAILs ['missing:docs/PROJECT_PAGE.md']",
+   "id": "change:deleted submission doc is a finding, not a pass",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs ['method:app/shared.js']",
+   "claim": "Change simulation: method text moved into app/shared.js is caught",
+   "detail": "",
+   "expected": "new FAILs ['method:app/shared.js']",
+   "id": "change:method text moved into app/shared.js is caught",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs []",
+   "claim": "Change simulation: stale number quoted in a history doc is INFO, not FAIL",
+   "detail": "",
+   "expected": "new FAILs none",
+   "id": "change:stale number quoted in a history doc is INFO, not FAIL",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs ['prose:README.md']",
+   "claim": "Change simulation: wrong metric in README prose is caught",
+   "detail": "",
+   "expected": "new FAILs ['prose:README.md']",
+   "id": "change:wrong metric in README prose is caught",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs ['missing:README.md']",
+   "claim": "Change simulation: deleted swept file alarms instead of improving the report",
+   "detail": "",
+   "expected": "new FAILs ['missing:README.md']",
+   "id": "change:deleted swept file alarms instead of improving the report",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "new FAILs ['prose:app/notes.txt', 'stale:app/notes.txt']",
+   "claim": "Change simulation: stale number in a new .txt file is caught",
+   "detail": "",
+   "expected": "new FAILs ['stale:app/notes.txt']",
+   "id": "change:stale number in a new .txt file is caught",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "STALE",
+   "claim": "Change simulation: moved anchor reports STALE under a changed artifact (not PASS, not a science FAIL)",
+   "detail": "",
+   "expected": "STALE",
+   "id": "change:anchor semantics",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "10/10",
+   "claim": "Change-simulation score",
+   "detail": "",
+   "expected": "10/10",
+   "id": "score",
+   "layer": "L7",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 55093407,
+   "claim": "Rows in data-v2 grid parquet",
+   "detail": "|diff|=0 tol=0",
+   "expected": 55093407,
+   "id": "grid_rows",
+   "layer": "L3",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 308806,
+   "claim": "Rebuilt Canada cell-month rows (Nov 2026 excluded)",
+   "detail": "|diff|=0 tol=0",
+   "expected": 308806,
+   "id": "rebuilt_rows",
+   "layer": "L3",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Rebuilt cell-month MODIS/VIIRS inputs differing from shipped file",
+   "detail": "",
+   "expected": 0,
+   "id": "rowlevel_inputs",
+   "layer": "L3",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Months whose rebuilt MODIS/VIIRS totals differ from region_monthly",
+   "detail": "",
+   "expected": 0,
+   "id": "monthly_inputs",
+   "layer": "L3",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "region_monthly mean_frp recomputed (mean of per-cell-month mean FRP), months off by >0.011",
+   "detail": "max deviation within tolerance=0.0050",
+   "expected": 0,
+   "id": "mean_frp",
+   "layer": "L3",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "none",
+   "claim": "Canada strata thin enough to need the global fallback",
+   "detail": "",
+   "expected": "none",
+   "id": "thin_strata",
+   "layer": "L4",
+   "verdict": "INFO"
+  },
+  {
+   "actual": "max deviation 0.0012% over 135 months",
+   "claim": "MODIS-era region-months reproduced by the refit within 0.05%",
+   "detail": "",
+   "expected": "100% within 0.05% (clean-file noise floor is 0.001%)",
+   "id": "refit_months",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 0,
+   "claim": "Per-cell harmonized values reproduced by the refit (all eras), cells off by >0.02",
+   "detail": "max per-cell deviation=0.0050 over 308806 cells",
+   "expected": 0,
+   "id": "refit_cells",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 36,
+   "claim": "Holdout months with S-NPP observed",
+   "detail": "",
+   "expected": 36,
+   "id": "holdout_n",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 13.638903795856482,
+   "claim": "Holdout MAPE, shipped rule (%)",
+   "detail": "|diff|=0.0389038 tol=0.5",
+   "expected": 13.6,
+   "id": "holdout_mape",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 11.324936601981008,
+   "claim": "Holdout WAPE, shipped rule (%)",
+   "detail": "|diff|=0.0249366 tol=0.5",
+   "expected": 11.3,
+   "id": "holdout_wape",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": -6.549698646334397,
+   "claim": "Holdout bias, shipped rule (%)",
+   "detail": "|diff|=0.0496986 tol=1",
+   "expected": -6.5,
+   "id": "holdout_bias",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 19.545806879513652,
+   "claim": "Holdout MAPE, old rule own ratios (%)",
+   "detail": "|diff|=0.0541931 tol=0.3",
+   "expected": 19.6,
+   "id": "holdout_old_own",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 16.908425945690333,
+   "claim": "Holdout MAPE, old rule global ratios (%)",
+   "detail": "|diff|=0.00842595 tol=0.3",
+   "expected": 16.9,
+   "id": "holdout_old_global",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": 13.091082334047385,
+   "claim": "Holdout MAPE, Feb-2012 fit start (%)",
+   "detail": "|diff|=0.00891767 tol=0.5",
+   "expected": 13.1,
+   "id": "holdout_feb_start",
+   "layer": "L4",
+   "verdict": "PASS"
+  },
+  {
+   "actual": "not recomputed",
+   "claim": "LOYO 8-region MAPE, old -> new (%)",
+   "detail": "Experiment result CSVs are gitignored and not in the repo; the audit can verify the harness code and its baseline expectations but not the LOYO outputs.",
+   "expected": "20.8 -> 14.0",
+   "id": "loyo_mape",
+   "layer": "L4",
+   "verdict": "UNVERIFIABLE"
+  }
+ ]
+}

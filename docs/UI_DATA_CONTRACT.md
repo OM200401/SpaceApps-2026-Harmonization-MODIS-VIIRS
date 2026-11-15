@@ -1,5 +1,34 @@
-# UI data contract — for the pipeline (Codex) — UI reads ONLY this file
-Path: app/data/monthly.json  (regenerate with pipeline/export_json.py, or any code that matches this shape)
+# UI data contract — what the web app reads
+
+The app loads `app/data/index.json` first, then only the tiles an area needs.
+The tiles are not in git. They are a zip on a release (`tiles-v2`); `python pipeline/fetch_tiles.py` unpacks
+it into `app/data/`, and the Pages workflow (`.github/workflows/pages.yml`) does the same before deploying.
+Regenerate everything with:
+
+    python pipeline/build_global.py      # harmonize the whole world -> data/monthly_harmonized_global.parquet
+    python pipeline/build_global_v2.py   # v2 rule (needs experiments/v2 outputs) -> data/monthly_harmonized_global_v2.parquet
+    python pipeline/export_tiles.py --monthly data/monthly_harmonized_global_v2.parquet
+                                         # -> app/data/index.json, app/data/d/*.json, app/data/c/*.json
+
+then zip `index.json`, `c/` and `d/`, upload the zip to a new release, and set `TILES_TAG` in fetch_tiles.py.
+
+index.json:
+{
+  "t0_year": 2000,
+  "levels": {"d": {"cell": 0.25, "tile": 10}, "c": {"cell": 1.0, "tile": 30}},
+  "tiles": {"d": {"40_-130": [cell_months, bytes], ...}, "c": {...}},   key = tile's south-west corner "lat_lon"
+  "end": {"year": 2026, "month": 10},                                    last month with data
+  "archive_end": {...}, "provisional_from": {"year": 2026, "month": 8}
+}
+
+Tiles: `app/data/d/<lat>_<lon>.json` holds 0.25-degree cells of one 10x10-degree tile;
+`app/data/c/<lat>_<lon>.json` holds 1-degree cells (sums of 16 detail cells) of one 30x30-degree tile.
+Each tile is a `cells` block in the layout below. The app uses detail tiles unless the tiles an area
+touches hold more than 700,000 cell-months; then it switches to 1-degree cells (shared.js DETAIL_MAX).
+harmonized_count is rounded to 1 dp in tiles.
+
+---
+Cells block layout (also the shape of the old single-file app/data/monthly.json, kept for reference):
 
 {
   "region_monthly": [ {"year":2023,"month":5,"modis":132,"viirs":414,"total":546,"harmonized":752.1,"mean_frp":20.5}, ... ],
