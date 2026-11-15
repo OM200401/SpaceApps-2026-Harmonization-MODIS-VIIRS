@@ -40,9 +40,13 @@ app/                    the web app (static HTML/JS, no build step)
   report.html           area report: verdict, season vs normal range, calendar, downloads
   how-it-works.html     raw vs harmonized, method, accuracy and caveats
   shared.js, shared.css data loading, display rules and page chrome used by all three pages
-  data/monthly.json     harmonized data the app reads (made by pipeline/export_json.py)
+  data/index.json       tile list the app reads first (made by pipeline/export_tiles.py)
+  data/d/, data/c/      worldwide harmonized tiles: 0.25° cells per 10° tile, 1° cells per 30° tile
+  data/monthly.json     older Canada-only export, kept for the check scripts
 pipeline/               harmonization: summary table -> calibrated monthly data -> app JSON
-  build_regions.py        production path: harmonizes every preset region, prints holdout scores
+  build_global.py         production path: harmonizes the whole world (validated regions + 30° boxes), prints holdout per box
+  export_tiles.py         writes the app's tiles and index.json
+  build_regions.py        harmonizes the validated regions only (used by build_global.py), prints holdout scores
   build_monthly_from_grid.py, grid_calibrate.py, grid_validate.py
                           slicing, ratio and holdout code that build_regions.py uses
   export_json.py          writes app/data/monthly.json
@@ -68,7 +72,9 @@ To run it locally, serve the repo root with any static server (for example
 
 ## Running the pipeline
 
-This rebuilds `app/data/monthly.json` from the published summary table, in about a minute.
+This rebuilds the app's data from the published summary table. For the worldwide tiles the app reads,
+run `python pipeline/build_global.py` then `python pipeline/export_tiles.py` (about 15 minutes);
+the steps below rebuild the original region-only outputs.
 Run every command from the repo root.
 
 **1. Install the dependencies**
