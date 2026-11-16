@@ -1,4 +1,4 @@
-# UI data contract — what the web app reads
+# UI data contract: what the web app reads
 
 The app loads `app/data/index.json` first, then only the tiles an area needs.
 The tiles are not in git. They are a zip on a release (`tiles-v2`); `python pipeline/fetch_tiles.py` unpacks
@@ -51,10 +51,10 @@ viirs_count / harmonized_count. year = t0_year + floor(t / 12), month = t % 12 +
 The UI decodes this in decodeCells() (app/index.html) back into one object per cell-month.
 
 Rules:
-- harmonized_count must be FILLED (calibration applied) — null/NaN breaks the heatmap, map, and stat cards. Rounded to 2 dp.
+- harmonized_count must be FILLED (calibration applied); null/NaN breaks the heatmap, map, and stat cards. Rounded to 2 dp.
 - cells grid = 0.25 degrees, cell_lat/cell_lon = cell's south-west corner (floor to grid).
 - Years: MODIS era from 2000/2001 through 2026; months 1-12; missing month = omit the entry (UI shows "·").
-- total_count is not stored: the UI derives it as modis_count + viirs_count (raw, uncorrected) — the Raw view and the 2012-jump card depend on it.
+- total_count is not stored: the UI derives it as modis_count + viirs_count (raw, uncorrected); the Raw view and the 2012-jump card depend on it.
 - mean_frp is not stored per cell (only in region_monthly), to keep the file small.
 - archive_end = last standard-processing (archive) date per satellite; later data is near-real-time. provisional_from = the first month containing any near-real-time day (earliest archive_end + 1 day). The UI marks that month and every later one "provisional". Update ARCHIVE_END in export_json.py whenever the grid is rebuilt.
 - Keep the file under 5 MB (check_outputs.py json enforces it). Write JSON with compact separators.

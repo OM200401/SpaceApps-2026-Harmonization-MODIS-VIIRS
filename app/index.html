@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ignis Almanac — harmonized MODIS + VIIRS fire record</title>
+<title>Ignis Almanac: harmonized MODIS + VIIRS fire record</title>
 <meta name="description" content="A burning activity calendar from harmonized MODIS and VIIRS hotspots: pick an area, see every month since 2001, and how unusual it was.">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Ignis Almanac">
 <meta property="og:title" content="Ignis Almanac: 25 years of fire, one consistent record"><meta property="og:description" content="Two NASA satellite fire records joined into one. See how unusual this month is for any area on Earth.">
@@ -212,7 +212,7 @@ body{display:flex;flex-direction:column;height:100vh;overflow:auto}
   <div class="calview" id="calview" aria-labelledby="area-name">
    <div class="cal-top">
     <div class="titles"><span class="eyebrow">Burning activity calendar</span>
-     <h1 id="area-name">—</h1>
+     <h1 id="area-name">–</h1>
      <p class="verdict" id="verdict">Loading the fire record…</p></div>
     <button class="btn-primary swap" id="to-map" data-tip="Show this area on a map for the selected month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Map</button>
    </div>
@@ -236,7 +236,7 @@ body{display:flex;flex-direction:column;height:100vh;overflow:auto}
    <div class="float when glass">
     <button id="play" aria-pressed="false" aria-label="Play through months" data-tip="Play through the months as an animation">▶</button>
     <button class="step" id="m-prev" aria-label="Previous month" data-tip="Previous month">‹</button>
-    <div><div class="mo" id="map-month">—</div>
+    <div><div class="mo" id="map-month">–</div>
      <div class="sub"><span>Less</span><span class="g" id="map-grad"></span><span id="map-unit">More fire per cell</span></div></div>
     <button class="step" id="m-next" aria-label="Next month" data-tip="Next month">›</button>
    </div>

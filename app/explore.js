@@ -213,7 +213,7 @@
       <text x="${xm.toFixed(1)}" y="46" text-anchor="${anchor(xm, 66)}">normal range · median ${O.fmtK(s.p50)}</text></svg>`;
     const flags = [O.isEst(y, m) && "≈ estimated from MODIS", O.isProv(y, m) && "provisional"].filter(Boolean).join(" · ");
     const p = O.presetFor(A.bbox), acc = p && O.ACCURACY[p.id];
-    $("q1").innerHTML = `<div class="hero"><span class="big">${k.ratio == null ? "—" : k.ratio.toFixed(1) + "×"}</span><span class="pill status-${st.key}">${O.statusText(st)}</span></div>
+    $("q1").innerHTML = `<div class="hero"><span class="big">${k.ratio == null ? "–" : k.ratio.toFixed(1) + "×"}</span><span class="pill status-${st.key}">${O.statusText(st)}</span></div>
       <p class="line"><b>${O.fmt(k.h)}</b> detections in ${O.MONTH[m - 1]} ${y}${flags ? ` (${flags})` : ""}</p>${svg}
       <p class="acc">${acc ? `Tested error here: ±${acc}% per month` : "Accuracy varies by place"} · <a data-page-link="how-it-works.html" href="${O.pageLink("how-it-works.html")}">how we know</a></p>`;
   }

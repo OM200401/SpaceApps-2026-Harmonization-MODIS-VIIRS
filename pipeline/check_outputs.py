@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mechanical output verifier — the anti-'trust me, it works' gate.
+"""Mechanical output verifier: the anti-'trust me, it works' gate.
 Usage: python3 pipeline/check_outputs.py clean|calibrate|json
 Exits 1 and prints FAIL lines when an output does not meet the contract.
 Codex must run this after each stage (AGENTS.md proof rules). Do not edit to pass."""

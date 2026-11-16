@@ -152,7 +152,7 @@ def discover_docs(root):
     folder), the app and docs code surfaces (.html/.js/.css), and the
     experiments code. Roles: "strict" (publication rules enforced as
     FAIL) and "history" (documents that quote old numbers legitimately:
-    hits are INFO) — history comes from HISTORY_FILES, the experiments/
+    hits are INFO); history comes from HISTORY_FILES, the experiments/
     tree, or a first line containing "audit: history" (self-declared, so
     visible in the file itself). The audit's own outputs are excluded so
     the sweep never reads its own report.
@@ -861,23 +861,23 @@ def write_report(A, root, grid_note, record):
     passes = [r for r in A.rows if r["verdict"] == PASS]
     numbers_verdict = "FAIL" if sci_fail else ("INCOMPLETE" if blocked else "PASS")
     if record["status"] == "ABORTED":
-        numbers_line = "**NUMBERS verdict: NOT EVALUATED** — the audit did not run."
-        pub_line = "**PUBLICATION verdict: NOT EVALUATED** — the audit did not run."
+        numbers_line = "**NUMBERS verdict: NOT EVALUATED**, the audit did not run."
+        pub_line = "**PUBLICATION verdict: NOT EVALUATED**, the audit did not run."
     else:
-        numbers_line = (f"**NUMBERS verdict: {numbers_verdict}** — {len(passes)} checks passed, "
+        numbers_line = (f"**NUMBERS verdict: {numbers_verdict}**, {len(passes)} checks passed, "
                         f"{len(sci_fail)} failed, {len(unver)} unverifiable, {len(blocked)} blocked.")
-        pub_line = (f"**PUBLICATION verdict: {'FAIL' if pub_fail else 'PASS'}** — "
+        pub_line = (f"**PUBLICATION verdict: {'FAIL' if pub_fail else 'PASS'}**, "
                     f"{len(pub_fail)} publication findings.")
-    lines = ["# Audit Report — independent recomputation of the shipped Canada record",
+    lines = ["# Audit Report: independent recomputation of the shipped Canada record",
              "",
-             f"Artifact audited: `app/data/monthly.json` (md5 {digest}) — every value in it, per cell and "
+             f"Artifact audited: `app/data/monthly.json` (md5 {digest}): every value in it, per cell and "
              "per month, plus the Canada validation numbers in the claims registry. Engine: "
              "`pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL "
              "aggregation over the raw grid; method refit implemented from the project's calibration "
              "rules, docs/VALIDATION.md and the production calibration code). "
              "Claims and tolerances: `pipeline/audit_claims.json`.",
              f"Grid: {grid_note}",
-             f"**RECORD: {record['status']}** — {record['detail']}",
+             f"**RECORD: {record['status']}**, {record['detail']}",
              "",
              numbers_line,
              pub_line,

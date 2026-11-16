@@ -526,7 +526,7 @@
   {
    "actual": 1,
    "claim": "Rejected FRP-stratified method described as shipped in docs/DEMO_SCRIPT.md",
-   "detail": "L6: 0:15 Toggle Harmonized \u2014 jump shrinks. \"Calibrated on the 2012\u20132023 overlap, by fire size and season. Holdout ",
+   "detail": "L6: 0:15 Toggle Harmonized: jump shrinks. \"Calibrated on the 2012\u20132023 overlap, by fire size and season. Holdout ",
    "expected": 0,
    "id": "method:docs/DEMO_SCRIPT.md",
    "layer": "L5",
@@ -535,7 +535,7 @@
   {
    "actual": 1,
    "claim": "Calibration window misstated as 2012-2023 overlap in docs/DEMO_SCRIPT.md",
-   "detail": "L6: 0:15 Toggle Harmonized \u2014 jump shrinks. \"Calibrated on the 2012\u20132023 overlap, by fire size and season. Holdout ",
+   "detail": "L6: 0:15 Toggle Harmonized: jump shrinks. \"Calibrated on the 2012\u20132023 overlap, by fire size and season. Holdout ",
    "expected": 0,
    "id": "window:docs/DEMO_SCRIPT.md",
    "layer": "L5",

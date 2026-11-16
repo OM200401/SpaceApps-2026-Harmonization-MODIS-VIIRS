@@ -81,7 +81,7 @@ def main():
             row["holdout_error"] = str(e)[:80]
         calib["regions"][region] = {**{k: v for k, v in row.items() if k != "region"}, **rule_summary(rule)}
         summary.append(row)
-        print(f"{region:>16} {row['cell_months']:>9,} cell-months  MAPE={row.get('MAPE', '—')}  ({time.time()-t0:.0f}s)", flush=True)
+        print(f"{region:>16} {row['cell_months']:>9,} cell-months  MAPE={row.get('MAPE', '–')}  ({time.time()-t0:.0f}s)", flush=True)
 
     allm = pd.concat(out, ignore_index=True)
     assert not allm.duplicated(["cell_id", "year", "month"]).any(), "a cell landed in two regions"

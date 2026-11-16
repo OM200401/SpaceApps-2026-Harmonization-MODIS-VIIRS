@@ -1,11 +1,11 @@
-# Audit Report — independent recomputation of the shipped Canada record
+# Audit Report: independent recomputation of the shipped Canada record
 
-Artifact audited: `app/data/monthly.json` (md5 dbb934b1681e) — every value in it, per cell and per month, plus the Canada validation numbers in the claims registry. Engine: `pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL aggregation over the raw grid; method refit implemented from the project's calibration rules, docs/VALIDATION.md and the production calibration code). Claims and tolerances: `pipeline/audit_claims.json`.
+Artifact audited: `app/data/monthly.json` (md5 dbb934b1681e): every value in it, per cell and per month, plus the Canada validation numbers in the claims registry. Engine: `pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL aggregation over the raw grid; method refit implemented from the project's calibration rules, docs/VALIDATION.md and the production calibration code). Claims and tolerances: `pipeline/audit_claims.json`.
 Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
-**RECORD: CURRENT** — artifact md5 dbb934b1681e matches the pinned record.
+**RECORD: CURRENT**, artifact md5 dbb934b1681e matches the pinned record.
 
-**NUMBERS verdict: PASS** — 142 checks passed, 0 failed, 1 unverifiable, 0 blocked.
-**PUBLICATION verdict: FAIL** — 7 publication findings.
+**NUMBERS verdict: PASS**, 142 checks passed, 0 failed, 1 unverifiable, 0 blocked.
+**PUBLICATION verdict: FAIL**, 7 publication findings.
 
 | Layer | Check | Published / expected | Recomputed | Verdict | Detail |
 |---|---|---|---|---|---|
@@ -67,8 +67,8 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L5 | Calibration window misstated as 2012-2023 overlap in app/shared.js | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in app/shared.js match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/DEMO_SCRIPT.md | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in docs/DEMO_SCRIPT.md | 0 | 1 | FAIL | L6: 0:15 Toggle Harmonized — jump shrinks. "Calibrated on the 2012–2023 overlap, by fire size and season. Holdout  |
-| L5 | Calibration window misstated as 2012-2023 overlap in docs/DEMO_SCRIPT.md | 0 | 1 | FAIL | L6: 0:15 Toggle Harmonized — jump shrinks. "Calibrated on the 2012–2023 overlap, by fire size and season. Holdout  |
+| L5 | Rejected FRP-stratified method described as shipped in docs/DEMO_SCRIPT.md | 0 | 1 | FAIL | L6: 0:15 Toggle Harmonized: jump shrinks. "Calibrated on the 2012–2023 overlap, by fire size and season. Holdout  |
+| L5 | Calibration window misstated as 2012-2023 overlap in docs/DEMO_SCRIPT.md | 0 | 1 | FAIL | L6: 0:15 Toggle Harmonized: jump shrinks. "Calibrated on the 2012–2023 overlap, by fire size and season. Holdout  |
 | L5 | Numbers stated in prose in docs/DEMO_SCRIPT.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/OM_TABLE_VERDICT.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in docs/OM_TABLE_VERDICT.md (history doc: quoted context) | 0 | 0 | PASS |  |

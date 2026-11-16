@@ -1,4 +1,4 @@
-# Validation — numbers are from runs, never hand-written
+# Validation: numbers are from runs, never hand-written
 
 ## Estimator definition (shipped, #37)
 Harmonized count (S-NPP VIIRS-equivalent units) per 0.25° cell-month:
@@ -113,7 +113,7 @@ Command: `python pipeline/build_regions.py` (writes `data/monthly_harmonized_all
 | Canada (−140,42,−52,72), own; ships with global | 3.69 | 8.42 | 2.28 | 13.93 | 0 |
 | Amazon (−75,−15,−45,5) | 3.16 | 6.56 | 3.53 | 5.62 | 0 |
 | Mediterranean (−10,35,30,45) | 2.90 | 6.01 | 2.86 | 10.76 | 0 |
-| Global (fallback) | 3.46 | 8.53 | 3.55 | 9.47 | — |
+| Global (fallback) | 3.46 | 8.53 | 3.55 | 9.47 | – |
 
 Every regional stratum had at least 6,307 MODIS detections, so no fallback was needed. "Fire" is May–Sep for every region. That matches the northern-hemisphere seasons; for the Amazon it is just a fixed split of the year, still learned and applied consistently.
 
@@ -147,7 +147,7 @@ Old-rule check (Canada's own ratios): `python pipeline/grid_validate.py --stagin
 
 In every region the harmonized change is within 5 points of the single-sensor MODIS change, and the fake sensor-switch jump is gone. (Canada with its own ratios: +59.1%.)
 
-## Cell-day counts vs detections (2026-11-14, #15) — not adopted
+## Cell-day counts vs detections (2026-11-14, #15): not adopted
 **Test:** count each 0.05° cell (~5 km) at most once per day, per day/night and per satellite, instead of counting every detection. This removes repeat passes and VIIRS's extra detections of the same fire. Built from all 660M raw detections (the Hugging Face dataset downloaded to `data/firms`, laid out as `sensor=*/year=*/*.parquet`). Commands, with separate output paths so the shipped detection outputs are not overwritten:
 ```bash
 python summarise/build_monthly_grid.py --input data/firms --cell-days 0.05   # -> data/derived/monthly_celldays_025.parquet
@@ -181,7 +181,7 @@ Synthetic data planted: VIIRS/MODIS ratio 2.8, 2023 = 3× normal, random locatio
 - Clean: 16,266 rows in → 16,266 cleaned (0 dropped: synthetic was pre-clean by construction; filter drops were verified separately in the planning chat's edge-case test: bbox, low-confidence, type≠0, dupes all dropped correctly there)
 - Monthly aggregate: 16,181 cell-months (sparse because synthetic locations are random, real fires cluster)
 - Recovered calibration: global ratio 2.664 vs planted 2.8 (within 5%); strata 2.27–2.84, except 100+ MW off-season 3.83 (n=6 MODIS, small-sample noise, flagged)
-- Holdout (calib 2012–2020, test 2021–2023, month-strata): overall MAPE 0.550, bias +0.290 — inflated by tiny synthetic month-stratum counts.
+- Holdout (calib 2012–2020, test 2021–2023, month-strata): overall MAPE 0.550, bias +0.290, inflated by tiny synthetic month-stratum counts.
 - Raw 2011→2012 jump +255.4% → harmonized +99.0% on synthetic.
 - May 2023 anomaly on synthetic: 5.9× the 2001–2020 May median.
 
@@ -193,5 +193,5 @@ Changes: S-NPP only as VIIRS reference, day/night strata, per-detection weights,
 
 ## Known flaw found and fixed during build
 Calibration v1 computed ratios per grid cell-month requiring both sensors in the same
-cell — too sparse, ratios collapsed to 1.0. v2 aggregates detections region-wide per
+cell: too sparse, ratios collapsed to 1.0. v2 aggregates detections region-wide per
 stratum. The v1 failure is why the synthetic ground-truth test exists.

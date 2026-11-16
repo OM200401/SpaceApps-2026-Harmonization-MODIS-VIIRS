@@ -1,4 +1,4 @@
-# Murphy — Harmonized MODIS + VIIRS Burning Calendar
+# Murphy: Harmonized MODIS + VIIRS Burning Calendar
 NASA Space Apps Challenge 2026 | Challenge: Harmonization of MODIS and VIIRS Hot Spots
 Team Murphy: Pratham Shah (Toronto), Om Mistry (owner, Calgary), Sparsh Khanna, Ishan
 Deadline: Sun Nov 15, 2026 11:59 PM MT (Om, Calgary) = Mon Nov 16 01:59 AM ET. Target submit: Sun evening ET.
@@ -34,8 +34,8 @@ Monthly aggregate: cell_lat, cell_lon (0.25° grid), year, month,
 modis_count, viirs_count, total_count, mean_frp, harmonized_count (calibration fills).
 
 ## Calibration (measurement, not ML)
-- Overlap: 2012–2023. Train/calibration split: 2012–2021. Holdout: 2022–2023 + spot 2024–25 if data allows (brief said 2024–25 holdout; we implement configurable split, default calib 2012–2020, holdout 2021–2023 so holdout is fully inside overlap — LOGGED DECISION D3).
-- Stratify by FRP bin (0–10, 10–30, 30–100, 100+ MW) as fire-size proxy, and by season (May–Sep boreal fire season vs off-season). Land-cover stratification is stretch (needs a land-cover raster we do not yet have) — LOGGED D4: FRP×season is V1; land-cover added only if a raster lands by Sun noon.
+- Overlap: 2012–2023. Train/calibration split: 2012–2021. Holdout: 2022–2023 + spot 2024–25 if data allows (brief said 2024–25 holdout; we implement configurable split, default calib 2012–2020, holdout 2021–2023 so holdout is fully inside overlap; LOGGED DECISION D3).
+- Stratify by FRP bin (0–10, 10–30, 30–100, 100+ MW) as fire-size proxy, and by season (May–Sep boreal fire season vs off-season). Land-cover stratification is stretch (needs a land-cover raster we do not yet have); LOGGED D4: FRP×season is V1; land-cover added only if a raster lands by Sun noon.
 - Per stratum: ratio r = VIIRS_count / MODIS_count in overlap (aggregated per cell-month, then median ratio, robust to zero cells: use sum ratio with +1 smoothing, report both).
 - Harmonized count for a MODIS-era month = modis_count × r(stratum of that cell-month, using its mean_frp bin). For VIIRS era, harmonized = viirs_count (VIIRS is reference sensor).
 - Pre-2012 harmonized is therefore an ESTIMATE of what VIIRS would have seen, including small fires MODIS missed. State this wording exactly in the app + submission.
@@ -46,7 +46,7 @@ modis_count, viirs_count, total_count, mean_frp, harmonized_count (calibration f
 2. NBAC: for 2023, correlate region-month harmonized counts vs NBAC burned area if NBAC file is present in data/external/. [optional at runtime; absence does not block app] Script: pipeline/validate_nbac.py, skips gracefully.
 3. Sanity: harmonized 2011→2012 year-over-year jump must be smaller in absolute % than raw jump, on real data. Report both.
 
-## NRT vs SP — DECISION D1 (blocker flagged)
+## NRT vs SP: DECISION D1 (blocker flagged)
 Ishan's download is NRT product files. Prep specified SP for the long record.
 Risk: NRT archive files downloaded via FIRMS archive download ARE the full
 historical record for those products in many distributions (archive download
