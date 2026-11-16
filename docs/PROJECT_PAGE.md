@@ -1,9 +1,6 @@
 # Project page draft: all 8 fields
 
 Every number below comes from `experiments/v2/README.md` (accuracy) or from the app's own data (the 2012 jump, May 2023).
-Two items in [BRACKETS] still need a team member before submitting: the demo link (field 3) and whether an
-AI assistant helped write the v2 code (field 6). If an AI-made image or video is added to the demo, it needs
-a visible watermark, and field 6 must say so.
 
 Images for the page: `docs/img/` has three screenshots of the app (map, the raw 2012 jump, the 2023
 calendar). They are PNG and well under the page's 10 MB limit. They are real captures, not AI-generated,
@@ -66,7 +63,7 @@ With the sensor change removed, real extremes stand out. May 2023, the start of 
 
 We used AI assistants to speed up building this project. The team directed and reviewed all of it. Claude (Anthropic) helped write code (the summary-table build script, and parts of the pipeline and app), check the FIRMS data tables, and write documentation. Codex (OpenAI) helped write pipeline code. Muse Code helped write documentation. GitHub Copilot Autofix made one fix in the app (median calculation).
 
-Machine learning is part of the method itself: the estimates before February 2012 come from a gradient-boosted model (LightGBM) that we trained only on NASA FIRMS data. The app marks every one of those values with ≈. [If an AI assistant helped write the v2 code in `experiments/v2/`, name it in the list above.]
+Machine learning is part of the method itself: the estimates before February 2012 come from a gradient-boosted model (LightGBM) that we trained only on NASA FIRMS data. The app marks every one of those values with ≈.
 
 Choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, learning the conversion only from June 2012 to 2021 (before the MODIS orbits drift), and testing it by hiding one year at a time.
 
