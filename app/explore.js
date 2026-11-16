@@ -202,7 +202,7 @@
     const y = A.y, m = A.m, k = metric(y, m), st = O.status(k.ratio), s = A.stats[m], W = 250;
     const vals = []; for (let yy = O.FIRST_YEAR; yy <= END().year; yy++) { const kk = metric(yy, m); if (kk) vals.push({ y: yy, v: kk.h }); }
     const mx = Math.max(1, s.p90, ...vals.map(o => o.v)) * 1.03, X = v => 7 + v / mx * (W - 14), xs = X(k.h), xm = X(s.p50);
-    const anchor = x => x < 34 ? "start" : x > W - 34 ? "end" : "middle";
+    const anchor = (x, half = 34) => x < half ? "start" : x > W - half ? "end" : "middle";   // half = half the label width, so it stays inside the chart
     const svg = `<svg viewBox="0 0 ${W} 48" role="img" aria-label="${O.MONTH[m - 1]} in every year since ${O.FIRST_YEAR}: ${y} against the normal range.">
       <line x1="7" x2="${W - 7}" y1="22" y2="22" stroke="var(--line-2)"/>
       <rect x="${X(s.p10).toFixed(1)}" y="14" width="${Math.max(2, X(s.p90) - X(s.p10)).toFixed(1)}" height="16" rx="4" fill="var(--blue-soft)"/>
@@ -210,7 +210,7 @@
       ${vals.filter(o => o.y !== y).map(o => `<circle class="hit" data-y="${o.y}" data-m="${m}" cx="${X(o.v).toFixed(1)}" cy="22" r="4" fill="var(--ink-3)" fill-opacity=".5" stroke="var(--card)" stroke-width="1"/>`).join("")}
       <circle class="dot" cx="${xs.toFixed(1)}" cy="22" r="6"/>
       <text x="${xs.toFixed(1)}" y="8" text-anchor="${anchor(xs)}" style="fill:var(--ink);font-weight:600">${y}</text>
-      <text x="${xm.toFixed(1)}" y="46" text-anchor="${anchor(xm)}">normal range · median ${O.fmtK(s.p50)}</text></svg>`;
+      <text x="${xm.toFixed(1)}" y="46" text-anchor="${anchor(xm, 66)}">normal range · median ${O.fmtK(s.p50)}</text></svg>`;
     const flags = [O.isEst(y, m) && "≈ estimated from MODIS", O.isProv(y, m) && "provisional"].filter(Boolean).join(" · ");
     const p = O.presetFor(A.bbox), acc = p && O.ACCURACY[p.id];
     $("q1").innerHTML = `<div class="hero"><span class="big">${k.ratio == null ? "—" : k.ratio.toFixed(1) + "×"}</span><span class="pill status-${st.key}">${O.statusText(st)}</span></div>
