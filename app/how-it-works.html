@@ -27,8 +27,8 @@ body{background:var(--paper);color:var(--paper-ink)}
 .toc ol a:hover{color:var(--paper-ink)}
 .toc ol a span:first-child{font-family:var(--mono);font-size:11.5px;color:var(--paper-3);padding-top:1px}
 .toc ol a.active{color:var(--paper-ink);font-weight:600}
-.toc .app{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-.toc .app button{font-size:12.5px;padding:5px 10px}
+.toc .app{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.toc .app .btn,.toc .app button{justify-content:center;font-size:14px;padding:9px 14px}
 
 article{font-family:var(--serif);font-size:17px;line-height:1.65;color:var(--paper-ink);min-width:0;counter-reset:fig tab}
 article p{margin:0 0 1em}
@@ -134,7 +134,10 @@ dl.gloss dd{margin:0;color:var(--paper-2)}
 }
 @media (max-width:560px){.ctl{grid-template-columns:1fr auto;gap:4px 12px}.ctl label{grid-column:1;margin-top:8px}.ctl output{grid-column:2;margin-top:8px}.ctl input{grid-column:1/-1}.toc ol{columns:1}}
 @media print{
- :root:root{--paper:#fff;--paper-ink:#000;--paper-2:#222;--paper-3:#555;--rule:#999;--accent:#000;--ink:#000;--ink-2:#222;--ink-3:#555;--card:#fff;--tint:#f2f2f2;--line:#ccc;--line-2:#bbb;--grid:#e5e5e5}
+ /* Always print on white: the dark theme's color-scheme would otherwise paint the page margins black. */
+ @page{margin:16mm 14mm}
+ html,body{background:#fff!important}
+ :root:root{color-scheme:light;--paper:#fff;--paper-ink:#000;--paper-2:#222;--paper-3:#555;--rule:#999;--accent:#000;--ink:#000;--ink-2:#222;--ink-3:#555;--card:#fff;--tint:#f2f2f2;--line:#ccc;--line-2:#bbb;--grid:#e5e5e5}
  .toc,.figtools .seg,.cta,#appB .ctl{display:none!important}
  .report{display:block;max-width:none;padding:0}
  article{font-size:11pt}
@@ -172,7 +175,7 @@ dl.gloss dd{margin:0;color:var(--paper-2)}
 
   <h1 class="title">Harmonizing MODIS and VIIRS Active Fire Detections with Shrunk Block Ratios and a Gradient-Boosted Correction</h1>
   <p class="subtitle">A consistent monthly burning-activity record for any area on Earth, 2001 to present</p>
-  <p class="byline">Om, Ishan, Sparsh, Pratham <span class="aff">· Team Murphy, NASA Space Apps Challenge 2026</span></p>
+  <p class="byline">Sparsh Khanna, Om Mistry, Pratham Shah, Ishan Soni <span class="aff">· Team Murphy, NASA Space Apps Challenge 2026</span></p>
 
   <dl class="meta">
    <dt>Challenge</dt><dd>Harmonization of MODIS and VIIRS Hot Spots</dd>
@@ -483,7 +486,7 @@ dl.gloss dd{margin:0;color:var(--paper-2)}
   <section id="s10">
    <h2 class="sec"><span class="n">10</span>Data and code availability</h2>
    <p>All code, experiment scripts and results are in the project repository<span class="cite"><a href="#r4">4</a></span>. The monthly 0.25° grid summary of FIRMS detections is published as release <code>data-v2</code> and the harmonized map tiles as release <code>tiles-v2</code>. The experiments behind this report, with their run order, are in <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/tree/main/experiments/v2"><code>experiments/v2</code></a>; the earlier rule search is in <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/tree/main/experiments"><code>experiments</code></a>, and its validation record in <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/blob/main/docs/VALIDATION.md"><code>docs/VALIDATION.md</code></a>.</p>
-   <p><b>Suggested citation.</b> Om, Ishan, Sparsh, Pratham (2026). <i>Harmonizing MODIS and VIIRS Active Fire Detections with Shrunk Block Ratios and a Gradient-Boosted Correction.</i> Technical report, version 2.0. NASA Space Apps Challenge 2026.</p>
+   <p><b>Suggested citation.</b> Khanna, S., Mistry, O., Shah, P., Soni, I. (2026). <i>Harmonizing MODIS and VIIRS Active Fire Detections with Shrunk Block Ratios and a Gradient-Boosted Correction.</i> Technical report, version 2.0. NASA Space Apps Challenge 2026.</p>
    <p><b>Use of AI tools.</b> Portions of the code and text were written with AI assistance and reviewed by the team; details are in the repository README.</p>
   </section>
 
