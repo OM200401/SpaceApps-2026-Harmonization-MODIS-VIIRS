@@ -1,10 +1,14 @@
 # Demo: 30 seconds MAX (hard eligibility rule). Owner: Om (record/edit)
-0:00 Team Murphy (names on screen, no talking head needed)
-0:02 The challenge: MODIS and VIIRS count fires differently; splicing them fakes a trend.
-0:05 Title: "Ignis Almanac" + tagline: two satellites, one record, 2001–2025.
-0:10 Screen: app, Raw view, point at the 2012 jump. "That jump is the satellite changing."
-0:15 Toggle Harmonized: jump shrinks. "Calibrated on the 2012–2023 overlap, by fire size and season. Holdout error: [MAPE from real run]."
-0:20 Anomaly view: "May 2023: [X]× the 20-year median. Canada's record season, visible only once the sensors agree."
-0:25 Future: any region on Earth, same pipeline; fire managers get one trustworthy 25-year baseline.
-0:30 End card: repo link + "Data: NASA FIRMS".
+
+Numbers are from `experiments/v2/README.md` and the app. On-screen captions in English; no talking head.
+
+0:00 Team Murphy (names on screen)
+0:02 The challenge: MODIS and VIIRS count fires differently, so adding them together fakes a trend.
+0:05 Title: "Ignis Almanac" + tagline: two satellites, one record, 2001 to today, anywhere on Earth.
+0:10 App, Whole world, All years calendar, Raw view: the rows brighten sharply at 2012 (+407%). "That jump is the satellite changing."
+0:15 Switch to Harmonized: the jump shrinks to +5.6%, close to the +5.2% MODIS alone shows. "One model for the whole world. Typical monthly error on a hidden year: 1.5%."
+0:20 Canada, Year view, 2023, select May: "19.1× the usual May. Canada's record season, visible only once the sensors agree."
+0:25 Press Map, play a few months, then open the hotspot counts CSV menu. "Fire managers get one trustworthy 25-year baseline."
+0:30 End card: live app URL + repo link + "Data: NASA FIRMS".
+
 Fallback: turn these 7 beats into ≤7 slides if video timing slips.

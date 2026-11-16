@@ -868,7 +868,12 @@ def write_report(A, root, grid_note, record):
                         f"{len(sci_fail)} failed, {len(unver)} unverifiable, {len(blocked)} blocked.")
         pub_line = (f"**PUBLICATION verdict: {'FAIL' if pub_fail else 'PASS'}**, "
                     f"{len(pub_fail)} publication findings.")
-    lines = ["# Audit Report: independent recomputation of the shipped Canada record",
+    lines = ["# Audit Report: independent recomputation of the earlier Canada record",
+             "",
+             "**Scope: the live site no longer reads the file audited here.** This audit certifies "
+             "`app/data/monthly.json`, the earlier Canada-only record built with the previous rule. The app "
+             "now reads the worldwide v2 tiles, which this audit does not cover; their accuracy is tested by "
+             "the leave-one-year-out checks in docs/VALIDATION.md (v2 section) and experiments/v2/README.md.",
              "",
              f"Artifact audited: `app/data/monthly.json` (md5 {digest}): every value in it, per cell and "
              "per month, plus the Canada validation numbers in the claims registry. Engine: "
@@ -905,6 +910,8 @@ def write_report(A, root, grid_note, record):
         lines.append(f"| {r['layer']} | {r['claim']} | {exp} | {act} | {r['verdict']} | {det} |")
     pub_files = sorted({r["id"].split(":", 1)[-1] for r in pub_fail})
     lines += ["", "## Known gaps (stated, not hidden)",
+              "- The worldwide v2 tiles the live site reads are not audited here. Only the earlier "
+              "Canada record (`app/data/monthly.json`, previous rule) is recomputed.",
               "- LOYO experiment averages are UNVERIFIABLE from the repo: the result CSVs are gitignored. "
               "The harness code and its hard-coded old-rule baseline expectations are in the repo (verified "
               "by check L5 baseline_expectations, and the Canada pair is numerically reproduced by L4), "

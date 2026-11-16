@@ -1,11 +1,13 @@
-# Audit Report: independent recomputation of the shipped Canada record
+# Audit Report: independent recomputation of the earlier Canada record
+
+**Scope: the live site no longer reads the file audited here.** This audit certifies `app/data/monthly.json`, the earlier Canada-only record built with the previous rule. The app now reads the worldwide v2 tiles, which this audit does not cover; their accuracy is tested by the leave-one-year-out checks in docs/VALIDATION.md (v2 section) and experiments/v2/README.md.
 
 Artifact audited: `app/data/monthly.json` (md5 dbb934b1681e): every value in it, per cell and per month, plus the Canada validation numbers in the claims registry. Engine: `pipeline/audit_engine.py`, which shares no code with the production pipeline (DuckDB SQL aggregation over the raw grid; method refit implemented from the project's calibration rules, docs/VALIDATION.md and the production calibration code). Claims and tolerances: `pipeline/audit_claims.json`.
 Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 **RECORD: CURRENT**, artifact md5 dbb934b1681e matches the pinned record.
 
-**NUMBERS verdict: PASS**, 142 checks passed, 0 failed, 1 unverifiable, 0 blocked.
-**PUBLICATION verdict: FAIL**, 7 publication findings.
+**NUMBERS verdict: PASS**, 202 checks passed, 0 failed, 1 unverifiable, 0 blocked.
+**PUBLICATION verdict: FAIL**, 2 publication findings.
 
 | Layer | Check | Published / expected | Recomputed | Verdict | Detail |
 |---|---|---|---|---|---|
@@ -31,25 +33,32 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L1 | Raw total 2011 | 48859 | 48859 | PASS | /diff/=0 tol=0 |
 | L1 | Raw total 2012 | 432574 | 432574 | PASS | /diff/=0 tol=0 |
 | L1 | Raw jump 2011->2012 (%) | 785.35 | 785.351726396365 | PASS | /diff/=0.0017264 tol=0.1 |
-| L1 | Harmonized jump 2011->2012 (%) | 60.76 | 60.75772425562342 | PASS | /diff/=0.00227574 tol=0.15 |
+| L1 | Harmonized jump 2011->2012 (%) | 60.76 | 60.757724255623444 | PASS | /diff/=0.00227574 tol=0.15 |
 | L1 | MODIS-alone jump 2011->2012 (%) | 60.54 | 60.53951165598968 | PASS | /diff/=0.000488344 tol=0.1 |
 | L2 | SNPP-era cells: harmonized != VIIRS observed, count | 0 | 0 | PASS |  |
 | L2 | SNPP-era months: harmonized != VIIRS observed, count | 0 | 0 | PASS | zero-VIIRS months (converted-MODIS exception path): none |
 | L2 | MODIS-era months with conversion ratio outside [0.5, 20] | 0 | 0 | PASS | [] |
 | L2 | Terra-only months (before Jul 2002) have no holdout coverage | unvalidated by design | 20 months: 2000-11..2002-06 | INFO |  |
-| L2 | App region presets vs shipped cell coverage (distinct cells) | coverage stated | Canada boreal=18060; Canada core fires=9461; Amazon=0; Mediterranean=0 | INFO | Presets with 0 cells lie outside the Canada export; the app shows an honest no-data state for them. Stated so a preset change is never silent. |
+| L2 | App region presets vs shipped cell coverage (distinct cells) | coverage stated | Canada boreal=18060; Canada core fires=9461; Amazon=0; Mediterranean=0; US West=2582; Siberia=0; Southern Africa=0; SE Asia=0; Northern Australia=0; Whole world=18060 | INFO | Presets with 0 cells lie outside the Canada export; the app shows an honest no-data state for them. Stated so a preset change is never silent. |
+| L5 | Stale pre-v2 numbers in 2026-rules-and-guidelines.md | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in 2026-rules-and-guidelines.md | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in 2026-rules-and-guidelines.md | 0 | 0 | PASS |  |
+| L5 | Numbers stated in prose in 2026-rules-and-guidelines.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in README.md | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in README.md | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in README.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in README.md match the verified values | 0 | 0 | PASS |  |
-| L5 | Stale pre-v2 numbers in SPEC.md | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in SPEC.md | 0 | 3 | FAIL | L38: - Stratify by FRP bin (0–10, 10–30, 30–100, 100+ MW) as fire-size proxy, and by season (May–Sep boreal fire se; L38: - Stratify by FRP bin (0–10, 10–30, 30–100, 100+ MW) as fire-size proxy, and by season (May–Sep boreal fire se; L70: - D4 Stratification V1: FRP bin × season. Land-cover = stretch. |
-| L5 | Calibration window misstated as 2012-2023 overlap in SPEC.md | 0 | 0 | PASS |  |
-| L5 | Numbers stated in prose in SPEC.md match the verified values | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in SPEC.md (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in SPEC.md (history doc: quoted context) | 0 | 4 | INFO | L46 /FRP-bin/; L50 /FRP bin/; L50 /FRP×season/; L82 /FRP bin/ |
+| L5 | Calibration window misstated as 2012-2023 overlap in SPEC.md (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in app/explore.js | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in app/explore.js | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in app/explore.js | 0 | 0 | PASS |  |
+| L5 | Numbers stated in prose in app/explore.js match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in app/how-it-works.html | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in app/how-it-works.html | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in app/how-it-works.html | 0 | 1 | FAIL | L519: <p>About 90 variants were scored by leave-one-year-out across eight regions: ratio variants, per-area ratios,  |
 | L5 | Calibration window misstated as 2012-2023 overlap in app/how-it-works.html | 0 | 0 | PASS |  |
-| L5 | Numbers stated in prose in app/how-it-works.html match the verified values | 0 | 0 | PASS |  |
+| L5 | Numbers stated in prose in app/how-it-works.html match the verified values | 0 | 1 | FAIL | L519: bias 10.4% is not a verified value ([-6.5]) |
 | L5 | Stale pre-v2 numbers in app/index.html | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in app/index.html | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in app/index.html | 0 | 0 | PASS |  |
@@ -66,23 +75,35 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L5 | Rejected FRP-stratified method described as shipped in app/shared.js | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in app/shared.js | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in app/shared.js match the verified values | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in data/build_regions_log.txt | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in data/build_regions_log.txt | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in data/build_regions_log.txt | 0 | 0 | PASS |  |
+| L5 | Numbers stated in prose in data/build_regions_log.txt match the verified values | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in data/firms/README.md | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in data/firms/README.md | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in data/firms/README.md | 0 | 0 | PASS |  |
+| L5 | Numbers stated in prose in data/firms/README.md match the verified values | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in data/tmp/build_global_log.txt | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in data/tmp/build_global_log.txt | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in data/tmp/build_global_log.txt | 0 | 0 | PASS |  |
+| L5 | Numbers stated in prose in data/tmp/build_global_log.txt match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/DEMO_SCRIPT.md | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in docs/DEMO_SCRIPT.md | 0 | 1 | FAIL | L6: 0:15 Toggle Harmonized: jump shrinks. "Calibrated on the 2012–2023 overlap, by fire size and season. Holdout  |
-| L5 | Calibration window misstated as 2012-2023 overlap in docs/DEMO_SCRIPT.md | 0 | 1 | FAIL | L6: 0:15 Toggle Harmonized: jump shrinks. "Calibrated on the 2012–2023 overlap, by fire size and season. Holdout  |
+| L5 | Rejected FRP-stratified method described as shipped in docs/DEMO_SCRIPT.md | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in docs/DEMO_SCRIPT.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in docs/DEMO_SCRIPT.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/OM_TABLE_VERDICT.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in docs/OM_TABLE_VERDICT.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in docs/OM_TABLE_VERDICT.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/PROJECT_PAGE.md | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in docs/PROJECT_PAGE.md | 0 | 3 | FAIL | L5: 2. High-level summary: Two NASA satellites have watched Earth's fires for 25 years, but they don't count the s; L5: 2. High-level summary: Two NASA satellites have watched Earth's fires for 25 years, but they don't count the s; L11: 5. Detailed description: [after real run: methods = shared-schema cleaning (bbox-first slice, nominal/high con |
-| L5 | Calibration window misstated as 2012-2023 overlap in docs/PROJECT_PAGE.md | 0 | 1 | FAIL | L5: 2. High-level summary: Two NASA satellites have watched Earth's fires for 25 years, but they don't count the s |
+| L5 | Rejected FRP-stratified method described as shipped in docs/PROJECT_PAGE.md | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in docs/PROJECT_PAGE.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in docs/PROJECT_PAGE.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/UI_DATA_CONTRACT.md | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in docs/UI_DATA_CONTRACT.md | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in docs/UI_DATA_CONTRACT.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in docs/UI_DATA_CONTRACT.md match the verified values | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in docs/VALIDATION.md (history doc: quoted context) | 0 | 0 | PASS |  |
-| L5 | Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context) | 0 | 1 | INFO | L54 /FRP bin/ |
+| L5 | Rejected FRP-stratified method described as shipped in docs/VALIDATION.md (history doc: quoted context) | 0 | 1 | INFO | L147 /FRP bin/ |
 | L5 | Calibration window misstated as 2012-2023 overlap in docs/VALIDATION.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in experiments/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in experiments/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
@@ -117,6 +138,39 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L5 | Stale pre-v2 numbers in experiments/run_suite_e.py (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in experiments/run_suite_e.py (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in experiments/run_suite_e.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/README.md (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/apply_modis_era.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/apply_modis_era.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/apply_modis_era.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/build_daily.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/build_daily.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/build_daily.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/build_month.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/build_month.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/build_month.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/build_static.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/build_static.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/build_static.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/gbm.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/gbm.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/gbm.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/h2.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/h2.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/h2.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/models.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/models.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/models.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/report.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/report.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/report.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/run_base.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/run_base.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/run_base.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Stale pre-v2 numbers in experiments/v2/run_gbm.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in experiments/v2/run_gbm.py (history doc: quoted context) | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in experiments/v2/run_gbm.py (history doc: quoted context) | 0 | 0 | PASS |  |
 | L5 | Stale pre-v2 numbers in requirements.txt | 0 | 0 | PASS |  |
 | L5 | Rejected FRP-stratified method described as shipped in requirements.txt | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in requirements.txt | 0 | 0 | PASS |  |
@@ -125,8 +179,12 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L5 | Rejected FRP-stratified method described as shipped in summarise/README.md | 0 | 0 | PASS |  |
 | L5 | Calibration window misstated as 2012-2023 overlap in summarise/README.md | 0 | 0 | PASS |  |
 | L5 | Numbers stated in prose in summarise/README.md match the verified values | 0 | 0 | PASS |  |
-| L5 | Unfilled placeholders in docs/PROJECT_PAGE.md | 0 | 5 | FAIL | L5 /\[X\]/; L11 /\[TABLE\]/; L11 /\[RESULT\]/; L11 /\[A\]%/; L11 /\[B\]%/ |
-| L5 | Unfilled placeholders in docs/DEMO_SCRIPT.md | 0 | 2 | FAIL | L6 /\[MAPE/; L7 /\[X\]/ |
+| L5 | Stale pre-v2 numbers in winners-analysis.md | 0 | 0 | PASS |  |
+| L5 | Rejected FRP-stratified method described as shipped in winners-analysis.md | 0 | 0 | PASS |  |
+| L5 | Calibration window misstated as 2012-2023 overlap in winners-analysis.md | 0 | 0 | PASS |  |
+| L5 | Numbers stated in prose in winners-analysis.md match the verified values | 0 | 0 | PASS |  |
+| L5 | Unfilled placeholders in docs/PROJECT_PAGE.md | 0 | 0 | PASS |  |
+| L5 | Unfilled placeholders in docs/DEMO_SCRIPT.md | 0 | 0 | PASS |  |
 | L5 | Experiments harness hard-codes the old-rule reproduction expectations (Canada own 0.1955, global 0.1691, Amazon 0.1792, Mediterranean 0.2062) | all present | missing: none | PASS |  |
 | L6 | Fault injection caught: cell harmonized +1 in smallest MODIS-era month | >=1 new FAIL | ['cell_rm_agree'] | PASS |  |
 | L6 | Fault injection caught: May 2023 region harmonized +100 | >=1 new FAIL | ['cell_rm_agree', 'may23_harm', 'snpp_era_months'] | PASS |  |
@@ -166,8 +224,9 @@ Grid: `data/derived/monthly_grid_025.parquet` present; L3/L4 ran in full.
 | L4 | LOYO 8-region MAPE, old -> new (%) | 20.8 -> 14.0 | not recomputed | UNVERIFIABLE | Experiment result CSVs are gitignored and not in the repo; the audit can verify the harness code and its baseline expectations but not the LOYO outputs. |
 
 ## Known gaps (stated, not hidden)
+- The worldwide v2 tiles the live site reads are not audited here. Only the earlier Canada record (`app/data/monthly.json`, previous rule) is recomputed.
 - LOYO experiment averages are UNVERIFIABLE from the repo: the result CSVs are gitignored. The harness code and its hard-coded old-rule baseline expectations are in the repo (verified by check L5 baseline_expectations, and the Canada pair is numerically reproduced by L4), but the LOYO outputs themselves are not.
 - Terra-only months (Nov 2000 - Jun 2002) have no holdout coverage by design; their harmonized values rest on the Terra-only ratios alone.
 - Canada's untouched-holdout WAPE worsens under the shipped rule (8.8% -> 11.0%, nested check in docs/VALIDATION.md) even as MAPE improves; both figures belong in any honest summary.
 - Anchor values are pinned to one artifact md5 in the claims registry. If the artifact changes, moved anchors report STALE (never a silent pass) until a human reviews the recomputation and re-pins with --pin; pinning is refused while any invariant fails.
-- Publication findings are open in: SPEC.md, docs/DEMO_SCRIPT.md, docs/PROJECT_PAGE.md. They are errors in the project's own text, not in the data.
+- Publication findings are open in: app/how-it-works.html. They are errors in the project's own text, not in the data.

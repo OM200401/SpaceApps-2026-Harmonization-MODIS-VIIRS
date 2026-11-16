@@ -18,7 +18,7 @@ The build takes about 3 minutes on a laptop.
 | `sensor` | text | `M-C61` (MODIS), `SV-C2` (VIIRS S-NPP), `J1V-C2` (VIIRS NOAA-20), `J2V-C2` (VIIRS NOAA-21) |
 | `satellite` | text | `Terra`, `Aqua`, `SNPP`, `N20`, `N21` |
 | `daynight` | text | `D` or `N` |
-| `confidence` | text | `l` / `n` / `h`. MODIS 0–100 mapped as <30 → `l`, 30–79 → `n`, ≥80 → `h` |
+| `confidence` | text | `l` / `n` / `h`. MODIS 0 to 100 mapped as <30 → `l`, 30 to 79 → `n`, ≥80 → `h` |
 | `is_vegetation` | bool | archive rows: FIRMS `type = 0`. Near-real-time rows have no `type`, so they count as vegetation unless they fall on a ~1 km cell the archive ever flagged as volcano, static or offshore source |
 | `hotspots` | int | number of detections |
 | `frp_sum` | float | summed fire radiative power (MW) |
@@ -43,7 +43,7 @@ GROUP BY ALL ORDER BY ALL;
 
 ## Things to keep in mind
 
-- **MODIS before 2003 is Terra only.** Aqua joined in mid-2002, so 2000–2002 counts are lower for that reason alone.
+- **MODIS before 2003 is Terra only.** Aqua joined in mid-2002, so 2000 to 2002 counts are lower for that reason alone.
 - **VIIRS gained satellites:** NOAA-20 from 2018, NOAA-21 from 2023. Summing all VIIRS satellites creates a fake upward trend; filter on one satellite.
 - **The latest month is partial.** Compare it against the same number of days in past years, not against full months.
 

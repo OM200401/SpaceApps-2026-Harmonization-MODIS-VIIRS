@@ -1,9 +1,118 @@
-# Harmonization of MODIS and VIIRS Hot Spots
+# Ignis Almanac: Harmonization of MODIS and VIIRS Hot Spots
 
-NASA Space Apps Challenge 2026. Team: Om, Ishan, Sparsh, Pratham.
+NASA Space Apps Challenge 2026, challenge "Harmonization of MODIS and VIIRS Hot Spots".
+Team Murphy: Om, Ishan, Sparsh, Pratham.
 
 **Live app:** https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/
-(GitHub Pages, published from the root of `main` and rebuilt on every merge.)
+(GitHub Pages, deployed by the Pages workflow on every merge to `main`. No login needed.)
+
+Ignis Almanac joins NASA's two satellite fire records into a single monthly
+record from 2001 to today, for any area on Earth. A fire manager can ask "is this month
+unusual for my area?" and get an answer that doesn't depend on which satellite was flying.
+
+![The calendar for Canada in 2023: 5.9 times a typical year, the busiest of 25 years, with each month's count and the three key numbers on the left](docs/img/report-2023.png)
+
+## Results at a glance
+
+These numbers come from running this repo's scripts on NASA FIRMS data. The jump and May 2023 rows are
+what the live app shows. The error rows are from [experiments/v2/README.md](experiments/v2/README.md),
+which has all nine regions, the method and the caveats.
+
+| Check | Canada | Whole world |
+|---|---:|---:|
+| Change in yearly detections from 2011 to 2012, raw MODIS + VIIRS added together (the satellite changing, not the fires) | **+785.4%** | **+407.2%** |
+| Same change in the harmonized record | **+59.8%** | **+5.6%** |
+| Same change measured by MODIS alone, one consistent sensor | +60.5% | +5.2% |
+| Monthly error on a hidden year: hide one year of 2012 to 2021 at a time and predict VIIRS from MODIS alone | **6.5%** | **1.5%** |
+| The same test with the previous method | 11.3% | 2.1% |
+| Yearly error on a hidden year | 4.3% | 0.7% |
+| May 2023, the start of Canada's record season | **19.1×** the 2003 to 2020 May median | |
+
+Monthly error is the total absolute error over all months divided by the total fire.
+Harmonized counts are in S-NPP VIIRS units. Before February 2012 they are estimates
+converted from MODIS, and the app marks them with ≈.
+
+The problem, as the app's Raw view shows it. Raw counts jump in 2012, when VIIRS starts:
+
+![All years calendar for Canada in the Raw view: every row from 2012 down is far brighter than the rows above it, a +785.4% jump from 2011 to 2012](docs/img/raw-2012-jump.png)
+
+The map view for Canada in July 2023, built on the harmonized record:
+
+![Map of Canada in July 2023 with fire detections per grid cell: 5.9 times a typical July, marked far above normal](docs/img/map-july-2023.png)
+
+## How it fits together
+
+```
+NASA FIRMS detections (MODIS C6.1 + VIIRS 375 m, 660M rows, mirrored on Hugging Face)
+   │  summarise/build_monthly_grid.py
+   ▼
+Monthly grid: counts per 0.25° cell, month, satellite, day/night    (GitHub Release data-v2)
+   │  pipeline/build_global.py      raw counts and the previous conversion rule, whole world
+   │  experiments/v2/               v2 rule: one worldwide model, fitted on the raw detections
+   │  pipeline/build_global_v2.py   v2 estimates before Feb 2012; observed S-NPP minus gas flares after
+   ▼
+data/monthly_harmonized_global_v2.parquet                           (local, not in Git)
+   │  pipeline/export_tiles.py
+   ▼
+Tiles: app/data/index.json, d/, c/                                  (GitHub Release tiles-v2)
+   │  pipeline/fetch_tiles.py       run locally, and by the Pages workflow before each deploy
+   ▼
+app/  (static HTML/JS: map, calendar, method page)
+```
+
+The app covers the **whole world**. It has ten preset areas, among them Canada, the Amazon, the
+Mediterranean, US West, Siberia, southern Africa, SE Asia, northern Australia and the whole world,
+and you can draw or type any other box.
+
+## How the harmonization works
+
+S-NPP VIIRS is the reference sensor, so every count is in S-NPP VIIRS units.
+
+1. **Count.** NASA FIRMS detections per 0.25° grid cell and month, by satellite and by day or night.
+   Vegetation fires only, nominal and high confidence.
+2. **Learn from clean overlap years only: June 2012 to 2021.** The MODIS satellites' orbits drift after 2021,
+   so later years don't represent 2000 to 2011. Days when any satellite was down are dropped, and gas flares,
+   which the fire data counts as vegetation fires, are masked.
+3. **Convert MODIS with one worldwide model.** For each 1° block, month and day or night, the model starts
+   from a local S-NPP to MODIS ratio and applies a correction learned by gradient boosting (LightGBM) from
+   MODIS-only inputs: how intense and how spread out the fires were, the other half of the day, the months
+   around it and the neighbouring blocks. Where MODIS saw nothing, it adds the small fires VIIRS usually
+   finds there. Before July 2002 only Terra flew, so a Terra-only version of the model is used.
+4. **Join the records.** Before February 2012 the app shows converted MODIS counts, marked ≈ as estimates.
+   From February 2012 it shows what S-NPP observed, minus gas flares.
+
+### Accuracy
+
+Hide one year of 2012 to 2021 at a time, predict it from MODIS alone, and compare with what S-NPP really saw.
+Monthly error is the total absolute error over all months divided by the total fire. This is the same table
+as the app's Method page.
+
+| Region | Monthly error, previous method | Monthly error, now | Yearly error, now | Bias, now |
+|---|---:|---:|---:|---:|
+| Canada | 11.3% | **6.5%** | 4.3% | −2.3% |
+| Amazon | 2.8% | **2.6%** | 1.2% | +0.5% |
+| Mediterranean | 7.9% | **7.3%** | 3.6% | +2.2% |
+| US West | 8.8% | **4.4%** | 2.6% | −0.6% |
+| Siberia | 8.5% | **4.5%** | 2.2% | +0.6% |
+| Southern Africa | 2.8% | **2.0%** | 1.2% | +0.1% |
+| SE Asia | 4.8% | **3.9%** | 2.4% | +1.5% |
+| Northern Australia | 6.7% | **3.3%** | 1.2% | −0.7% |
+| Whole world | 2.1% | **1.5%** | 0.7% | −0.1% |
+
+Further checks:
+
+- Fitting on 2012 to 2018 and predicting 2019 to 2021 gives similar numbers (Canada 6.7%, world 1.7%).
+- With only Terra, as in 2000 to 2002, the world error is 2.7%, against 6.4% for the previous Terra ratio.
+- Predicting S-NPP from NOAA-20, an identical VIIRS instrument, gives 0.7% for the world and 1.1 to 4.0% per
+  region. That is the best any conversion could do.
+
+The weakest spots are megafire months, where smoke hides fire from MODIS (those months can come out 10 to 25%
+low), and small areas, which these region-wide scores don't measure.
+
+Full method, every table and the remaining checks: [docs/VALIDATION.md](docs/VALIDATION.md) and
+[experiments/v2/README.md](experiments/v2/README.md). VALIDATION.md also keeps the previous rule
+(per-area ratios plus a monthly power law) as history; the Canada-only `app/data/monthly.json` and the
+independent audit below still use that previous rule.
 
 ## The challenge
 
@@ -65,14 +174,24 @@ pipeline/               harmonization: summary table -> calibrated monthly data 
 summarise/              builds the monthly grid summary table from raw FIRMS data
   build_monthly_grid.py
   README.md             full column reference and caveats
-docs/                   validation results, audit report, UI data contract, demo script, project page draft
-SPEC.md                 product spec and decisions log
-requirements.txt
+experiments/            scripts that compared conversion rules and chose the ones that shipped
+  README.md             the previous rule: about 90 variants, run order, how scoring works
+  v2/                   the v2 rule the app shows: one worldwide model, with its own README and results
+docs/
+  VALIDATION.md         v2 method and accuracy first, then the previous rule as history
+  AUDIT_REPORT.md       output of the independent audit (pipeline/audit_engine.py)
+  UI_DATA_CONTRACT.md   the shape of the tiles and index.json the app reads
+  PROJECT_PAGE.md, DEMO_SCRIPT.md   drafts of the Space Apps project page and the 30-second demo
+  OM_TABLE_VERDICT.md   early decision note on using the monthly grid
+  img/                  screenshots of the app used in this README
+SPEC.md                 the original product spec and decisions log (written before the build)
+requirements.txt        Python packages for pipeline/ and summarise/
+LICENSE                 MIT
 ```
 
-The app is live at https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/.
-To run it locally, first download the map tiles (`python pipeline/fetch_tiles.py`, 44 MB), then serve the
-repo root with any static server (for example `python -m http.server`) and open `/app/`.
+To run the app locally, first download the map tiles (`python pipeline/fetch_tiles.py`, 44 MB), then serve the
+repo root with any static server (for example `python -m http.server`) and open `/app/`. Opening the HTML
+files straight from disk does not work, because the pages fetch their data.
 The site is deployed by `.github/workflows/pages.yml`, which fetches the same tiles before publishing.
 
 ## Running the pipeline
@@ -129,7 +248,9 @@ python pipeline/grid_validate.py --staging data/regions/canada_staging.parquet
 
 ## Independent audit
 
-Do not take our word for any number in this project. The audit engine recomputes all of them from the raw data, with completely separate code, and shows its work.
+The audit engine recomputes the Canada record built with the previous method from the raw data, with completely separate code, and shows its work.
+
+**Scope, stated plainly.** The audit certifies `app/data/monthly.json`, the earlier Canada-only record built with the previous rule. **The live site no longer reads that file.** It reads the worldwide v2 tiles, which this audit does not cover. The v2 numbers are checked by the leave-one-year-out tests above (and in `docs/VALIDATION.md`), not by this audit.
 
 ```bash
 python pipeline/audit_engine.py --selftest
@@ -137,15 +258,16 @@ python pipeline/audit_engine.py --selftest
 
 The production pipeline is pandas. The audit rebuilds the data from the 55M-row grid in SQL (DuckDB), refits the harmonization rule from the project's calibration rules (`docs/VALIDATION.md` and the production calibration code), and compares everything against expected values that were written down in advance (`pipeline/audit_claims.json`). The full report is `docs/AUDIT_REPORT.md`.
 
-On the shipped record, it verifies:
+On that earlier Canada record, it verifies:
 
 - 308,806 cell-months rebuilt from the grid, zero differences
-- May 2023 = 208,476, and the 2011 to 2012 jump: +785.4% raw, +60.8% harmonized
+- the raw counts, May 2023 and the 2011 to 2012 jump published for that record
 - every cell's harmonized value, refit independently, largest difference 0.005, which is the file's own rounding
-- the holdout: fit 2012 to 2020, predict 2021 to 2023, MAPE 13.6%
+- the previous rule's holdout score (fit 2012 to 2020, predict 2021 to 2023), as published in the history part of `docs/VALIDATION.md`
 - itself: it corrupts copies of the data 8 ways (quiet drift, swapped values, planted stale numbers) and must catch all 8. It does.
 
-One limit, stated plainly: the audit certifies the Canada record the app ships, and the Terra-only months before July 2002 have no holdout coverage, here or anywhere in the project.
+It also checks the text of the README, the app pages and the docs for stale numbers and method descriptions.
+Its expected values are those of the earlier record, so it does not confirm the v2 figures quoted above.
 
 ## Data
 
@@ -242,16 +364,57 @@ We used AI assistants to speed up building this project. The team directed and r
 | Muse Code | Documentation |
 | GitHub Copilot Autofix | One fix in `app/index.html` (median calculation) |
 
-- **Ideas and method:** choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, season × day/night ratios, and the 2012–2020 calibration with 2021–2023 holdout.
+- **Ideas and method:** choosing the challenge, the product idea, and the harmonization method choices are the team's own. They include S-NPP as the reference sensor, learning the conversion only from June 2012 to 2021 (before the MODIS orbits drift), and testing it by hiding one year at a time.
 - **Data:** every result comes from NASA FIRMS data run through this repo's scripts. `pipeline/make_synthetic.py` generates AI-assisted **synthetic** test data, used only to check that the pipeline recovers a planted ratio. It is labelled as synthetic everywhere it appears (`data/synthetic/`, the "Pipeline test" section of `docs/VALIDATION.md`) and is never shown as a result.
-- **Images and video:** none in the app or demo are AI-generated. If any are added, they will carry a visible watermark, as the Space Apps rules require.
+- **Machine learning in the method:** the Space Apps rules count machine learning as AI, so we state it here. The estimates before February 2012 come from a gradient-boosted model (LightGBM) that we trained only on NASA FIRMS data (`experiments/v2/`). The app marks every one of those values with ≈, and values from February 2012 on are observed counts, not model output.
+- **Images and video:** none in the app or demo are AI-generated. The screenshots in `docs/img/` are captures of the running app. If any are added, they will carry a visible watermark, as the Space Apps rules require.
 
-## Deadline
+## Data sources and references
 
-Project submission closes **Sunday, November 15, 11:59 p.m.** local event time.
-The demo is either up to 7 slides or a video of 30 seconds or less. Every link must be public, with no login needed.
+**NASA data**
 
-## Data source
+- NASA FIRMS (Fire Information for Resource Management System), LANCE / EOSDIS:
+  <https://firms.modaps.eosdis.nasa.gov/>. Active fire detections from the MODIS Collection 6.1
+  product (Terra and Aqua) and the VIIRS 375 m Collection 2 products (S-NPP, NOAA-20, NOAA-21).
+  The harmonized record uses Terra, Aqua and S-NPP only. NOAA-20 is used for one benchmark
+  (how well one VIIRS predicts another, in `experiments/v2/`). NOAA-21 is in the raw mirror and the
+  monthly grid but is not used in any result.
 
-NASA FIRMS (Fire Information for Resource Management System), LANCE / EOSDIS:
-<https://firms.modaps.eosdis.nasa.gov/>. MODIS Collection 6.1 and VIIRS 375 m Collection 2 active fire products.
+**Algorithm papers for those products**
+
+- Giglio, L., Schroeder, W., & Justice, C. O. (2016). The collection 6 MODIS active fire detection
+  algorithm and fire products. *Remote Sensing of Environment*, 178, 31-41.
+  <https://doi.org/10.1016/j.rse.2016.02.054>
+- Schroeder, W., Oliva, P., Giglio, L., & Csiszar, I. A. (2014). The New VIIRS 375 m active fire
+  detection data product: Algorithm description and initial assessment. *Remote Sensing of
+  Environment*, 143, 85-96. <https://doi.org/10.1016/j.rse.2013.12.008>
+
+**FIRMS documentation**
+
+- NASA Earthdata, FIRMS overview: <https://www.earthdata.nasa.gov/data/tools/firms>
+- NASA Earthdata, FIRMS frequently asked questions (product versions, near-real-time vs standard data,
+  confidence and type fields): <https://www.earthdata.nasa.gov/data/tools/firms/faq>
+- MODIS Collection 6 and Collection 6.1 Active Fire Product User's Guide (University of Maryland):
+  <https://modis-fire.umd.edu/files/MODIS_C6_C6.1_Fire_User_Guide_1.0.pdf>
+
+**Third-party software and services**
+
+| What | Used for | Licence or terms |
+|---|---|---|
+| [Leaflet](https://leafletjs.com/) 1.9.4 | Map in the app | BSD 2-Clause |
+| Esri World Light/Dark Gray Base and Reference tiles | Basemap and place names | Esri terms of use; attribution is shown on the map |
+| [DuckDB](https://duckdb.org/) | Building and querying the monthly grid | MIT |
+| [pandas](https://pandas.pydata.org/), [NumPy](https://numpy.org/) | Pipeline | BSD 3-Clause |
+| [Apache Arrow (pyarrow)](https://arrow.apache.org/) | Parquet files | Apache 2.0 |
+| [huggingface_hub](https://github.com/huggingface/huggingface_hub) | Downloading the raw data mirror | Apache 2.0 |
+| [LightGBM](https://lightgbm.readthedocs.io/) | The v2 conversion model (`experiments/v2/`) | MIT |
+| [scikit-learn](https://scikit-learn.org/), [SciPy](https://scipy.org/) | `experiments/` only | BSD 3-Clause |
+| Cividis and viridis colour maps | Colour-blind-safe palettes for the calendar and map, chosen in the app's settings | Cividis: Nuñez, Anderton & Renslow (2018), <https://doi.org/10.1371/journal.pone.0199239>. Viridis: matplotlib, CC0 |
+
+The raw FIRMS mirror is hosted on [Hugging Face](https://huggingface.co/datasets/undeadphoenix/firms-fire-data)
+and the monthly grid and the app's map tiles on GitHub Releases. All are the team's own copies of,
+or products made from, NASA FIRMS data.
+
+## Licence
+
+This project's own code and documentation are released under the [MIT License](LICENSE).
