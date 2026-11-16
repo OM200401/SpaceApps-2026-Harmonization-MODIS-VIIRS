@@ -36,10 +36,11 @@ The intended users are emergency responders, fire managers, land managers and sc
 ```
 index.html              redirects the Pages root URL to app/
 app/                    the web app (static HTML/JS, no build step)
-  index.html            homepage: map, month scrubber, "how unusual is this month?" status
-  report.html           area report: verdict, season vs normal range, calendar, downloads
-  how-it-works.html     raw vs harmonized, method, accuracy and caveats
-  shared.js, shared.css data loading, display rules and page chrome used by all three pages
+  index.html            homepage: burning calendar (Year / All years), Map button, three key numbers, hotspot CSV
+  explore.js            the homepage's logic: calendar, map, key numbers, downloads
+  report.html           redirects old report links to the homepage
+  how-it-works.html     step-by-step write-up of the v2 harmonization and its tests
+  shared.js, shared.css data loading, display rules, colour and accessibility settings, page chrome
   data/index.json       tile list the app reads first (made by pipeline/export_tiles.py)
   data/d/, data/c/      worldwide harmonized tiles: 0.25° cells per 10° tile, 1° cells per 30° tile.
                         Not in git: they come from a release (pipeline/fetch_tiles.py)
