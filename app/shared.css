@@ -53,8 +53,8 @@ h3{font-size:14px;color:var(--ink-2)}
 .site-header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1000}
 .site-header .bar{display:flex;align-items:center;gap:14px;min-height:56px;padding:8px 16px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-family:var(--cond);font-weight:600;font-size:17px;letter-spacing:.01em;white-space:nowrap}
-.brand-mark{width:26px;height:26px;border-radius:8px;background:var(--ember);display:grid;place-items:center}
-.brand-mark svg{width:16px;height:16px}
+.brand-mark{width:28px;height:28px;display:grid;place-items:center}
+.brand-mark svg{width:28px;height:28px;display:block}
 .header-slot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:relative}
 .header-end{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .header-meta{font-size:12px;color:var(--ink-3);white-space:nowrap}
