@@ -1,419 +1,588 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Method — One Burning Calendar</title>
-<meta name="description" content="How MODIS fire detections are converted into VIIRS S-NPP units to make one fire record from 2000 to today, and how well it works on years the model never saw.">
+<meta name="description" content="Technical report: harmonizing MODIS and VIIRS active fire detections with shrunk block ratios and a gradient-boosted correction, and how it was validated.">
+<meta property="og:type" content="article"><meta property="og:site_name" content="One Burning Calendar">
+<meta property="og:title" content="Harmonizing MODIS and VIIRS Active Fire Detections"><meta property="og:description" content="Method and validation of a consistent monthly fire record, 2001 to present.">
+<meta property="og:url" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/how-it-works.html"><meta property="og:image" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/preview.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23e5531a%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
 <script>try{document.documentElement.dataset.theme=localStorage.getItem("obc-theme")==="light"?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <link rel="stylesheet" href="shared.css">
 <script>window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] }, svg: { fontCache: "global" } };</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" defer></script>
 <style>
-/* One reading column (~70ch) with figures that break out to the full 980px. */
-:root{--modis:#4fb8a0;--modis-soft:rgba(79,184,160,.16);--hatch:#3a404a}
-:root[data-theme="light"]{--modis:#13896a;--modis-soft:rgba(19,137,106,.12);--hatch:#cbc6bc}
-.doc{max-width:980px;margin:0 auto;padding:0 20px 40px;display:flex;flex-direction:column;gap:52px}
-.col{max-width:70ch}
-.doc section,.doc .fig{scroll-margin-top:72px}
-.stack{display:flex;flex-direction:column;gap:14px}
-.doc p{margin:0;font-size:16.5px;line-height:1.65;color:var(--ink-2)}
-.doc p b,.doc li b{color:var(--ink);font-weight:600}
-.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ember-ink)}
-.doc h1{font-family:var(--cond);font-size:clamp(32px,5vw,46px);font-weight:600;letter-spacing:-.01em;line-height:1.08}
-.doc h2{font-family:var(--cond);font-size:clamp(24px,3.2vw,30px);font-weight:600;line-height:1.15}
-.doc h3{font-size:16px;color:var(--ink);font-weight:600}
-.lede{font-size:18.5px!important;color:var(--ink-2)}
-.hero{padding-top:44px;display:flex;flex-direction:column;gap:18px}
-.tag{display:inline-block;font-family:var(--mono);font-size:12px;padding:1px 7px;border-radius:999px;color:var(--ink)}
-.tag.m{background:var(--modis-soft);box-shadow:inset 0 0 0 1px var(--modis)}
-.tag.s{background:var(--ember-soft);box-shadow:inset 0 0 0 1px var(--ember)}
-.tag.v{background:var(--blue-soft);box-shadow:inset 0 0 0 1px var(--blue)}
-.fig{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
-.fig .cap{font-size:14px!important;color:var(--ink-3)!important;line-height:1.55!important}
-/* Chart SVGs fill the figure; MathJax formula SVGs keep their own size. */
-.fig svg:not(mjx-container svg){display:block;width:100%;height:auto;overflow:visible}
-.fig svg text{font-family:var(--sans);fill:var(--ink-3);font-size:12px}
-.fig svg .mono{font-family:var(--mono)}
-.fig svg .ink{fill:var(--ink)}
+/* Report typography: a paper page, serif text, hairline rules, numbered sections, figures and equations. */
+:root{--paper:#f7f5f0;--paper-ink:#1d1b18;--paper-2:#4a463f;--paper-3:#77726a;--rule:#cfc9bd;--rule-2:#e4dfd5;--accent:#a8350a;--serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --modis:#13896a;--modis-soft:rgba(19,137,106,.12);--hatch:#cbc6bc}
+:root[data-theme="dark"]{--paper:#121316;--paper-ink:#e9e7e2;--paper-2:#bdb8ae;--paper-3:#8d887f;--rule:#3a3c42;--rule-2:#26282d;--accent:#ff8552;
+  --modis:#4fb8a0;--modis-soft:rgba(79,184,160,.16);--hatch:#3a404a}
+body{background:var(--paper);color:var(--paper-ink)}
+.report{max-width:1140px;margin:0 auto;padding:40px 24px 40px;display:grid;grid-template-columns:210px minmax(0,720px);gap:56px;justify-content:center}
+.toc{position:sticky;top:80px;align-self:start;font-size:13px;max-height:calc(100vh - 100px);overflow:auto;scrollbar-width:thin}
+.toc h2{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-3);margin:0 0 10px}
+.toc ol{list-style:none;margin:0;padding:0}
+.toc ol a{display:grid;grid-template-columns:22px 1fr;padding:4px 0;color:var(--paper-2);text-decoration:none;line-height:1.35}
+.toc ol a:hover{color:var(--paper-ink)}
+.toc ol a span:first-child{font-family:var(--mono);font-size:11.5px;color:var(--paper-3);padding-top:1px}
+.toc ol a.active{color:var(--paper-ink);font-weight:600}
+.toc .app{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.toc .app button{font-size:12.5px;padding:5px 10px}
+
+article{font-family:var(--serif);font-size:17px;line-height:1.65;color:var(--paper-ink);min-width:0;counter-reset:fig tab}
+article p{margin:0 0 1em}
+article a{color:var(--accent)}
+article b{font-weight:600}
+.running{font-family:var(--sans);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-3);padding-bottom:10px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.title{font-family:var(--serif);font-weight:600;font-size:34px;line-height:1.2;letter-spacing:-.01em;margin:28px 0 12px;color:var(--paper-ink)}
+.subtitle{font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.45;color:var(--paper-2);margin:0 0 22px}
+.byline{font-family:var(--sans);font-size:14px;color:var(--paper-ink);margin:0}
+.byline .aff{color:var(--paper-3)}
+.meta{font-family:var(--sans);font-size:12.5px;color:var(--paper-3);display:grid;grid-template-columns:auto 1fr;gap:3px 18px;margin:18px 0 0;padding:14px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.meta dd{margin:0;color:var(--paper-ink);min-width:0;overflow-wrap:anywhere}
+.meta a{color:var(--paper-ink)}
+.label{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-3);margin:0 0 8px}
+.abstract{margin:30px 0 0}
+.abstract p{font-size:16.5px;text-align:justify;hyphens:auto}
+.keywords{font-family:var(--sans);font-size:13px;color:var(--paper-2)}
+.ops{margin:30px 0;padding:18px 22px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--paper-ink) 4%,transparent)}
+.ops ul{margin:0;padding-left:20px;font-size:16px}
+.ops li{margin:5px 0}
+
+h2.sec{font-family:var(--serif);font-weight:600;font-size:24px;line-height:1.3;margin:56px 0 14px;padding-top:16px;border-top:1px solid var(--rule)}
+h3.sub{font-family:var(--serif);font-weight:600;font-size:18.5px;margin:30px 0 8px}
+.n{font-family:var(--sans);font-weight:500;color:var(--paper-3);margin-right:10px}
+section,figure,.eqn{scroll-margin-top:76px}
+article ul.list,article ol.list{margin:0 0 1em;padding-left:22px}
+article ul.list li,article ol.list li{margin:6px 0}
+
+/* Equations: centred, numbered by \tag */
+.eqn{margin:14px 0 18px;overflow-x:auto;overflow-y:hidden;color:var(--paper-ink)}
+.where{font-size:15.5px;color:var(--paper-2)}
+
+/* Figures: caption below; tables: caption above */
+figure{margin:28px 0;padding:0}
+figure.fig .body{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:16px 0}
+figcaption{font-family:var(--sans);font-size:13px;line-height:1.55;color:var(--paper-2);margin-top:10px}
+figure.tab figcaption{margin:0 0 8px}
+figcaption b{color:var(--paper-ink);font-weight:600}
+figure svg:not(mjx-container svg){display:block;width:100%;height:auto;overflow:visible}
+figure svg text{font-family:var(--sans);fill:var(--paper-3);font-size:12px}
+figure svg .mono{font-family:var(--mono)}
+figure svg .ink{fill:var(--paper-ink)}
 .scroll{overflow-x:auto}
 .scroll>svg{min-width:560px}
-.math{overflow-x:auto;overflow-y:hidden;padding:2px 0;color:var(--ink)}
-.eq{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 22px;font-size:1.12rem}
-.eq .keys{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:8px;font-size:14px;color:var(--ink-2)}
-.plain{font-size:14.5px!important;color:var(--ink-3)!important;border-left:2px solid var(--line-2);padding-left:12px}
-.note{border-left:3px solid var(--ember);padding:2px 0 2px 14px}
-.short{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 22px}
-.short ul{margin:8px 0 0;padding-left:20px;color:var(--ink-2);font-size:15.5px;line-height:1.6}
-.short li{margin:4px 0}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px 16px}
-.stat .v{font-family:var(--mono);font-size:28px;font-weight:500;color:var(--ink);letter-spacing:-.02em;line-height:1.1}
-.stat .l{font-size:13px;color:var(--ink-3);margin-top:4px;line-height:1.4}
-.route{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;counter-reset:s}
-.route li{counter-increment:s;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--ink-3);display:flex;flex-direction:column;gap:2px}
-.route li::before{content:counter(s);font-family:var(--mono);font-size:11px;color:var(--ember-ink)}
-.route a{color:var(--ink);text-decoration:none;font-weight:600;font-size:14px}
-.route a:hover{text-decoration:underline}
-.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
-.two>*{min-width:0}
-.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
-.flow .card{background:var(--tint);border:0;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
-.flow .q{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
-.flow .share{font-size:13.5px;color:var(--ink-2);line-height:1.5}
-table.t{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
-table.t th,table.t td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-table.t th{font-size:12px;color:var(--ink-3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-table.t td{color:var(--ink-2)}
-table.t td:first-child{color:var(--ink)}
-table.t .n{text-align:right;font-family:var(--mono);font-size:13px}
-table.t .win{color:var(--ink);font-weight:600}
-.ctl{display:grid;grid-template-columns:minmax(150px,230px) 1fr minmax(60px,auto);gap:8px 14px;align-items:center;font-size:14px;color:var(--ink-2)}
-.ctl output{font-family:var(--mono);text-align:right;color:var(--ink)}
-input[type=range]{width:100%;accent-color:var(--ember);padding:0;border:0;background:none}
-.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.readout div{background:var(--tint);border-radius:var(--radius-sm);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
-.readout span{font-size:11.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
-.readout strong{font-family:var(--mono);font-size:19px;font-weight:500;color:var(--ink)}
-.readout .final strong{color:var(--ember-ink)}
-.trace{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);background:var(--tint);border-radius:var(--radius-sm);padding:12px;overflow-x:auto;white-space:pre;margin:0}
-.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink-2)}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
-.legend i.tick{width:3px;height:14px;border-radius:1px;background:var(--ink);margin:0 9px 0 4px}
-.jumpline{font-size:18px!important;color:var(--ink)!important;font-weight:500}
-.limits,.refs{margin:0;padding-left:20px;color:var(--ink-2);line-height:1.6}
-.limits{font-size:15.5px}.refs{font-size:14.5px}
-.limits li,.refs li{margin:6px 0}
-#tip{position:fixed;z-index:2000;pointer-events:none;background:var(--card);border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow);padding:8px 11px;font-size:13px;color:var(--ink-2);line-height:1.45}
+.figtools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-family:var(--sans);font-size:13px;color:var(--paper-2);margin-bottom:10px}
+.figtools .seg{margin-left:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:var(--sans);font-size:12.5px;color:var(--paper-2);margin-bottom:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:6px}
+.legend i.tick{width:3px;height:14px;border-radius:1px;background:var(--paper-ink);margin:0 9px 0 4px}
+.figline{font-family:var(--sans);font-size:14px;color:var(--paper-ink);margin:10px 0 0}
+
+/* Booktabs tables: three rules */
+table.bt{width:100%;border-collapse:collapse;font-family:var(--sans);font-size:13.5px;font-variant-numeric:tabular-nums}
+table.bt thead tr{border-top:1.5px solid var(--paper-ink);border-bottom:1px solid var(--paper-ink)}
+table.bt tbody tr:last-child{border-bottom:1.5px solid var(--paper-ink)}
+table.bt th{font-weight:600;text-align:right;padding:7px 10px;vertical-align:bottom;line-height:1.3}
+table.bt td{text-align:right;padding:5px 10px;font-family:var(--mono);font-size:13px;vertical-align:top}
+table.bt th:first-child,table.bt td:first-child{text-align:left;font-family:var(--sans);font-size:13.5px;padding-left:0}
+table.bt tr.sum td{border-top:1px solid var(--rule)}
+table.bt td.ours{font-weight:600;color:var(--paper-ink)}
+table.bt.text td{font-family:var(--sans);font-size:13.5px;text-align:left;line-height:1.45;color:var(--paper-2)}
+table.bt.text th{text-align:left}
+table.bt.text td:first-child{color:var(--paper-ink);font-weight:500}
+table.bt.text td.r{text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap}
+.tnote{font-family:var(--sans);font-size:12px;color:var(--paper-3);margin-top:6px;line-height:1.5}
+.hp{font-family:var(--mono);font-size:12.5px;color:var(--paper-2)}
+
+/* Appendix B controls */
+.ctl{display:grid;grid-template-columns:minmax(150px,240px) 1fr minmax(60px,auto);gap:8px 14px;align-items:center;font-family:var(--sans);font-size:14px;color:var(--paper-2)}
+.ctl output{font-family:var(--mono);text-align:right;color:var(--paper-ink)}
+input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;background:none}
+.trace{font-family:var(--mono);font-size:12.5px;color:var(--paper-2);border-left:2px solid var(--rule);padding:4px 0 4px 14px;overflow-x:auto;white-space:pre;margin:14px 0}
+.readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;font-family:var(--sans);border-top:1px solid var(--rule)}
+.readout div{padding:10px 12px 0 0;display:flex;flex-direction:column;gap:2px}
+.readout span{font-size:11.5px;color:var(--paper-3)}
+.readout strong{font-family:var(--mono);font-size:19px;font-weight:500;color:var(--paper-ink)}
+.readout .final strong{color:var(--accent)}
+
+ol.refs{font-size:15px;padding-left:26px;color:var(--paper-2)}
+ol.refs li{margin:8px 0;padding-left:4px}
+dl.gloss{display:grid;grid-template-columns:minmax(120px,170px) 1fr;gap:8px 18px;font-size:15.5px}
+dl.gloss dt{font-weight:600}
+dl.gloss dd{margin:0;color:var(--paper-2)}
+.cite{font-family:var(--sans);font-size:.72em;vertical-align:super;line-height:0}
+.cite a{text-decoration:none}
+.cta{margin-top:30px}
+#tip{position:fixed;z-index:2000;pointer-events:none;background:var(--card);border:1px solid var(--line-2);border-radius:8px;box-shadow:var(--shadow);padding:8px 11px;font-family:var(--sans);font-size:13px;color:var(--ink-2);line-height:1.45}
 #tip b{color:var(--ink)}
-.cta{display:flex;gap:10px;flex-wrap:wrap}
-@media (max-width:560px){.ctl{grid-template-columns:1fr auto;grid-auto-flow:row dense;gap:4px 12px}.ctl label{grid-column:1;margin-top:8px}.ctl output{grid-column:2;margin-top:8px}.ctl input{grid-column:1/-1}.doc p{font-size:16px}}
+.site-footer{background:var(--paper)}
+
+@media (max-width:900px){
+ .report{grid-template-columns:1fr;gap:24px;padding-top:24px}
+ .toc{position:static;max-height:none;border-bottom:1px solid var(--rule);padding-bottom:12px}
+ .toc ol{columns:2;column-gap:16px}
+ .title{font-size:27px}
+ article{font-size:16.5px}
+ .abstract p{text-align:left}
+ table.bt{font-size:12.5px}
+ table.bt th,table.bt td{padding:5px 6px}
+ .readout{grid-template-columns:repeat(2,minmax(0,1fr))}
+ dl.gloss{grid-template-columns:1fr;gap:2px}
+ dl.gloss dd{margin-bottom:8px}
+}
+@media (max-width:560px){.ctl{grid-template-columns:1fr auto;gap:4px 12px}.ctl label{grid-column:1;margin-top:8px}.ctl output{grid-column:2;margin-top:8px}.ctl input{grid-column:1/-1}.toc ol{columns:1}}
+@media print{
+ :root:root{--paper:#fff;--paper-ink:#000;--paper-2:#222;--paper-3:#555;--rule:#999;--accent:#000;--ink:#000;--ink-2:#222;--ink-3:#555;--card:#fff;--tint:#f2f2f2;--line:#ccc;--line-2:#bbb;--grid:#e5e5e5}
+ .toc,.figtools .seg,.cta,#appB .ctl{display:none!important}
+ .report{display:block;max-width:none;padding:0}
+ article{font-size:11pt}
+ h2.sec{break-after:avoid}
+ figure{break-inside:avoid}
+ a{color:#000!important}
+}
 </style></head><body>
 <header id="site-header"></header>
-<main class="doc">
+<main class="report">
+ <nav class="toc" aria-label="Contents">
+  <h2>Contents</h2>
+  <ol>
+   <li><a href="#abstract"><span>–</span><span>Abstract</span></a></li>
+   <li><a href="#s1"><span>1</span><span>Introduction</span></a></li>
+   <li><a href="#s2"><span>2</span><span>Data and preprocessing</span></a></li>
+   <li><a href="#s3"><span>3</span><span>Baseline: shrunk block ratios</span></a></li>
+   <li><a href="#s4"><span>4</span><span>Gradient-boosted correction</span></a></li>
+   <li><a href="#s5"><span>5</span><span>Months without a MODIS signal</span></a></li>
+   <li><a href="#s6"><span>6</span><span>Downscaling and the 2012 join</span></a></li>
+   <li><a href="#s7"><span>7</span><span>Validation</span></a></li>
+   <li><a href="#s8"><span>8</span><span>Approaches considered</span></a></li>
+   <li><a href="#s9"><span>9</span><span>Limitations and intended use</span></a></li>
+   <li><a href="#s10"><span>10</span><span>Data and code availability</span></a></li>
+   <li><a href="#refs"><span>–</span><span>References</span></a></li>
+   <li><a href="#appA"><span>A</span><span>Development history</span></a></li>
+   <li><a href="#appB"><span>B</span><span>Worked example</span></a></li>
+   <li><a href="#appC"><span>C</span><span>Glossary</span></a></li>
+  </ol>
+  <div class="app"><a class="btn btn-primary" data-page-link="index.html" href="index.html">Open the calendar →</a><button type="button" id="print">Print or save as PDF</button></div>
+ </nav>
 
-<header class="hero">
- <span class="eyebrow">Method · NASA Space Apps 2026 · Harmonization of MODIS and VIIRS</span>
- <h1>Two satellites, one fire record</h1>
- <p class="lede col">From 2000 to 2011 only MODIS watched fires from orbit. From 2012 VIIRS on S-NPP watches too, and it counts three to six times more fire pixels. Joined naively, fire seems to explode in 2012. To get one consistent record from 2000 to today, we estimate what S-NPP <i>would have counted</i> in the MODIS years. This page shows how, and how well it works.</p>
- <div class="eq">
-  <div class="math">\[ \hat S \;=\; \underbrace{M}_{\text{MODIS count}} \times \underbrace{r_{\text{block}}}_{\text{local ratio}} \times \underbrace{e^{\,f(x)}}_{\text{learned correction}} \]</div>
-  <div class="keys"><span><span class="tag s">Ŝ</span> estimated S-NPP detections</span><span><span class="tag m">M</span> MODIS detections</span><span><span class="tag v">r · e<sup>f</sup></span> what the model learns</span></div>
- </div>
- <p class="col">Everything below explains one part of this line. The unit is always one <b>1° block (about 110 km) × one month × day or night</b>.</p>
- <div class="stats">
-  <div class="stat"><div class="v">1.5%</div><div class="l">monthly error worldwide, on years the model never saw</div></div>
-  <div class="stat"><div class="v">≤ 7.3%</div><div class="l">monthly error in each of 8 test regions (6 of 8 under 5%)</div></div>
-  <div class="stat"><div class="v">+785% → +60%</div><div class="l">Canada 2011 → 2012: raw jump vs harmonized. MODIS alone: +61%</div></div>
-  <div class="stat"><div class="v">2001–now</div><div class="l">one record, every 0.25° cell on Earth, monthly</div></div>
- </div>
- <div class="short col">
-  <h3>The short version, for fire managers</h3>
-  <ul>
-   <li>Every number in the app is in <b>"VIIRS-equivalent detections"</b>, so 2005 and 2023 compare fairly.</li>
-   <li>From Feb 2012 the numbers are what S-NPP really saw. Before that they are <b>estimates</b>, marked ≈.</li>
-   <li>On held-out years, regional monthly totals were off by <b>2–7%</b>. Megafire months and tiny areas are the least certain.</li>
-   <li>A detection is a hot pixel, not a fire. Counts measure <b>burning activity</b>.</li>
-  </ul>
- </div>
-</header>
+ <article>
+  <div class="running"><span>Technical report · Version 2.0</span><span>NASA Space Apps Challenge 2026</span></div>
 
-<nav aria-label="Sections"><ol class="route">
- <li><a href="#problem">The problem</a>Two cameras</li>
- <li><a href="#clean">Clean</a>Drift, outages, flares</li>
- <li><a href="#ratio">Local ratio</a>World → tile → block</li>
- <li><a href="#boost">Correction</a>Boosted trees</li>
- <li><a href="#cases">Three cases</a>When MODIS saw nothing</li>
- <li><a href="#example">Worked example</a>One block-month</li>
- <li><a href="#map">To the map</a>0.25° cells, 2012 seam</li>
- <li><a href="#test">Testing</a>Leave one year out</li>
- <li><a href="#limits">Limits</a>What to keep in mind</li>
-</ol></nav>
+  <h1 class="title">Harmonizing MODIS and VIIRS Active Fire Detections with Shrunk Block Ratios and a Gradient-Boosted Correction</h1>
+  <p class="subtitle">A consistent monthly burning-activity record for any area on Earth, 2001 to present</p>
+  <p class="byline">Om, Ishan, Sparsh, Pratham <span class="aff">· Team Murphy, NASA Space Apps Challenge 2026</span></p>
 
-<!-- 1 -->
-<section id="problem" class="stack">
- <span class="eyebrow">Step 1 · The problem</span>
- <h2>Two cameras that count fires differently</h2>
- <p class="col">A satellite fire product does not count fires. It counts <b>pixels that look hot</b>. MODIS pixels are about 1 km across. VIIRS pixels on S-NPP are 375 m, so about seven fit inside one MODIS pixel. A small fire fills a large share of a VIIRS pixel and stands out. The same fire is a speck inside a MODIS pixel and is often missed.</p>
- <div class="fig">
-  <div class="scroll"><svg viewBox="0 0 760 300" role="img" aria-label="The same small fire on a MODIS 1 km grid and a VIIRS 375 m grid">
-   <defs><radialGradient id="fireg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="var(--ember)"/><stop offset="100%" stop-color="var(--ember)" stop-opacity=".55"/></radialGradient></defs>
-   <text x="20" y="22" class="ink" style="font-weight:600;font-size:13px">MODIS · 1 km pixels</text>
-   <g transform="translate(20,36)">
-    <rect width="240" height="240" fill="var(--tint)" stroke="var(--line)"/>
-    <g stroke="var(--ink-3)" fill="none"><rect width="120" height="120"/><rect x="120" width="120" height="120"/><rect y="120" width="120" height="120"/><rect x="120" y="120" width="120" height="120"/></g>
-    <path d="M150 64 q14 -12 26 -2 q12 4 8 18 q-2 14 -18 14 q-16 2 -20 -12 q-4 -10 4 -18z" fill="url(#fireg)"/>
-    <rect x="120" width="120" height="120" fill="none" stroke="var(--modis)" stroke-width="3" stroke-dasharray="6 4"/>
-    <text x="180" y="138" text-anchor="middle">fire fills ~5% of this pixel</text>
-    <text x="120" y="262" text-anchor="middle" style="font-size:13px">often below the detection threshold</text>
-   </g>
-   <text x="400" y="22" class="ink" style="font-weight:600;font-size:13px">VIIRS on S-NPP · 375 m pixels</text>
-   <g transform="translate(400,36)">
-    <rect width="240" height="240" fill="var(--tint)" stroke="var(--line)"/>
-    <g stroke="var(--line-2)"><path d="M45 0V240M90 0V240M135 0V240M180 0V240M225 0V240M0 45H240M0 90H240M0 135H240M0 180H240M0 225H240"/></g>
-    <rect x="135" y="45" width="45" height="45" fill="var(--ember-soft)" stroke="var(--ember)" stroke-width="2"/>
-    <rect x="180" y="45" width="45" height="45" fill="var(--ember-soft)" stroke="var(--ember)" stroke-width="2"/>
-    <path d="M150 64 q14 -12 26 -2 q12 4 8 18 q-2 14 -18 14 q-16 2 -20 -12 q-4 -10 4 -18z" fill="url(#fireg)"/>
-    <text x="120" y="262" text-anchor="middle" style="font-size:13px">2 hot pixels from the same fire</text>
-   </g>
-   <text x="300" y="160" text-anchor="middle" class="mono ink" style="font-size:14px">M = 0</text>
-   <text x="700" y="160" text-anchor="middle" class="mono ink" style="font-size:14px">S = 2</text>
-  </svg></div>
-  <p class="cap">Same fire, two grids, drawn to scale. Big hot fires show up in both. Small, cool or smouldering fires show up mostly in VIIRS. So the ratio S/M depends on what kind of fire it is, which is why one fixed ratio is not enough.</p>
- </div>
+  <dl class="meta">
+   <dt>Challenge</dt><dd>Harmonization of MODIS and VIIRS Hot Spots</dd>
+   <dt>Record</dt><dd>November 2000 to <span id="through">present</span>, monthly, 0.25° cells</dd>
+   <dt>Reference sensor</dt><dd>VIIRS on Suomi NPP (375 m)</dd>
+   <dt>Inputs</dt><dd>NASA FIRMS MODIS Collection 6.1 (Terra, Aqua) and VIIRS S-NPP Collection 2</dd>
+   <dt>Code and data</dt><dd><a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS</a> · release <code>tiles-v2</code></dd>
+  </dl>
 
- <div class="fig" id="jumpfig">
-  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-   <h3 style="flex:1;min-width:220px">What this does to the record · <span id="area-name"></span></h3>
-   <div class="seg" id="jview" role="group" aria-label="Chart view"><button data-v="raw" aria-pressed="true">Raw satellites</button><button data-v="harm" aria-pressed="false">Harmonized</button></div>
-  </div>
-  <div class="legend"><span><i style="background:var(--modis)"></i>MODIS era (≈ estimate when harmonized)</span><span><i style="background:var(--ember)"></i>S-NPP VIIRS era (observed)</span></div>
-  <svg id="jump" viewBox="0 0 720 240" role="img" aria-label="Yearly fire detections 2005 to 2018 for the selected area, raw versus harmonized"></svg>
-  <p class="jumpline" id="jump-text">Loading the fire record…</p>
-  <p class="cap">Yearly totals for the area chosen in the app (change it there). MODIS alone is one steady instrument across both years, so its change is the real change in fire.</p>
- </div>
+  <section class="abstract" id="abstract" aria-labelledby="abs-l">
+   <p class="label" id="abs-l">Abstract</p>
+   <p>Satellite active-fire records span two sensor families. MODIS, on Terra and Aqua, has observed since November 2000; VIIRS on Suomi NPP, operating since 2012, detects three to six times as many hotspots because of its finer 375&nbsp;m pixels. Joined without correction, the record shows a step change in 2012 that reflects the new sensor, not the fires: raw counts for the Canadian boreal zone rise 785% from 2011 to 2012. We convert MODIS detections to S-NPP VIIRS-equivalent counts at 1°&nbsp;×&nbsp;1° block, month and day/night resolution. A ratio of S-NPP to MODIS detections, shrunk from the world to 10° tiles to individual blocks, gives the baseline; a gradient-boosted model with a Poisson loss, using only MODIS-derived inputs, corrects it. The model is fitted on June 2012 to December 2021 after removing years affected by orbit drift, days with sensor outages, and persistent gas flares. In leave-one-year-out tests, monthly totals are within 1.5% worldwide and 2.0–7.3% across eight fire regions, against 2.1–11.3% for our previous rule, and annual totals are within 5% in every region. The harmonized record runs from 2001 to the present and drives an interactive burning-activity calendar.</p>
+   <p class="keywords"><b>Keywords:</b> active fire, MODIS, VIIRS, sensor harmonization, gradient boosting, FIRMS, fire regime</p>
+  </section>
 
- <p class="col">The sensors also pass at different times. MODIS flies on Terra (about 10:30 am and pm) and Aqua (about 1:30 pm and am). S-NPP crosses at about 1:30, close to Aqua. Fires grow through the afternoon, so Terra and Aqua see different amounts, and the model treats them separately.</p>
- <div class="fig">
-  <div class="scroll"><svg viewBox="0 0 780 250" role="img" aria-label="Timeline of the sensors, the training window, and which years are estimated or observed">
-   <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--card)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--hatch)" stroke-width="3"/></pattern></defs>
-   <line x1="40" y1="206" x2="755" y2="206" stroke="var(--line-2)"/>
-   <g text-anchor="middle" style="font-size:11px"><text x="40" y="224">2000</text><text x="150" y="224">2004</text><text x="260" y="224">2008</text><text x="370" y="224">2012</text><text x="480" y="224">2016</text><text x="590" y="224">2020</text><text x="700" y="224">2024</text></g>
-   <text x="36" y="31" text-anchor="end" class="ink">Terra</text><rect x="62.8" y="20" width="582.2" height="14" rx="3" fill="var(--modis)"/><rect x="645" y="20" width="110" height="14" rx="3" fill="url(#hatch)" stroke="var(--modis)"/>
-   <text x="36" y="55" text-anchor="end" class="ink">Aqua</text><rect x="108.75" y="44" width="536.25" height="14" rx="3" fill="var(--modis)"/><rect x="645" y="44" width="110" height="14" rx="3" fill="url(#hatch)" stroke="var(--modis)"/>
-   <text x="36" y="79" text-anchor="end" class="ink">S-NPP</text><rect x="370" y="68" width="385" height="14" rx="3" fill="var(--ember)"/>
-   <text x="700" y="13" text-anchor="middle" style="font-size:11px">orbits drift</text>
-   <rect x="381.6" y="96" width="263.4" height="26" rx="4" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="513" y="113" text-anchor="middle" class="ink">fit &amp; test: Jun 2012 – Dec 2021</text>
-   <rect x="62.8" y="140" width="307.2" height="26" rx="4" fill="var(--modis-soft)" stroke="var(--modis)"/><text x="216" y="157" text-anchor="middle" class="ink">estimated from MODIS</text>
-   <rect x="62.8" y="172" width="45.95" height="22" rx="4" fill="none" stroke="var(--modis)" stroke-dasharray="4 3"/><text x="114" y="187" style="font-size:11px">Terra-only model (before Jul 2002)</text>
-   <rect x="372.2" y="140" width="382.8" height="26" rx="4" fill="var(--ember-soft)" stroke="var(--ember)"/><text x="563" y="157" text-anchor="middle" class="ink">observed S-NPP, minus gas flares</text>
-   <line x1="371" y1="88" x2="371" y2="200" stroke="var(--ink)" stroke-dasharray="2 3"/><text x="376" y="198" class="ink" style="font-size:11px">Feb 2012 seam</text>
-  </svg></div>
-  <p class="cap">The model learns the MODIS → S-NPP link where both sensors overlap (blue box), then applies it backwards to the MODIS-only years. After 2021 Terra and Aqua drift off their usual overpass times (hatched), so those years don't look like 2000–2011 and are left out of the fit.</p>
- </div>
-</section>
+  <figure class="tab" id="t1">
+   <figcaption><b>Table 1.</b> Monthly error on held-out years (WAPE, %), leave-one-year-out over 2012–2021. Lower is better.</figcaption>
+   <table class="bt">
+    <thead><tr><th>Region</th><th>Single ratio per region</th><th>Previous rule (v1)</th><th>This method (v2)</th><th>Sensor floor<sup>a</sup></th></tr></thead>
+    <tbody>
+     <tr><td>Canada</td><td>15.4</td><td>11.3</td><td class="ours">6.5</td><td>2.5</td></tr>
+     <tr><td>Amazon</td><td>4.8</td><td>2.8</td><td class="ours">2.6</td><td>1.7</td></tr>
+     <tr><td>Mediterranean</td><td>10.8</td><td>7.9</td><td class="ours">7.3</td><td>4.0</td></tr>
+     <tr><td>US West</td><td>13.7</td><td>8.8</td><td class="ours">4.4</td><td>2.8</td></tr>
+     <tr><td>Siberia</td><td>10.8</td><td>8.5</td><td class="ours">4.5</td><td>1.8</td></tr>
+     <tr><td>Southern Africa</td><td>6.8</td><td>2.8</td><td class="ours">2.0</td><td>1.1</td></tr>
+     <tr><td>Southeast Asia</td><td>9.2</td><td>4.8</td><td class="ours">3.9</td><td>1.8</td></tr>
+     <tr><td>Northern Australia</td><td>10.1</td><td>6.7</td><td class="ours">3.3</td><td>2.3</td></tr>
+     <tr class="sum"><td>World</td><td>3.6</td><td>2.1</td><td class="ours">1.5</td><td>0.7</td></tr>
+    </tbody>
+   </table>
+   <p class="tnote">WAPE = Σ|predicted − observed| ÷ Σ observed, on monthly totals of all 1° blocks in each region (Eq. 9). All rules are scored on the same cleaned data.
+    <sup>a</sup> NOAA-20 VIIRS predicting S-NPP VIIRS with block ratios, 2019–2025: the error expected even between two identical instruments (§7.2). Full results in Table 4.</p>
+  </figure>
 
-<!-- 2 -->
-<section id="clean" class="stack">
- <span class="eyebrow">Step 2 · Before any math</span>
- <h2>Clean the data so both sensors count the same thing</h2>
- <p class="col">About half of the gain over our first rule came from going back to the raw detections and fixing four problems. A model can't learn a clean relationship from dirty pairs.</p>
- <div class="two">
-  <div class="fig"><h3>Orbit drift after 2021</h3><p class="cap">Terra's average overpass slid from 10:33 to 09:26, and Aqua's from 13:36 to 14:45, by 2025. Morning and late-afternoon fire differ, so S/M shifts. We fit only on June 2012 – 2021, when overpass times were flat.</p></div>
-  <div class="fig"><h3>Outage days</h3><p class="cap">Aqua was out 16 Aug – 2 Sep 2020; S-NPP lost 16 days in 2022 and 25 in 2024. When <i>any</i> sensor is out, that day is dropped for <i>all</i> of them, so each pair compares the same days. In the MODIS years a month is scaled back up by days in month ÷ days kept.</p></div>
-  <div class="fig"><h3>Gas flares</h3><p class="cap">Oil-field flares burn all year, mostly at night, where S-NPP is far more sensitive than MODIS. They are industry, not wildfire. A 0.02° cell is masked when:</p>
-   <div class="math">\[\begin{cases}\text{it burns in} \ge 8 \text{ of 12 calendar months}\\ \text{in} \ge 15 \text{ separate months (2012–2021)}\\ \ge 50\%\text{ of its detections at night}\end{cases}\]</div>
-   <p class="cap">Plus 0.1° cells burning in ≥ 30 months, ≥ 10 calendar months, ≥ 75% at night (wells move inside an oil field). Removes about 1.7% of S-NPP detections. Crop and savanna burning is seasonal and daytime, so it passes.</p></div>
-  <div class="fig"><h3>A slow start</h3><p class="cap">S-NPP read about 20% low in March 2012 compared with its 2013–2019 average. Training starts in June 2012.</p></div>
- </div>
-</section>
+  <aside class="ops" aria-labelledby="ops-l">
+   <p class="label" id="ops-l">For fire managers: reading the numbers</p>
+   <ul>
+    <li>Every count is in S-NPP VIIRS-equivalent detections, so 2005 and 2023 can be compared directly.</li>
+    <li>From February 2012 the counts are what S-NPP observed, with gas flares removed. Earlier months are model estimates and are marked ≈ in the calendar.</li>
+    <li>On held-out years, regional monthly totals were within 2–7%. Megafire months and very small areas are the least certain.</li>
+    <li>A detection is a hot pixel, not a fire. Counts measure burning activity, not the number of fires or the area burned. Terms are defined in Appendix C.</li>
+   </ul>
+  </aside>
 
-<!-- 3 -->
-<section id="ratio" class="stack">
- <span class="eyebrow">Step 3 · The baseline</span>
- <h2>A local ratio that trusts data only as far as it goes</h2>
- <div class="col stack">
-  <p>The simplest conversion is a ratio: over all training months, how many S-NPP detections per MODIS detection?</p>
-  <div class="math">\[ r = \frac{\sum S}{\sum M} \]</div>
-  <p>One ratio for the whole world is too blunt: Canadian crown fires and African savanna fires behave differently. A ratio per 1° block is local, but many blocks have only a handful of MODIS detections, and a ratio from five detections is mostly noise. So each level <b>borrows strength</b> from the level above (shrinkage):</p>
-  <div class="math">\[ r_{\text{block}} = \frac{\sum S_{\text{block}} + k\, r_{\text{tile}}}{\sum M_{\text{block}} + k} \;=\; w\cdot\frac{\sum S_{\text{block}}}{\sum M_{\text{block}}} + (1-w)\, r_{\text{tile}}, \qquad w = \frac{\sum M_{\text{block}}}{\sum M_{\text{block}} + k} \]</div>
-  <p class="plain">In words: pretend the block has k extra MODIS detections that behave like its 10° tile. Lots of history: the block's own ratio wins. Little history: the tile's ratio wins.</p>
-  <p>With k = 200 for blocks, a block with 200 MODIS detections of history is trusted half-way; one with 2,000 about 91%. Tiles shrink toward the world ratio the same way with k = 2,000. Every ratio is computed separately for day and night.</p>
- </div>
- <div class="fig" id="shrinkFig">
-  <h3>Try it: how much does a block trust itself?</h3>
-  <div class="ctl">
-   <label for="sM">Block's MODIS history, ΣM</label><input id="sM" type="range" min="0" max="3000" step="10" value="500"><output id="sMo">500</output>
-   <label for="sOwn">Block's own ratio, ΣS/ΣM</label><input id="sOwn" type="range" min="1" max="10" step="0.1" value="6.0"><output id="sOwno">6.0</output>
-   <label for="sTile">Tile ratio, r_tile</label><input id="sTile" type="range" min="1" max="10" step="0.1" value="4.5"><output id="sTileo">4.5</output>
-  </div>
-  <div class="scroll"><svg id="shrinkSvg" viewBox="0 0 720 230" role="img" aria-label="Shrunk block ratio as the block's MODIS history grows"></svg></div>
-  <div class="readout"><div><span>Weight on block, w</span><strong id="sW">—</strong></div><div class="final"><span>Shrunk r_block</span><strong id="sR">—</strong></div></div>
-  <p class="cap">Example numbers, not a real block. The line starts at the tile ratio and approaches the block's own ratio as evidence builds up.</p>
- </div>
- <p class="col note">Ratios are also built per block × month of the year and per tile × month of the year. They are not multiplied in: they go to the model in Step 4 as inputs, so it can decide how much seasonality matters.</p>
-</section>
+  <!-- 1 -->
+  <section id="s1">
+   <h2 class="sec"><span class="n">1</span>Introduction</h2>
+   <p>NASA's Fire Information for Resource Management System (FIRMS) distributes active-fire detections from two families of polar-orbiting sensors. The Moderate Resolution Imaging Spectroradiometer (MODIS) on Terra and Aqua provides the longest consistent record, beginning in November 2000 with 1&nbsp;km pixels<span class="cite"><a href="#r1">1</a></span>. The Visible Infrared Imaging Radiometer Suite (VIIRS) on Suomi NPP, operating since 2012, detects fires at 375&nbsp;m and therefore records many small and cool fires that MODIS misses<span class="cite"><a href="#r2">2</a></span>.</p>
+   <p>Fire managers and researchers need a single series to judge whether a month is unusual for an area. Neither sensor provides one: MODIS is nearing the end of its mission, and VIIRS does not reach back before 2012. This report describes how we convert the MODIS era into VIIRS-equivalent counts, how we tested the conversion on years the model never saw, and where it remains uncertain.</p>
 
-<!-- 4 -->
-<section id="boost" class="stack">
- <span class="eyebrow">Step 4 · The correction</span>
- <h2>Gradient boosting learns when the ratio is wrong</h2>
- <div class="col stack">
-  <p>The local ratio is a long-run average. In a given month it can be off: a month of intense crown fires gives fewer S-NPP detections per MODIS detection than a month of small smouldering fires in the same block. So the baseline is multiplied by a correction learned from that month's MODIS detections:</p>
-  <div class="math">\[ \hat S = M\, r_{\text{block}} \cdot e^{f(x)} \quad\Longleftrightarrow\quad \ln \hat S = \ln(M\, r_{\text{block}}) + f(x) \]</div>
-  <p class="plain">In words: \(f = 0\) means "the ratio is right". \(f = 0.2\) means "about 22% more than the ratio says". \(f = -0.2\), about 18% less.</p>
- </div>
- <h3 class="col">What goes into x</h3>
- <p class="col">Only things MODIS can tell us, because in 2000–2011 MODIS is all there is. Every input comes from that block-month's MODIS detections or its neighbours.</p>
- <div class="fig scroll"><table class="t">
-  <thead><tr><th>Group</th><th>Inputs</th><th>Why it helps</th></tr></thead>
-  <tbody>
-   <tr><td>How hot</td><td>mean and max fire radiative power (FRP), FRP in 5 bins, high-confidence share, brightness temperatures</td><td>Intense fires saturate MODIS less, so the ratio is lower</td></tr>
-   <tr><td>How spread out</td><td>detections per day, active days, share in the busiest cell, cells touched, scan-angle bins, pixel area</td><td>Many small scattered fires mean more VIIRS-only pixels</td></tr>
-   <tr><td>Which satellite</td><td>Terra count, Aqua count, Aqua share</td><td>Aqua passes near S-NPP's time; Terra 3 hours earlier</td></tr>
-   <tr><td>Missed signal</td><td>low-confidence MODIS share, the other half of the day</td><td>Hints at fire MODIS half-saw</td></tr>
-   <tr><td>Context</td><td>previous and next month, neighbouring blocks, the 10° tile and how unusual this month is for it</td><td>A big fire season changes behaviour</td></tr>
-   <tr><td>Place and time</td><td>latitude, longitude, season (mirrored for the southern hemisphere, as sin and cos), day/night</td><td>Biome and season differences, learned rather than drawn by hand</td></tr>
-   <tr><td>Ratios</td><td>world, tile and block ratios, and the month profiles from Step 3</td><td>Lets the model judge how far to trust the baseline</td></tr>
-  </tbody></table></div>
+   <h3 class="sub"><span class="n">1.1</span>Why the two sensors disagree</h3>
+   <p>An active-fire product does not count fires; it counts pixels whose thermal signal exceeds a detection threshold. About seven VIIRS 375&nbsp;m pixels fit inside one MODIS 1&nbsp;km pixel. A small fire fills a large fraction of a VIIRS pixel and is detected, while the same fire occupies a few percent of a MODIS pixel and often is not (Figure 1). The ratio of VIIRS to MODIS detections therefore depends on fire size, intensity and type, and a single fixed conversion factor cannot capture it.</p>
+   <figure class="fig" id="f1"><div class="body scroll"><svg viewBox="0 0 760 290" role="img" aria-label="The same small fire on a MODIS 1 km grid and a VIIRS 375 m grid">
+     <defs><radialGradient id="fireg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="var(--ember)"/><stop offset="100%" stop-color="var(--ember)" stop-opacity=".55"/></radialGradient></defs>
+     <text x="20" y="18" class="ink" style="font-weight:600;font-size:13px">(a) MODIS · 1 km pixels</text>
+     <g transform="translate(20,30)">
+      <rect width="240" height="240" fill="var(--tint)" stroke="var(--line)"/>
+      <g stroke="var(--ink-3)" fill="none"><rect width="120" height="120"/><rect x="120" width="120" height="120"/><rect y="120" width="120" height="120"/><rect x="120" y="120" width="120" height="120"/></g>
+      <path d="M150 64 q14 -12 26 -2 q12 4 8 18 q-2 14 -18 14 q-16 2 -20 -12 q-4 -10 4 -18z" fill="url(#fireg)"/>
+      <rect x="120" width="120" height="120" fill="none" stroke="var(--modis)" stroke-width="3" stroke-dasharray="6 4"/>
+      <text x="180" y="138" text-anchor="middle">fire fills ~5% of this pixel</text>
+     </g>
+     <text x="400" y="18" class="ink" style="font-weight:600;font-size:13px">(b) VIIRS on S-NPP · 375 m pixels</text>
+     <g transform="translate(400,30)">
+      <rect width="240" height="240" fill="var(--tint)" stroke="var(--line)"/>
+      <g stroke="var(--line-2)"><path d="M45 0V240M90 0V240M135 0V240M180 0V240M225 0V240M0 45H240M0 90H240M0 135H240M0 180H240M0 225H240"/></g>
+      <rect x="135" y="45" width="45" height="45" fill="var(--ember-soft)" stroke="var(--ember)" stroke-width="2"/>
+      <rect x="180" y="45" width="45" height="45" fill="var(--ember-soft)" stroke="var(--ember)" stroke-width="2"/>
+      <path d="M150 64 q14 -12 26 -2 q12 4 8 18 q-2 14 -18 14 q-16 2 -20 -12 q-4 -10 4 -18z" fill="url(#fireg)"/>
+     </g>
+     <text x="300" y="155" text-anchor="middle" class="mono ink" style="font-size:14px">M = 0</text>
+     <text x="700" y="155" text-anchor="middle" class="mono ink" style="font-size:14px">S = 2</text>
+    </svg></div>
+    <figcaption><b>Figure 1.</b> The same small fire on the two pixel grids, drawn to scale. (a) It fills about 5% of one MODIS pixel and falls below the detection threshold. (b) It produces two VIIRS detections. Large, hot fires are detected by both sensors; small, cool or smouldering fires mostly by VIIRS.</figcaption>
+   </figure>
 
- <div class="col stack">
-  <h3>Boosting: many small trees added together</h3>
-  <p>\(f(x)\) is not one formula. It is the sum of 400 small decision trees (LightGBM), each fixing what the previous ones got wrong:</p>
-  <div class="math">\[ f(x) = \eta\,T_1(x) + \eta\,T_2(x) + \dots + \eta\,T_{400}(x), \qquad \eta = 0.05 \]</div>
-  <p>Each tree asks a few yes/no questions about x and ends in a leaf. Here the leaves are <b>linear</b>: a leaf returns a small straight-line formula of the inputs, so the correction changes smoothly inside a leaf. The small learning rate \(\eta\) means each tree moves the answer only 5% of the way.</p>
- </div>
- <div class="fig"><div class="scroll"><svg viewBox="0 0 760 250" role="img" aria-label="An example tree with yes/no splits ending in linear leaves">
-  <rect x="250" y="10" width="220" height="38" rx="6" fill="var(--tint)" stroke="var(--line-2)"/><text x="360" y="34" text-anchor="middle" class="mono ink">mean FRP &gt; 40 MW ?</text>
-  <path d="M300 48 L170 92M420 48 L550 92" stroke="var(--ink-3)" fill="none"/><text x="220" y="66" style="font-size:11px">no</text><text x="492" y="66" style="font-size:11px">yes</text>
-  <rect x="70" y="92" width="200" height="38" rx="6" fill="var(--tint)" stroke="var(--line-2)"/><text x="170" y="116" text-anchor="middle" class="mono ink">low-conf share &gt; 0.3 ?</text>
-  <rect x="450" y="92" width="200" height="38" rx="6" fill="var(--tint)" stroke="var(--line-2)"/><text x="550" y="116" text-anchor="middle" class="mono ink">Aqua share &gt; 0.5 ?</text>
-  <path d="M120 130 L70 172M220 130 L270 172M500 130 L450 172M600 130 L650 172" stroke="var(--ink-3)" fill="none"/>
-  <rect x="10" y="172" width="130" height="44" rx="6" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="75" y="191" text-anchor="middle" class="mono ink">+0.04</text><text x="75" y="207" text-anchor="middle" class="mono" style="font-size:11px">+0.02·spread</text>
-  <rect x="205" y="172" width="130" height="44" rx="6" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="270" y="191" text-anchor="middle" class="mono ink">+0.11</text><text x="270" y="207" text-anchor="middle" class="mono" style="font-size:11px">+0.05·lo_share</text>
-  <rect x="385" y="172" width="130" height="44" rx="6" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="450" y="191" text-anchor="middle" class="mono ink">−0.09</text><text x="450" y="207" text-anchor="middle" class="mono" style="font-size:11px">−0.01·FRP</text>
-  <rect x="585" y="172" width="130" height="44" rx="6" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="650" y="191" text-anchor="middle" class="mono ink">−0.03</text><text x="650" y="207" text-anchor="middle" class="mono" style="font-size:11px">+0.01·days</text>
-  <text x="380" y="242" text-anchor="middle">One tree of 400, with made-up splits and values to show the shape. Real trees have up to 31 leaves.</text>
- </svg></div></div>
+   <h3 class="sub"><span class="n">1.2</span>Effect on the combined record</h3>
+   <p>Figure 2 shows yearly detections for the area currently selected in the calendar. Joined without correction, the arrival of S-NPP in 2012 appears as a sharp rise in fire. MODIS alone, a single instrument observing both years, gives the real change between 2011 and 2012; the harmonized series should follow it.</p>
+   <figure class="fig" id="f2"><div class="body">
+     <div class="figtools"><span id="area-name"></span><div class="seg" id="jview" role="group" aria-label="Series shown"><button data-v="raw" aria-pressed="true">Raw sum</button><button data-v="harm" aria-pressed="false">Harmonized</button></div></div>
+     <div class="legend"><span><i style="background:var(--modis)"></i>MODIS era (estimated when harmonized)</span><span><i style="background:var(--ember)"></i>S-NPP era (observed)</span></div>
+     <svg id="jump" viewBox="0 0 720 240" role="img" aria-label="Yearly fire detections 2005 to 2018 for the selected area, raw versus harmonized"></svg>
+     <p class="figline" id="jump-text">Loading the fire record…</p>
+    </div>
+    <figcaption><b>Figure 2.</b> Yearly detections, 2005–2018, for the area selected in the calendar (change it there). Raw: MODIS plus S-NPP, uncorrected. Harmonized: S-NPP-equivalent counts as described in §3–§6. The dashed line marks February 2012.</figcaption>
+   </figure>
 
- <div class="col stack">
-  <h3>Poisson loss: the right yardstick for counts</h3>
-  <p>To grow each tree the model scores how wrong it is. Detections are counts, and count noise grows with the count. Squared error would let a few giant fire months dominate. We use the Poisson loss:</p>
-  <div class="math">\[ \ell(S, \hat S) = \hat S - S \ln \hat S, \qquad \frac{\partial \ell}{\partial \ln \hat S} = \hat S - S, \qquad \frac{\partial^2 \ell}{\partial (\ln \hat S)^2} = \hat S \]</div>
-  <p class="plain">In words: each tree pushes toward the miss \(S - \hat S\), scaled by \(1/\hat S\). Missing by 50 is a big error where 100 are expected and a small one where 10,000 are. That is relative error, which is what matters.</p>
-  <p class="note"><b>No peeking.</b> The block ratios fed in as inputs are computed <i>without the row's own year</i>. Otherwise a row's ratio would already contain its answer, the model would over-trust the ratio, and that trust would fail in 2005, where there is no S-NPP to build the ratio from.</p>
-  <p style="font-family:var(--mono);font-size:12.5px;color:var(--ink-3)">LightGBM · objective poisson · 400 rounds · learning rate 0.05 · 31 leaves · ≥ 100 rows per leaf · 80% feature and row sampling · L2 = 5 · linear leaves</p>
- </div>
-</section>
+   <h3 class="sub"><span class="n">1.3</span>Objective</h3>
+   <p>The objective is a monthly series of S-NPP-equivalent detections for every 0.25° cell on Earth from 2001 to the present, such that any user-selected area can be compared across the full period. The reference is S-NPP VIIRS because it is the more sensitive sensor and continues into the future; MODIS-era months are converted into its units rather than the reverse.</p>
+  </section>
 
-<!-- 5 -->
-<section id="cases" class="stack">
- <span class="eyebrow">Step 5 · Edge cases</span>
- <h2>Three cases, depending on what MODIS saw</h2>
- <p class="col">The main formula multiplies by M. If MODIS saw nothing in that block and half of the day, M = 0 and the formula says zero. But S-NPP often does see something there: exactly the small fires MODIS misses. So block-months are split three ways.</p>
- <div class="fig"><div class="flow">
-  <div class="card"><span class="q">MODIS saw fire this half of the day</span><h3>Main model</h3><div class="math">\[\hat S = M\, r_{\text{block}}\, e^{f(x)}\]</div><span class="share">Almost all detections. Steps 3 and 4.</span></div>
-  <div class="card"><span class="q">No, but MODIS saw fire at the other time of day, or only low-confidence pixels</span><h3>Zero model</h3><div class="math">\[\hat S = (M_{o}\, r_x + c_0)\, e^{g(x)}\]</div><span class="share">\(M_o\) = MODIS in the other half of the day; \(r_x\) = S-NPP per other-half MODIS detection, shrunk the same way (k = 50 block, 500 tile); \(c_0\) = average S-NPP when MODIS has only low-confidence pixels; \(g\) = a smaller boosted model. About 4% of night-time S-NPP.</span></div>
-  <div class="card"><span class="q">No MODIS evidence at all</span><h3>Climatology</h3><div class="math">\[\hat S = \frac{\sum_{\text{no-evidence years}} S}{\#\text{ no-evidence years}}\]</div><span class="share">The block's average S-NPP in that month and half of the day, over training years when MODIS also saw nothing.</span></div>
- </div></div>
- <div class="col stack">
-  <h3>Before July 2002: only Terra</h3>
-  <p>Aqua launched in 2002, so from November 2000 to June 2002 MODIS means Terra alone, three hours before S-NPP. A second copy of the whole model is fitted on 2012–2021 <b>with Aqua removed</b> and used for those months. That also gives a fair test: hide Aqua in the overlap years and see how well Terra alone predicts S-NPP (world error 2.7%, against 6.4% for our first Terra ratio).</p>
- </div>
-</section>
+  <!-- 2 -->
+  <section id="s2">
+   <h2 class="sec"><span class="n">2</span>Data and preprocessing</h2>
+   <h3 class="sub"><span class="n">2.1</span>Detections and units of analysis</h3>
+   <p>We use FIRMS active-fire detections from MODIS Collection 6.1 (Terra and Aqua)<span class="cite"><a href="#r1">1</a></span> and VIIRS 375&nbsp;m from S-NPP<span class="cite"><a href="#r2">2</a></span>, restricted to presumed vegetation fires (type 0) at nominal or high confidence; NOAA-20 VIIRS is used only to estimate the noise floor (§7.2). Models are fitted on one unit throughout: a <b>1° block</b> (about 110&nbsp;km) in one month, split into the day and night overpasses. Results are distributed to 0.25° cells for display (§6).</p>
+   <h3 class="sub"><span class="n">2.2</span>Study period</h3>
+   <p>The two sensor families overlap from February 2012. Terra and Aqua overpass times were stable until 2021 and then drifted (Figure 3), so the period after 2021 no longer resembles the 2000–2011 MODIS era. Fitting and testing are therefore restricted to June 2012 – December 2021, and the fitted model is applied backwards to November 2000 – January 2012.</p>
+   <figure class="fig" id="f3"><div class="body scroll"><svg viewBox="0 0 780 250" role="img" aria-label="Timeline of the sensors, the training window, and which years are estimated or observed">
+     <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--paper)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--hatch)" stroke-width="3"/></pattern></defs>
+     <line x1="40" y1="206" x2="755" y2="206" stroke="var(--line-2)"/>
+     <g text-anchor="middle" style="font-size:11px"><text x="40" y="224">2000</text><text x="150" y="224">2004</text><text x="260" y="224">2008</text><text x="370" y="224">2012</text><text x="480" y="224">2016</text><text x="590" y="224">2020</text><text x="700" y="224">2024</text></g>
+     <text x="36" y="31" text-anchor="end" class="ink">Terra</text><rect x="62.8" y="20" width="582.2" height="14" rx="2" fill="var(--modis)"/><rect x="645" y="20" width="110" height="14" rx="2" fill="url(#hatch)" stroke="var(--modis)"/>
+     <text x="36" y="55" text-anchor="end" class="ink">Aqua</text><rect x="108.75" y="44" width="536.25" height="14" rx="2" fill="var(--modis)"/><rect x="645" y="44" width="110" height="14" rx="2" fill="url(#hatch)" stroke="var(--modis)"/>
+     <text x="36" y="79" text-anchor="end" class="ink">S-NPP</text><rect x="370" y="68" width="385" height="14" rx="2" fill="var(--ember)"/>
+     <text x="700" y="13" text-anchor="middle" style="font-size:11px">orbits drift</text>
+     <rect x="381.6" y="96" width="263.4" height="26" rx="3" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="513" y="113" text-anchor="middle" class="ink">fit and test: Jun 2012 – Dec 2021</text>
+     <rect x="62.8" y="140" width="307.2" height="26" rx="3" fill="var(--modis-soft)" stroke="var(--modis)"/><text x="216" y="157" text-anchor="middle" class="ink">estimated from MODIS</text>
+     <rect x="62.8" y="172" width="45.95" height="22" rx="3" fill="none" stroke="var(--modis)" stroke-dasharray="4 3"/><text x="114" y="187" style="font-size:11px">Terra-only model (before Jul 2002)</text>
+     <rect x="372.2" y="140" width="382.8" height="26" rx="3" fill="var(--ember-soft)" stroke="var(--ember)"/><text x="563" y="157" text-anchor="middle" class="ink">observed S-NPP, minus gas flares</text>
+     <line x1="371" y1="88" x2="371" y2="200" stroke="var(--ink)" stroke-dasharray="2 3"/><text x="376" y="198" class="ink" style="font-size:11px">Feb 2012 join</text>
+    </svg></div>
+    <figcaption><b>Figure 3.</b> Sensor coverage and use. The MODIS → S-NPP relationship is learned where both overlap with stable orbits (blue), then applied to MODIS-only months. After 2021 Terra and Aqua drift from their nominal overpass times (hatched) and are excluded from fitting.</figcaption>
+   </figure>
 
-<!-- calculator -->
-<section id="example" class="stack">
- <span class="eyebrow">Put together</span>
- <h2>Worked example: one block, one month</h2>
- <p class="col">A made-up 1° block in the Canadian boreal forest, daytime, in a busy July. Move the inputs and follow the numbers through the formula.</p>
- <div class="fig">
-  <div class="ctl">
-   <label for="cM">MODIS detections this month, M</label><input id="cM" type="range" min="1" max="1000" step="1" value="120"><output id="cMo">120</output>
-   <label for="cSS">Block history ΣS (other years)</label><input id="cSS" type="range" min="0" max="15000" step="50" value="2600"><output id="cSSo">2600</output>
-   <label for="cSM">Block history ΣM (other years)</label><input id="cSM" type="range" min="0" max="3000" step="10" value="500"><output id="cSMo">500</output>
-   <label for="cT">Tile ratio, r_tile</label><input id="cT" type="range" min="1" max="10" step="0.01" value="4.53"><output id="cTo">4.53</output>
-   <label for="cF">Correction f(x) from the trees</label><input id="cF" type="range" min="-0.6" max="0.6" step="0.01" value="0.11"><output id="cFo">+0.11</output>
-  </div>
-  <pre class="trace" id="cTrace"></pre>
-  <div class="readout"><div><span>r_block</span><strong id="cR">—</strong></div><div><span>Baseline M · r</span><strong id="cB">—</strong></div><div><span>Correction e^f</span><strong id="cE">—</strong></div><div class="final"><span>Estimated S-NPP, Ŝ</span><strong id="cS">—</strong></div></div>
-  <p class="cap">In the real model f(x) comes out of the 400 trees. Here you set it by hand. A positive f fits months of many small, low-confidence fires; a negative f fits months of a few very intense ones.</p>
- </div>
-</section>
+   <h3 class="sub"><span class="n">2.3</span>Corrections applied before modelling</h3>
+   <p>Four problems in the paired record were found by returning to the individual detections. Correcting them accounts for roughly half of the improvement over our previous rule.</p>
+   <ol class="list">
+    <li><b>Orbit drift.</b> Terra's mean overpass moved from 10:33 to 09:26 and Aqua's from 13:36 to 14:45 by 2025. Fire activity changes through the day, so the S-NPP/MODIS ratio shifts with them. Fitting stops at December 2021.</li>
+    <li><b>Outage days.</b> Aqua was unavailable from 16 August to 2 September 2020; S-NPP lost 16 days in 2022 and 25 in 2024; Terra 11 days in February 2016. When any sensor is missing, the day is removed for all of them, so each pair compares the same days. In MODIS-era months, totals are scaled by days in month ÷ days retained.</li>
+    <li><b>Gas flares.</b> Oil-field flares burn year-round, mostly at night, where S-NPP is far more sensitive than MODIS. They are industrial sources, not wildfire. A 0.02° cell is masked when, over 2012–2021,
+     <div class="eqn">\[ \begin{aligned} &\text{active in} \ge 8 \text{ of the 12 calendar months},\\ &\text{active in} \ge 15 \text{ distinct months, and}\\ &\ge 50\% \text{ of its detections at night.} \end{aligned} \tag{1} \]</div>
+     A 0.1° cell is also masked when active in ≥ 30 months, ≥ 10 calendar months and ≥ 75% at night, to capture well fields that move. The mask removes about 1.7% of S-NPP detections; seasonal, daytime crop and savanna burning is unaffected.</li>
+    <li><b>S-NPP commissioning.</b> In March 2012 the S-NPP/MODIS ratio was about 20% below its 2013–2019 mean. Fitting begins in June 2012.</li>
+   </ol>
+  </section>
 
-<!-- 6 -->
-<section id="map" class="stack">
- <span class="eyebrow">Step 6 · To the map</span>
- <h2>From 1° blocks to 0.25° cells, and joining at 2012</h2>
- <div class="col stack">
-  <p>The app draws 0.25° cells (about 25 km), 16 per block. Each block's estimate is split by where MODIS saw the fire:</p>
-  <div class="math">\[ \hat S_{\text{cell}} = \hat S_{\text{block}} \cdot \frac{M_{\text{cell}}}{M_{\text{block}}} \]</div>
-  <p>When MODIS saw nothing in the block (zero model and climatology), the split uses each cell's share of the block's S-NPP over 2012–2021. Fill values under 0.5 in cells with no MODIS are dropped to keep the map files small (0.24% of the total).</p>
-  <p>From February 2012 nothing is estimated. The record is what S-NPP saw, minus gas flares, so both eras count the same thing:</p>
-  <div class="math">\[ H = \begin{cases} \hat S \text{ converted from MODIS} & \text{Nov 2000 – Jan 2012} \\ S_{\text{observed}} - S_{\text{flares}} & \text{Feb 2012 onward} \end{cases} \]</div>
-  <p class="plain">The test of the join is the seam: if the conversion is right, there is no artificial jump at 2012. Worldwide, 2011 → 2012 rises 5.6% (our first rule: 6.8%). For Canada the harmonized change tracks MODIS alone within about one point, as the chart in Step 1 shows. 2012 really was a bigger fire year there.</p>
- </div>
-</section>
+  <!-- 3 -->
+  <section id="s3">
+   <h2 class="sec"><span class="n">3</span>Baseline: shrunk block ratios</h2>
+   <p>The simplest conversion is the ratio of S-NPP to MODIS detections over the training period,</p>
+   <div class="eqn">\[ r = \frac{\sum S}{\sum M}, \tag{2} \]</div>
+   <p>where \(S\) and \(M\) are S-NPP and MODIS detection counts. A single ratio for the world is too coarse, since crown fires in the boreal forest and savanna fires in Africa behave differently. A ratio per 1° block is local but unstable where a block has few MODIS detections. Each level is therefore shrunk toward the level above it:</p>
+   <div class="eqn">\[ r_{\text{block}} = \frac{\sum S_{\text{block}} + k\, r_{\text{tile}}}{\sum M_{\text{block}} + k} = w\,\frac{\sum S_{\text{block}}}{\sum M_{\text{block}}} + (1-w)\, r_{\text{tile}}, \tag{3} \]</div>
+   <p class="where">with weight \(w = \sum M_{\text{block}} \big/ \left(\sum M_{\text{block}} + k\right)\). Equation 3 treats the block as if it had \(k\) additional MODIS detections behaving like its 10° tile. With \(k = 200\), a block with 200 MODIS detections of history receives half weight on its own ratio and one with 2,000 about 91% (Figure 4). Tile ratios are shrunk toward the world ratio in the same way with \(k = 2{,}000\). All ratios are computed separately for day and night.</p>
+   <figure class="fig" id="f4"><div class="body scroll"><svg id="shrinkSvg" viewBox="0 0 720 230" role="img" aria-label="Shrunk block ratio as the block's MODIS history grows"></svg></div>
+    <figcaption><b>Figure 4.</b> Shrunk block ratio (Eq. 3) as a function of the block's MODIS history, for an illustrative block whose own ratio is 6.0 in a tile with ratio 4.5. The estimate starts at the tile ratio and approaches the block's own ratio as evidence accumulates. An interactive version is in Appendix B.</figcaption>
+   </figure>
+   <p>Ratios are also computed per block × calendar month and per tile × calendar month. They are not multiplied into the baseline; they are supplied to the correction model (§4) as inputs, so that the strength of the seasonal effect is learned.</p>
+  </section>
 
-<!-- 7 -->
-<section id="test" class="stack">
- <span class="eyebrow">Step 7 · Did it work?</span>
- <h2>Testing on years the model never saw</h2>
- <p class="col"><b>Leave one year out.</b> Fit on nine of the ten years 2012–2021, predict the tenth, repeat ten times. Every prediction is for a year the model did not train on, the same situation as 2005.</p>
- <div class="fig"><div class="scroll"><svg id="loyo" viewBox="0 0 640 250" role="img" aria-label="Leave-one-year-out: ten fits, each holding out one year"></svg></div>
-  <p class="cap">Each row is one fit. Blue years train the model; the orange year is predicted and scored.</p></div>
- <div class="col stack">
-  <p><b>The score</b> is WAPE, weighted absolute percentage error, on monthly totals per region (day + night, all blocks in the region):</p>
-  <div class="math">\[ \text{WAPE} = \frac{\sum_{\text{months}} |\hat S - S|}{\sum_{\text{months}} S} \]</div>
-  <p class="plain">In words: what share of the true detections we got wrong. Unlike an average of monthly percentages, a tiny winter month can't blow it up.</p>
-  <p><b>The floor.</b> How good could any rule be? NOAA-20 carries the same VIIRS instrument as S-NPP and passes 50 minutes apart. Predicting S-NPP from NOAA-20 with block ratios gives the error between two identical sensors. No MODIS rule can beat that.</p>
- </div>
- <div class="fig">
-  <h3>Monthly error by region (WAPE, lower is better)</h3>
-  <div class="legend"><span><i style="background:var(--bar)"></i>Our first rule (single shrunk ratio)</span><span><i style="background:var(--ember)"></i>Final model</span><span><i class="tick"></i>Floor: NOAA-20 → S-NPP</span><span>dashed: 5% goal</span></div>
-  <div class="scroll"><svg id="res" viewBox="0 0 720 440" role="img" aria-label="Monthly error by region for the first rule and the final model, with the floor"></svg></div>
-  <p class="cap">Leave one year out, 2012–2021, same cleaned data for every rule. Under 5% in 6 of 8 regions and worldwide on monthly totals; under 5% everywhere on yearly totals.</p>
- </div>
- <div class="fig scroll"><table class="t">
-  <thead><tr><th>Region</th><th class="n">Plain ratio</th><th class="n">First rule</th><th class="n">Final</th><th class="n">Floor</th><th class="n">Yearly</th><th class="n">Bias</th><th class="n">Terra-only</th></tr></thead>
-  <tbody id="resTable"></tbody></table>
-  <p class="cap">Monthly WAPE unless noted. Plain ratio: one ratio per region. Yearly: mean error of annual totals. Bias: total predicted vs observed. Terra-only: the pre-July-2002 model, tested by hiding Aqua.</p></div>
- <div class="col stack">
-  <h3>Other checks</h3>
-  <p><b>Forward in time.</b> Fit 2012–2018, predict 2019–2021: Canada 6.7%, Amazon 2.7%, Mediterranean 6.9%, US West 6.1%, Siberia 4.2%, world 1.7%.</p>
-  <p><b>Seeds.</b> Averaging three random seeds changes nothing beyond 0.1 points.</p>
-  <p><b>Flare mask leak.</b> The mask uses all of 2012–2021, including the held-out year. Rebuilding it without each held-out year changes 0.2–0.4% of that year's S-NPP detections, which bounds the effect at about half a point.</p>
-  <h3>Where it still misses</h3>
-  <p><b>Canada (6.5%): megafire months.</b> Six months carry about 60% of the error, like the Northwest Territories in July 2014 (−24%) and British Columbia in August 2018 (−11%). There S/M jumps from about 5 to 10–29 per block, because smoke and smouldering ground hide fire from MODIS.</p>
-  <p><b>Mediterranean (7.3%): fires MODIS never sees.</b> 8% of S-NPP detections fall in block-months with no same-time MODIS detection. No MODIS input can describe a fire MODIS didn't register.</p>
-  <p>The floor shows these months are predictable with an equal sensor (2–5%). The gap is MODIS sensitivity, not random noise.</p>
- </div>
-</section>
+  <!-- 4 -->
+  <section id="s4">
+   <h2 class="sec"><span class="n">4</span>Gradient-boosted correction</h2>
+   <p>The block ratio is a long-run average. In a given month it can be biased: a month of intense crown fires yields fewer S-NPP detections per MODIS detection than a month of small smouldering fires in the same block. The baseline is therefore multiplied by a correction learned from that month's MODIS observations:</p>
+   <div class="eqn">\[ \hat S = M\, r_{\text{block}}\; e^{f(x)} \quad\Longleftrightarrow\quad \ln \hat S = \ln\!\left(M\, r_{\text{block}}\right) + f(x), \tag{4} \]</div>
+   <p class="where">where \(\hat S\) is the estimated S-NPP count, \(M\) the MODIS count in the same block, month and half of the day, and \(f(x)\) a learned function of the inputs \(x\). \(f = 0\) leaves the baseline unchanged; \(f = 0.2\) raises it by about 22%.</p>
 
-<!-- limits -->
-<section id="limits" class="stack col">
- <span class="eyebrow">Reading the app</span>
- <h2>What to keep in mind</h2>
- <ul class="limits">
-  <li><b>Before 2012 is an estimate.</b> Where MODIS saw nothing we add what VIIRS usually finds there, so single months in quiet places can be well off.</li>
-  <li><b>Megafire months are the hardest.</b> They can come out 10–25% low.</li>
-  <li><b>Outside the tested regions, accuracy varies.</b> The whole world uses the same model, but sparse places (the Arctic, deserts, small islands) are less certain.</li>
-  <li><b>2000–2002 are less certain.</b> Only Terra was flying, and the satellite itself was younger than in the test years.</li>
-  <li><b>Gas flares are left out</b> of every year, so some oil-field areas show less than the raw data.</li>
-  <li><b>The latest months are provisional.</b> They use near-real-time data, replaced by the final archive a few months later.</li>
-  <li><b>Small areas are noisier.</b> Error grows as the drawn area shrinks (about 25% for a single 1° block).</li>
-  <li><b>A detection is not a fire.</b> One large fire can produce hundreds of detections.</li>
- </ul>
-</section>
+   <h3 class="sub"><span class="n">4.1</span>Inputs</h3>
+   <p>Because the model must run in 2000–2011, every input is derived from MODIS alone: the block-month's own detections, its neighbours and its context (Table 2).</p>
+   <figure class="tab" id="t2">
+    <figcaption><b>Table 2.</b> Model inputs \(x\). All are computed from MODIS detections.</figcaption>
+    <div class="scroll"><table class="bt text">
+     <thead><tr><th>Group</th><th>Inputs</th><th>Rationale</th></tr></thead>
+     <tbody>
+      <tr><td>Intensity</td><td>Mean and maximum fire radiative power (FRP), FRP in five bins, high-confidence share, brightness temperatures</td><td>Intense fires are detected by MODIS more completely, lowering the ratio</td></tr>
+      <tr><td>Spatial pattern</td><td>Detections per day, active days, share in the busiest cell, cells touched, scan-angle bins, pixel area</td><td>Many small, scattered fires produce more VIIRS-only detections</td></tr>
+      <tr><td>Satellite</td><td>Terra count, Aqua count, Aqua share</td><td>Aqua passes close to S-NPP's overpass time; Terra about three hours earlier</td></tr>
+      <tr><td>Partial signal</td><td>Low-confidence MODIS share, detections in the other half of the day</td><td>Evidence of fire that MODIS registered only weakly</td></tr>
+      <tr><td>Context</td><td>Previous and next month, neighbouring blocks, the 10° tile and how anomalous the month is for it</td><td>Large fire seasons change detection behaviour</td></tr>
+      <tr><td>Location and time</td><td>Latitude, longitude, season (sine and cosine, mirrored for the southern hemisphere), day/night</td><td>Biome and seasonal differences, learned rather than prescribed</td></tr>
+      <tr><td>Ratios</td><td>World, tile and block ratios (Eq. 3) and the monthly ratio profiles</td><td>Allows the model to judge how far to trust the baseline</td></tr>
+     </tbody></table></div>
+   </figure>
 
-<section id="data" class="stack col">
- <span class="eyebrow">Sources</span>
- <h2>Data, code and references</h2>
- <ul class="refs">
-  <li>NASA FIRMS active fire detections via NASA Earthdata: MODIS Collection 6.1 (Terra, Aqua), VIIRS 375 m S-NPP and NOAA-20. Vegetation fires, nominal and high confidence.</li>
-  <li>Giglio, L., Schroeder, W., Justice, C. O. (2016). The collection 6 MODIS active fire detection algorithm and fire products. <i>Remote Sensing of Environment</i> 178, 31–41.</li>
-  <li>Schroeder, W., Oliva, P., Giglio, L., Csiszar, I. A. (2014). The New VIIRS 375 m active fire detection data product: algorithm description and initial assessment. <i>Remote Sensing of Environment</i> 143, 85–96.</li>
-  <li>Ke, G. et al. (2017). LightGBM: a highly efficient gradient boosting decision tree. <i>Advances in Neural Information Processing Systems</i> 30.</li>
-  <li>Code, experiment scripts and full results: the <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">GitHub repository</a> (<a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/tree/main/experiments/v2">experiments/v2</a>).</li>
-  <li>Portions of the code and text were written with AI assistance and reviewed by the team.</li>
- </ul>
- <div class="cta"><a class="btn btn-primary" data-page-link="index.html" href="index.html">Explore the calendar →</a></div>
-</section>
+   <h3 class="sub"><span class="n">4.2</span>Gradient-boosted trees</h3>
+   <p>The function \(f\) is an additive ensemble of 400 regression trees fitted by gradient boosting with LightGBM<span class="cite"><a href="#r3">3</a></span>, each tree correcting the residual of those before it:</p>
+   <div class="eqn">\[ f(x) = \eta \sum_{t=1}^{400} T_t(x), \qquad \eta = 0.05. \tag{5} \]</div>
+   <p>Each tree partitions the inputs by a sequence of binary splits. Its leaves are linear: a leaf returns a linear function of the inputs rather than a constant, so the correction varies smoothly within a leaf (Figure 5).</p>
+   <figure class="fig" id="f5"><div class="body scroll"><svg viewBox="0 0 760 230" role="img" aria-label="An illustrative tree with binary splits ending in linear leaves">
+     <rect x="250" y="10" width="220" height="38" rx="4" fill="var(--tint)" stroke="var(--line-2)"/><text x="360" y="34" text-anchor="middle" class="mono ink">mean FRP &gt; 40 MW ?</text>
+     <path d="M300 48 L170 92M420 48 L550 92" stroke="var(--ink-3)" fill="none"/><text x="220" y="66" style="font-size:11px">no</text><text x="492" y="66" style="font-size:11px">yes</text>
+     <rect x="70" y="92" width="200" height="38" rx="4" fill="var(--tint)" stroke="var(--line-2)"/><text x="170" y="116" text-anchor="middle" class="mono ink">low-conf share &gt; 0.3 ?</text>
+     <rect x="450" y="92" width="200" height="38" rx="4" fill="var(--tint)" stroke="var(--line-2)"/><text x="550" y="116" text-anchor="middle" class="mono ink">Aqua share &gt; 0.5 ?</text>
+     <path d="M120 130 L70 172M220 130 L270 172M500 130 L450 172M600 130 L650 172" stroke="var(--ink-3)" fill="none"/>
+     <rect x="10" y="172" width="130" height="44" rx="4" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="75" y="191" text-anchor="middle" class="mono ink">+0.04</text><text x="75" y="207" text-anchor="middle" class="mono" style="font-size:11px">+0.02·spread</text>
+     <rect x="205" y="172" width="130" height="44" rx="4" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="270" y="191" text-anchor="middle" class="mono ink">+0.11</text><text x="270" y="207" text-anchor="middle" class="mono" style="font-size:11px">+0.05·lo_share</text>
+     <rect x="385" y="172" width="130" height="44" rx="4" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="450" y="191" text-anchor="middle" class="mono ink">−0.09</text><text x="450" y="207" text-anchor="middle" class="mono" style="font-size:11px">−0.01·FRP</text>
+     <rect x="585" y="172" width="130" height="44" rx="4" fill="var(--blue-soft)" stroke="var(--blue)"/><text x="650" y="191" text-anchor="middle" class="mono ink">−0.03</text><text x="650" y="207" text-anchor="middle" class="mono" style="font-size:11px">+0.01·days</text>
+    </svg></div>
+    <figcaption><b>Figure 5.</b> Structure of one tree, with illustrative splits and leaf values. Fitted trees have up to 31 leaves.</figcaption>
+   </figure>
 
+   <h3 class="sub"><span class="n">4.3</span>Loss function</h3>
+   <p>Detections are counts whose variance grows with their mean, so a squared-error loss would be dominated by a few very large fire months. The model minimises the Poisson deviance, equivalently</p>
+   <div class="eqn">\[ \ell(S, \hat S) = \hat S - S \ln \hat S, \qquad \frac{\partial \ell}{\partial \ln \hat S} = \hat S - S, \qquad \frac{\partial^2 \ell}{\partial (\ln \hat S)^2} = \hat S. \tag{6} \]</div>
+   <p class="where">Each boosting step moves the prediction toward the residual \(S - \hat S\) scaled by \(1/\hat S\), so errors are weighted in relative rather than absolute terms.</p>
+
+   <h3 class="sub"><span class="n">4.4</span>Leakage control and settings</h3>
+   <p>The block ratios supplied as inputs are recomputed without the row's own year. Otherwise each row's ratio would already contain its target, the model would learn to over-trust the ratio, and that trust would fail in the MODIS era, where no S-NPP data exist to build it.</p>
+   <p class="hp">LightGBM · objective poisson · 400 rounds · learning rate 0.05 · 31 leaves · ≥ 100 rows per leaf · 80% feature and row subsampling · L2 = 5 · linear leaves</p>
+  </section>
+
+  <!-- 5 -->
+  <section id="s5">
+   <h2 class="sec"><span class="n">5</span>Months without a MODIS signal</h2>
+   <p>Equation 4 is proportional to \(M\) and returns zero when MODIS detected nothing in a block and half of the day. S-NPP frequently does detect fire there, precisely the small fires MODIS misses. Block-months are therefore assigned to one of three estimators (Table 3).</p>
+   <figure class="tab" id="t3">
+    <figcaption><b>Table 3.</b> Estimator by MODIS evidence in the block, month and half of the day.</figcaption>
+    <div class="scroll"><table class="bt text">
+     <thead><tr><th>Case</th><th>MODIS evidence</th><th>Estimator</th></tr></thead>
+     <tbody>
+      <tr><td>Main model</td><td>Detections in this half of the day</td><td>\(\hat S = M\, r_{\text{block}}\, e^{f(x)}\) (Eq. 4). Covers almost all detections.</td></tr>
+      <tr><td>Zero model</td><td>None in this half of the day, but detections in the other half or only low-confidence pixels</td><td>\(\hat S = (M_o\, r_x + c_0)\, e^{g(x)}\), where \(M_o\) is MODIS in the other half of the day, \(r_x\) the S-NPP count per other-half MODIS detection (shrunk with \(k = 50\) for blocks, 500 for tiles), \(c_0\) the mean S-NPP count when MODIS has only low-confidence pixels, and \(g\) a smaller boosted model. About 4% of night-time S-NPP.</td></tr>
+      <tr><td>Climatology</td><td>None at all</td><td>\(\hat S = \overline{S}\): the block's mean S-NPP count in that calendar month and half of the day, over training years in which MODIS also detected nothing.</td></tr>
+     </tbody></table></div>
+   </figure>
+   <h3 class="sub"><span class="n">5.1</span>The Terra-only period</h3>
+   <p>Aqua began observing in July 2002, so from November 2000 to June 2002 MODIS means Terra alone, about three hours before S-NPP's overpass. A second instance of the full model is fitted on 2012–2021 with Aqua removed and applied to those months. Removing Aqua from the overlap years also provides a direct test of this path (Table 4, last column).</p>
+  </section>
+
+  <!-- 6 -->
+  <section id="s6">
+   <h2 class="sec"><span class="n">6</span>Downscaling and the 2012 join</h2>
+   <p>The calendar and map use 0.25° cells, sixteen per block. Each block estimate is distributed by the location of its MODIS detections:</p>
+   <div class="eqn">\[ \hat S_{\text{cell}} = \hat S_{\text{block}} \cdot \frac{M_{\text{cell}}}{M_{\text{block}}}. \tag{7} \]</div>
+   <p>Where MODIS detected nothing in the block (zero model and climatology), each cell receives its share of the block's S-NPP detections over 2012–2021. Fill values below 0.5 in cells with no MODIS detection are dropped to keep the distributed files small (0.24% of the total). From February 2012 nothing is estimated: the harmonized record is the observed S-NPP count with gas flares removed, so both eras measure the same quantity:</p>
+   <div class="eqn">\[ H = \begin{cases} \hat S, & \text{November 2000 – January 2012} \\ S_{\text{observed}} - S_{\text{flares}}, & \text{February 2012 onward.} \end{cases} \tag{8} \]</div>
+   <p>The join is tested at the seam. If the conversion is correct, the change from 2011 to 2012 should match the change seen by MODIS alone. Worldwide, the harmonized record rises 5.6% from 2011 to 2012 (previous rule: 6.8%). For the Canadian boreal zone it rises 59.8%, against 60.5% for MODIS alone and 785% in the raw sum; 2012 was a larger fire year there (Figure 2).</p>
+  </section>
+
+  <!-- 7 -->
+  <section id="s7">
+   <h2 class="sec"><span class="n">7</span>Validation</h2>
+   <h3 class="sub"><span class="n">7.1</span>Protocol</h3>
+   <p>Performance is estimated by leave-one-year-out cross-validation over 2012–2021: the model is fitted on nine years and predicts the tenth from MODIS alone, ten times (Figure 6). Every prediction is therefore for a year the model did not see, as in the MODIS era. All rules in Tables 1 and 4 are fitted and scored on the same cleaned data. The score is the weighted absolute percentage error of monthly totals per region (day and night, all blocks inside the region's bounds),</p>
+   <div class="eqn">\[ \text{WAPE} = \frac{\sum_{\text{months}} \lvert \hat S - S \rvert}{\sum_{\text{months}} S}, \tag{9} \]</div>
+   <p class="where">the share of observed detections that the estimate gets wrong. Unlike a mean of monthly percentage errors, it is not dominated by months with very few detections.</p>
+   <figure class="fig" id="f6"><div class="body scroll"><svg id="loyo" viewBox="0 0 640 250" role="img" aria-label="Leave-one-year-out: ten fits, each holding out one year"></svg></div>
+    <figcaption><b>Figure 6.</b> Leave-one-year-out design. Each row is one fit; blue years train the model and the orange year is predicted and scored.</figcaption>
+   </figure>
+   <h3 class="sub"><span class="n">7.2</span>Noise floor</h3>
+   <p>NOAA-20 carries the same VIIRS instrument as S-NPP and crosses about 50 minutes apart. Predicting S-NPP from NOAA-20 with block ratios over 2019–2025 measures the error between two identical sensors, a practical lower bound for any MODIS-based rule.</p>
+   <h3 class="sub"><span class="n">7.3</span>Results</h3>
+   <p>Monthly error is below 5% worldwide and in six of eight regions, and annual totals are within 5% everywhere (Figure 7, Table 4). Against the previous rule, the method roughly halves the error in US West, Siberia and Northern Australia and reduces it by about 40% in Canada.</p>
+   <figure class="fig" id="f7"><div class="body">
+     <div class="legend"><span><i style="background:var(--bar)"></i>Previous rule (v1)</span><span><i style="background:var(--ember)"></i>This method (v2)</span><span><i class="tick"></i>Noise floor</span><span>dashed line: 5%</span></div>
+     <div class="scroll"><svg id="res" viewBox="0 0 720 440" role="img" aria-label="Monthly error by region for the previous rule and this method, with the noise floor"></svg></div>
+    </div>
+    <figcaption><b>Figure 7.</b> Monthly WAPE by region, leave-one-year-out over 2012–2021.</figcaption>
+   </figure>
+   <figure class="tab" id="t4">
+    <figcaption><b>Table 4.</b> Error by region (%). Monthly WAPE unless stated.</figcaption>
+    <div class="scroll"><table class="bt">
+     <thead><tr><th>Region</th><th>Single ratio</th><th>v1</th><th>v2</th><th>Floor</th><th>Annual<sup>a</sup></th><th>Worst year<sup>a</sup></th><th>Bias</th><th>Terra-only<sup>b</sup></th></tr></thead>
+     <tbody>
+      <tr><td>Canada</td><td>15.4</td><td>11.3</td><td class="ours">6.5</td><td>2.5</td><td>4.3</td><td>14.5</td><td>−2.3</td><td>7.9</td></tr>
+      <tr><td>Amazon</td><td>4.8</td><td>2.8</td><td class="ours">2.6</td><td>1.7</td><td>1.2</td><td>2.8</td><td>+0.5</td><td>5.6</td></tr>
+      <tr><td>Mediterranean</td><td>10.8</td><td>7.9</td><td class="ours">7.3</td><td>4.0</td><td>3.6</td><td>8.8</td><td>+2.2</td><td>9.2</td></tr>
+      <tr><td>US West</td><td>13.7</td><td>8.8</td><td class="ours">4.4</td><td>2.8</td><td>2.6</td><td>6.5</td><td>−0.6</td><td>5.8</td></tr>
+      <tr><td>Siberia</td><td>10.8</td><td>8.5</td><td class="ours">4.5</td><td>1.8</td><td>2.2</td><td>5.2</td><td>+0.6</td><td>5.4</td></tr>
+      <tr><td>Southern Africa</td><td>6.8</td><td>2.8</td><td class="ours">2.0</td><td>1.1</td><td>1.2</td><td>2.9</td><td>+0.1</td><td>4.0</td></tr>
+      <tr><td>Southeast Asia</td><td>9.2</td><td>4.8</td><td class="ours">3.9</td><td>1.8</td><td>2.4</td><td>5.3</td><td>+1.5</td><td>7.3</td></tr>
+      <tr><td>Northern Australia</td><td>10.1</td><td>6.7</td><td class="ours">3.3</td><td>2.3</td><td>1.2</td><td>3.6</td><td>−0.7</td><td>5.6</td></tr>
+      <tr class="sum"><td>World</td><td>3.6</td><td>2.1</td><td class="ours">1.5</td><td>0.7</td><td>0.7</td><td>1.4</td><td>−0.1</td><td>2.7</td></tr>
+     </tbody></table></div>
+    <p class="tnote"><sup>a</sup> Mean and largest absolute error of annual totals. Bias: total predicted versus observed. <sup>b</sup> The pre-July-2002 model, tested by removing Aqua from the overlap years; the previous rule's Terra ratio scored 6.4% worldwide.</p>
+   </figure>
+   <h3 class="sub"><span class="n">7.4</span>Additional checks</h3>
+   <ul class="list">
+    <li><b>Forward holdout.</b> Fitted on 2012–2018 and tested on 2019–2021: Canada 6.7%, Amazon 2.7%, Mediterranean 6.9%, US West 6.1%, Siberia 4.2%, world 1.7%, against 15.2%, 2.5%, 6.5%, 12.1%, 8.7% and 2.8% for the previous rule.</li>
+    <li><b>Drift years.</b> Under the earlier protocol (fit 2012–2020, test 2021–2023) the method still leads in Canada (5.8% vs 9.7%), US West (4.1% vs 12.9%) and worldwide (2.9% vs 3.7%), but its mean monthly error is higher in the Amazon and Mediterranean, because it treats Terra and Aqua separately and is more exposed to their drift.</li>
+    <li><b>Random seeds.</b> Averaging three seeds changes no score by more than 0.1 points.</li>
+    <li><b>Flare-mask leakage.</b> The mask is built from all of 2012–2021, including each held-out year. Rebuilding it without the held-out year changes the status of 0.2–0.4% of that year's S-NPP detections, which bounds the effect on the scores at about half a point.</li>
+   </ul>
+   <h3 class="sub"><span class="n">7.5</span>Error analysis</h3>
+   <p><b>Canada: megafire months.</b> Six months account for about 60% of the error, including the Northwest Territories in July 2014 (−24%) and British Columbia in August 2018 (−11%). In these months the S-NPP/MODIS ratio rises from about 5 to 10–29 per block, as smoke and smouldering ground hide fire from MODIS. Leave-one-year-out removes the only comparable event from each fit, so this figure is likely pessimistic for the final model fitted on all ten years.</p>
+   <p><b>Mediterranean: fires MODIS does not register.</b> About 8% of S-NPP detections fall in block-months with no same-time MODIS detection. No MODIS-derived input can describe them, and quiet winter months consist mostly of such detections.</p>
+   <p>The noise floor shows that these months are predictable to 2–5% with an equivalent sensor. The remaining gap reflects MODIS sensitivity, not random noise.</p>
+  </section>
+
+  <!-- 8 -->
+  <section id="s8">
+   <h2 class="sec"><span class="n">8</span>Approaches considered</h2>
+   <p>The method was reached through three stages, each evaluated by held-out testing (Table 5). The full sequence, including approaches that were tested and not adopted, is given in Appendix A.</p>
+   <figure class="tab" id="t5">
+    <figcaption><b>Table 5.</b> Main approaches and their outcome. Errors are monthly WAPE under the protocol stated.</figcaption>
+    <div class="scroll"><table class="bt text">
+     <thead><tr><th>Approach</th><th>Description</th><th>Outcome</th><th>Decision</th></tr></thead>
+     <tbody>
+      <tr><td>Single ratio</td><td>One S-NPP/MODIS ratio per region, season and day/night</td><td>Canada 15.4%, world 3.6% (§7 protocol)</td><td>Replaced</td></tr>
+      <tr><td>Blended ratio rule (v1)</td><td>Shrunk 1° block ratio averaged with a monthly power law; chosen from about 90 variants</td><td>Canada 11.3%, world 2.1%</td><td>Replaced</td></tr>
+      <tr><td>Cell-day counting</td><td>Count each 0.05° cell once per day instead of every detection</td><td>Better only in the Amazon (by 0.6 points); worse in Canada and the Mediterranean</td><td>Not adopted</td></tr>
+      <tr><td>Land-cover prior</td><td>Ratios by biome (MODIS MCD12C1)</td><td>Real signal within regions, no out-of-sample gain over block ratios</td><td>Not adopted</td></tr>
+      <tr><td>Boosted correction (v2)</td><td>This report: cleaned data, shrunk block ratios, Poisson gradient boosting</td><td>Canada 6.5%, world 1.5%</td><td>Adopted</td></tr>
+     </tbody></table></div>
+   </figure>
+   <p>Gradient-boosted trees were also tried in the v1 search, where they gave similar error to the blended rule with more bias. They became the better choice only after the data corrections of §2.3 and the restriction to stable-orbit years, which suggests that the cleaning, more than the model class, removed the main source of error.</p>
+  </section>
+
+  <!-- 9 -->
+  <section id="s9">
+   <h2 class="sec"><span class="n">9</span>Limitations and intended use</h2>
+   <p>The harmonized record is intended for comparing burning activity across months and years within an area, for example to judge whether a month is unusual against its 2003–2020 baseline. It is not a count of fires or of area burned, and it is not intended for single-cell or single-day analysis.</p>
+   <ul class="list">
+    <li><b>Months before 2012 are estimates.</b> Where MODIS detected nothing, the estimate is the typical S-NPP count for that place and season, so individual months in quiet areas can be substantially off.</li>
+    <li><b>Megafire months are underestimated</b> by 10–25% in the worst cases (§7.5).</li>
+    <li><b>Accuracy outside the eight test regions varies.</b> The same global model is applied everywhere, but sparse areas such as the Arctic, deserts and small islands are less certain.</li>
+    <li><b>2000–2002 are less certain</b>: only Terra was observing, and the satellite was younger than in the test years.</li>
+    <li><b>Gas flares are removed</b> from every year, so some oil-field areas show fewer detections than the raw data.</li>
+    <li><b>Recent months are provisional</b>: they use near-real-time data, replaced by the standard archive a few months later.</li>
+    <li><b>Error grows as the area shrinks</b>, to about 25% for a single 1° block.</li>
+   </ul>
+  </section>
+
+  <!-- 10 -->
+  <section id="s10">
+   <h2 class="sec"><span class="n">10</span>Data and code availability</h2>
+   <p>All code, experiment scripts and results are in the project repository<span class="cite"><a href="#r4">4</a></span>. The monthly 0.25° grid summary of FIRMS detections is published as release <code>data-v2</code> and the harmonized map tiles as release <code>tiles-v2</code>. The experiments behind this report, with their run order, are in <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/tree/main/experiments/v2"><code>experiments/v2</code></a>; the earlier rule search is in <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/tree/main/experiments"><code>experiments</code></a>, and its validation record in <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS/blob/main/docs/VALIDATION.md"><code>docs/VALIDATION.md</code></a>.</p>
+   <p><b>Suggested citation.</b> Om, Ishan, Sparsh, Pratham (2026). <i>Harmonizing MODIS and VIIRS Active Fire Detections with Shrunk Block Ratios and a Gradient-Boosted Correction.</i> Technical report, version 2.0. NASA Space Apps Challenge 2026.</p>
+   <p><b>Use of AI tools.</b> Portions of the code and text were written with AI assistance and reviewed by the team; details are in the repository README.</p>
+  </section>
+
+  <section id="refs">
+   <h2 class="sec">References</h2>
+   <ol class="refs">
+    <li id="r1">Giglio, L., Schroeder, W., Justice, C. O. (2016). The collection 6 MODIS active fire detection algorithm and fire products. <i>Remote Sensing of Environment</i>, 178, 31–41.</li>
+    <li id="r2">Schroeder, W., Oliva, P., Giglio, L., Csiszar, I. A. (2014). The New VIIRS 375 m active fire detection data product: algorithm description and initial assessment. <i>Remote Sensing of Environment</i>, 143, 85–96.</li>
+    <li id="r3">Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q., Liu, T.-Y. (2017). LightGBM: a highly efficient gradient boosting decision tree. <i>Advances in Neural Information Processing Systems</i>, 30.</li>
+    <li id="r4">Team Murphy (2026). <i>Harmonization of MODIS and VIIRS Hot Spots</i> [source code and data]. <a href="https://github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS">github.com/OM200401/SpaceApps-2026-Harmonization-MODIS-VIIRS</a>.</li>
+    <li id="r5">NASA FIRMS. Active fire data: MODIS Collection 6.1 and VIIRS 375 m, via NASA Earthdata. <a href="https://firms.modaps.eosdis.nasa.gov/">firms.modaps.eosdis.nasa.gov</a>.</li>
+   </ol>
+  </section>
+
+  <!-- Appendix A -->
+  <section id="appA">
+   <h2 class="sec"><span class="n">A</span>Development history</h2>
+   <p>This appendix records how the method developed, including approaches that were tested and not adopted. Errors from different stages were measured under different protocols and are comparable only within a stage; Table 1 rescores the three main rules on a common protocol.</p>
+
+   <h3 class="sub"><span class="n">A.1</span>Pipeline and reference sensor</h3>
+   <p>S-NPP was chosen as the single VIIRS reference, with NOAA-20 held back for the noise floor. Detections were aggregated to a 0.25° monthly grid. A first calibration computed ratios per cell-month where both sensors detected fire; this was too sparse and the ratios collapsed toward 1.0, so ratios were instead aggregated over regions and strata. The pipeline was checked on synthetic data with a planted ratio of 2.8, which it recovered as 2.66 (within 5%). Synthetic data were used only for this check and never reported as results.</p>
+
+   <h3 class="sub"><span class="n">A.2</span>First rule: single ratio per stratum</h3>
+   <p>One ratio per region for each season (fire season May–September, off-season) and day/night, calibrated on 2012–2020 and tested on 2021–2023. Mean monthly error on that holdout was 19.6% in Canada (16.9% with global ratios), 17.9% in the Amazon and 20.6% in the Mediterranean. A separate Terra-only ratio was applied before July 2002.</p>
+
+   <h3 class="sub"><span class="n">A.3</span>Counting unit</h3>
+   <p>Counting each 0.05° cell at most once per day, instead of every detection, removes repeat detections of the same fire and shrinks the ratios considerably (Canada's fire-season night ratio from 8.42 to 2.65). It lowered holdout error only in the Amazon, by 0.6 points, and made Canada and the Mediterranean clearly worse, including at the 2012 join. Detection counts were kept.</p>
+
+   <h3 class="sub"><span class="n">A.4</span>Rule search (v1)</h3>
+   <p>About 90 variants were scored by leave-one-year-out across eight regions: ratio variants, per-area ratios, power laws, Poisson regression, fire-size (FRP) bins, gradient boosting, blends and confidence filters. The chosen rule averaged a shrunk 1° block ratio with a region-level monthly power law. Against the single ratio it reduced total error from 12.7% to 8.9% and mean absolute bias from 10.4% to 4.2%. Because those rounds included 2021–2023, a nested check chose the block size, shrinkage and blend weight using 2012–2020 only and scored once on the untouched 2021–2023 holdout: mean error over eight regions fell from 14.3% to 11.0%. Not adopted at this stage: global ratios, separate Terra and Aqua predictors, FRP bins, region-specific fire seasons, power laws on small blocks, high-confidence-only counts, and gradient-boosted trees (similar error, more bias). An independent recomputation of the shipped Canada record in SQL reproduced every cell's value to within rounding.</p>
+
+   <h3 class="sub"><span class="n">A.5</span>Return to the raw detections (v2)</h3>
+   <p>Rebuilding the paired tables from the individual detections exposed the orbit drift, outage days, gas flares and S-NPP commissioning period described in §2.3. With these removed and fitting restricted to stable-orbit years, the NOAA-20 noise floor showed that months were predictable to within a few percent, so the remaining error lay in the rule, not the data.</p>
+
+   <h3 class="sub"><span class="n">A.6</span>Land-cover prior</h3>
+   <p>Ratios by biome from the MODIS land-cover product (MCD12C1) explained 11–43% of the spread of block ratios within regions, but gave no out-of-sample gain over shrunk block ratios, and world-pooled biome ratios were worse. The idea was dropped.</p>
+
+   <h3 class="sub"><span class="n">A.7</span>Current method</h3>
+   <p>One worldwide model at 1° block × month × day/night: shrunk block ratios (§3), a Poisson gradient-boosted correction with linear leaves (§4), separate estimators where MODIS saw nothing (§5), and a Terra-only variant for 2000–2002. MODIS burned-area data (MCD64A1) as an additional input for megafire months has not yet been tried.</p>
+  </section>
+
+  <!-- Appendix B -->
+  <section id="appB">
+   <h2 class="sec"><span class="n">B</span>Worked example</h2>
+   <p>An illustrative 1° block in the Canadian boreal forest, daytime, in an active July. The controls set the inputs of Eqs. 3 and 4; in the fitted model, \(f(x)\) is produced by the trees rather than set by hand. A positive \(f\) corresponds to months of many small, low-confidence fires, a negative \(f\) to months of a few very intense ones.</p>
+   <figure class="fig" id="fB"><div class="body">
+     <div class="ctl">
+      <label for="cM">MODIS detections this month, \(M\)</label><input id="cM" type="range" min="1" max="1000" step="1" value="120"><output id="cMo">120</output>
+      <label for="cSS">Block history \(\sum S\) (other years)</label><input id="cSS" type="range" min="0" max="15000" step="50" value="2600"><output id="cSSo">2600</output>
+      <label for="cSM">Block history \(\sum M\) (other years)</label><input id="cSM" type="range" min="0" max="3000" step="10" value="500"><output id="cSMo">500</output>
+      <label for="cT">Tile ratio, \(r_{\text{tile}}\)</label><input id="cT" type="range" min="1" max="10" step="0.01" value="4.53"><output id="cTo">4.53</output>
+      <label for="cF">Correction \(f(x)\)</label><input id="cF" type="range" min="-0.6" max="0.6" step="0.01" value="0.11"><output id="cFo">+0.11</output>
+     </div>
+     <pre class="trace" id="cTrace"></pre>
+     <div class="readout"><div><span>Block ratio</span><strong id="cR">—</strong></div><div><span>Baseline M · r</span><strong id="cB">—</strong></div><div><span>Correction e<sup>f</sup></span><strong id="cE">—</strong></div><div class="final"><span>Estimated S-NPP, Ŝ</span><strong id="cS">—</strong></div></div>
+    </div>
+    <figcaption><b>Figure B1.</b> Calculation for one block-month with \(k = 200\). Values are illustrative, not taken from a real block.</figcaption>
+   </figure>
+  </section>
+
+  <!-- Appendix C -->
+  <section id="appC">
+   <h2 class="sec"><span class="n">C</span>Glossary</h2>
+   <dl class="gloss">
+    <dt>Detection (hotspot)</dt><dd>A satellite pixel flagged as containing an active fire at the time of the overpass. One large fire can produce hundreds of detections.</dd>
+    <dt>MODIS</dt><dd>Moderate Resolution Imaging Spectroradiometer on the Terra (from 2000) and Aqua (from 2002) satellites; 1 km fire pixels.</dd>
+    <dt>VIIRS, S-NPP</dt><dd>Visible Infrared Imaging Radiometer Suite on the Suomi NPP satellite (from 2012); 375 m fire pixels. The reference sensor for this record.</dd>
+    <dt>Harmonized count</dt><dd>Detections expressed in S-NPP VIIRS units: observed from February 2012, estimated from MODIS before.</dd>
+    <dt>Estimate (≈)</dt><dd>A month before February 2012, converted from MODIS by the method in this report.</dd>
+    <dt>Provisional</dt><dd>A recent month based on near-real-time data, which may change slightly when the standard archive is published.</dd>
+    <dt>× typical</dt><dd>A month's count divided by the median of the same calendar month over 2003–2020.</dd>
+    <dt>Block, cell</dt><dd>A 1° × 1° area (about 110 km) used for modelling; a 0.25° × 0.25° area (about 25 km) used for display.</dd>
+    <dt>FRP</dt><dd>Fire radiative power: the heat output of a detection, in megawatts.</dd>
+    <dt>WAPE</dt><dd>Weighted absolute percentage error: total absolute error divided by total observed detections (Eq. 9).</dd>
+   </dl>
+   <div class="cta"><a class="btn btn-primary" data-page-link="index.html" href="index.html">Open the calendar →</a></div>
+  </section>
+ </article>
 </main>
+<footer id="site-footer"></footer>
 <div id="tip" hidden></div>
 <script src="shared.js"></script>
 <script>
 (function () {
   const O = window.OBC, $ = id => document.getElementById(id);
-  O.renderHeader("how-it-works.html");
+  O.renderHeader("how-it-works.html"); O.renderFooter();
+  $("print").onclick = () => window.print();
   const NS = "http://www.w3.org/2000/svg";
   const el = (tag, a, text) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); if (text != null) e.textContent = text; return e; };
   const tip = $("tip");
   const showTip = (html, x, y) => { tip.innerHTML = html; tip.hidden = false; const r = tip.getBoundingClientRect(); tip.style.left = Math.max(8, x + 14 + r.width > innerWidth ? x - r.width - 14 : x + 14) + "px"; tip.style.top = Math.max(8, y + 12 + r.height > innerHeight ? y - r.height - 12 : y + 12) + "px"; };
   const hideTip = () => { tip.hidden = true; };
 
-  /* ---- Step 1: raw vs harmonized yearly totals for the area chosen in the app ---- */
+  /* ---- contents: highlight the section in view ---- */
+  const links = [...document.querySelectorAll(".toc ol a")], targets = links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-15% 0px -75% 0px" });
+  targets.forEach(t => io.observe(t));
+
+  /* ---- Figure 2: raw vs harmonized yearly totals for the area chosen in the app ---- */
   const S = O.getState(), YEARS = []; for (let y = 2005; y <= 2018; y++) YEARS.push(y);
   let VIEW = "raw", AGG = null;
   const pct = (a, b) => { const p = (b / a - 1) * 100; return (p >= 0 ? "+" : "") + p.toFixed(0) + "%"; };
@@ -421,99 +590,91 @@ input[type=range]{width:100%;accent-color:var(--ember);padding:0;border:0;backgr
     const svg = $("jump"); svg.innerHTML = "";
     const raw = VIEW === "raw", data = YEARS.map(y => raw ? AGG[y].total : AGG[y].harmonized), max = Math.max(1, ...YEARS.map(y => AGG[y].total));
     const L = 44, R = 712, T = 8, B = 214, bw = (R - L) / YEARS.length, Y = v => B - v / max * (B - T);
-    [0, .25, .5, .75, 1].forEach(f => { const v = max * f; svg.append(el("line", { x1: L, x2: R, y1: Y(v), y2: Y(v), stroke: "var(--grid)" })); svg.append(el("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end", style: "font-size:11px" }, O.fmtK(v))); });
+    [0, .25, .5, .75, 1].forEach(f => { const v = max * f; svg.append(el("line", { x1: L, x2: R, y1: Y(v), y2: Y(v), stroke: "var(--rule-2)" })); svg.append(el("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end", style: "font-size:11px" }, O.fmtK(v))); });
     YEARS.forEach((y, i) => {
       const v = data[i], x = L + i * bw + 4, est = y < 2012;
-      const r = el("rect", { x, y: Y(v), width: bw - 8, height: Math.max(1, B - Y(v)), rx: 3, fill: est ? "var(--modis)" : "var(--ember)" });
+      const r = el("rect", { x, y: Y(v), width: bw - 8, height: Math.max(1, B - Y(v)), fill: est ? "var(--modis)" : "var(--ember)" });
       r.addEventListener("pointermove", e => showTip(`<b>${y}</b><br>${raw ? "Raw" : est ? "≈ Harmonized" : "Harmonized"}: ${O.fmt(v)} detections`, e.clientX, e.clientY));
       r.addEventListener("pointerleave", hideTip);
       svg.append(r);
-      svg.append(el("text", { x: x + (bw - 8) / 2, y: B + 18, "text-anchor": "middle", style: "font-size:11px" }, "'" + String(y).slice(2)));
+      svg.append(el("text", { x: x + (bw - 8) / 2, y: B + 18, "text-anchor": "middle", style: "font-size:11px" }, String(y)));
     });
-    svg.append(el("line", { x1: L + 7 * bw, x2: L + 7 * bw, y1: T, y2: B + 4, stroke: "var(--ink)", "stroke-dasharray": "2 3" }));
+    svg.append(el("line", { x1: L + 7 * bw, x2: L + 7 * bw, y1: T, y2: B + 4, stroke: "var(--paper-ink)", "stroke-dasharray": "2 3" }));
     const a = AGG[2011], b = AGG[2012];
-    $("jump-text").textContent = !(a.total > 0 && a.modis > 0) ? "No fire detected here in 2011, so the switch-over can't be shown for this area."
-      : raw ? `Raw, fire seems to jump ${pct(a.total, b.total)} from 2011 to 2012. That's the satellite changing, not the fires.`
-      : `Harmonized, the change is ${pct(a.harmonized, b.harmonized)}, close to the ${pct(a.modis, b.modis)} that MODIS alone shows. The fake jump is gone.`;
+    $("jump-text").textContent = !(a.total > 0 && a.modis > 0) ? "No fire was detected here in 2011, so the 2012 transition cannot be shown for this area."
+      : raw ? `Raw sum, 2011 to 2012: ${pct(a.total, b.total)}. The increase reflects the new sensor, not the fires.`
+      : `Harmonized, 2011 to 2012: ${pct(a.harmonized, b.harmonized)}, against ${pct(a.modis, b.modis)} for MODIS alone.`;
   }
   $("jview").addEventListener("click", e => { const b = e.target.closest("button"); if (!b || !AGG) return; VIEW = b.dataset.v; $("jview").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); renderJump(); });
   O.onTheme(() => { if (AGG) renderJump(); });
-  $("area-name").textContent = O.areaName(S.bbox);
-  O.loadData().then(() => { O.setDataThrough(); return O.areaCells(S.bbox); }).then(r => {
+  $("area-name").textContent = "Area: " + O.areaName(S.bbox);
+  O.loadData().then(() => {
+    O.setDataThrough(); const e = O.state.END; if (e.year) $("through").textContent = `${O.MONTH[e.month - 1]} ${e.year}`;
+    return O.areaCells(S.bbox);
+  }).then(r => {
     AGG = {}; YEARS.forEach(y => AGG[y] = { total: 0, harmonized: 0, modis: 0 });
     r.cells.forEach(c => { const a = AGG[c.year]; if (a) { a.total += c.total_count; a.harmonized += c.harmonized_count; a.modis += c.modis_count; } });
     renderJump();
-  }).catch(err => { console.error(err); $("jump-text").textContent = "Couldn't load the fire data. Try reloading the page."; });
+  }).catch(err => { console.error(err); $("jump-text").textContent = "The fire data could not be loaded. Reload the page to try again."; });
 
-  /* ---- Step 3: shrinkage ---- */
-  function drawShrink() {
-    const k = 200, M = +$("sM").value, own = +$("sOwn").value, tile = +$("sTile").value;
-    $("sMo").value = M; $("sOwno").value = own.toFixed(1); $("sTileo").value = tile.toFixed(1);
-    const w = M / (M + k), r = w * own + (1 - w) * tile;
-    $("sW").textContent = w.toFixed(2); $("sR").textContent = r.toFixed(2);
-    const svg = $("shrinkSvg"); svg.innerHTML = "";
-    const L = 56, R = 700, T = 14, B = 190, xmax = 3000, lo = Math.min(own, tile) - .5, hi = Math.max(own, tile) + .5;
+  /* ---- Figure 4: shrinkage curve (fixed illustrative block) ---- */
+  (function () {
+    const k = 200, own = 6.0, tile = 4.5, svg = $("shrinkSvg");
+    const L = 56, R = 700, T = 14, B = 190, xmax = 3000, lo = 4.0, hi = 6.5;
     const x = v => L + v / xmax * (R - L), y = v => B - (v - lo) / (hi - lo) * (B - T);
-    for (let t = 0; t <= xmax; t += 500) { svg.append(el("line", { x1: x(t), x2: x(t), y1: T, y2: B, stroke: "var(--grid)" })); svg.append(el("text", { x: x(t), y: B + 18, "text-anchor": "middle", style: "font-size:11px" }, t.toLocaleString())); }
+    for (let t = 0; t <= xmax; t += 500) { svg.append(el("line", { x1: x(t), x2: x(t), y1: T, y2: B, stroke: "var(--rule-2)" })); svg.append(el("text", { x: x(t), y: B + 18, "text-anchor": "middle", style: "font-size:11px" }, t.toLocaleString())); }
     svg.append(el("text", { x: (L + R) / 2, y: B + 36, "text-anchor": "middle", style: "font-size:11px" }, "block MODIS history ΣM (detections)"));
-    [[own, "block's own " + own.toFixed(1), "var(--ember)"], [tile, "tile " + tile.toFixed(1), "var(--ink-3)"]].forEach(([v, lab, c]) => {
-      svg.append(el("line", { x1: L, x2: R, y1: y(v), y2: y(v), stroke: c, "stroke-dasharray": "5 4", "stroke-width": 1.5 }));
+    [[own, "block's own ratio 6.0"], [tile, "tile ratio 4.5"]].forEach(([v, lab]) => {
+      svg.append(el("line", { x1: L, x2: R, y1: y(v), y2: y(v), stroke: "var(--paper-3)", "stroke-dasharray": "5 4" }));
       svg.append(el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", style: "font-size:11px" }, v.toFixed(1)));
-      svg.append(el("text", { x: R, y: y(v) + (v >= Math.max(own, tile) ? -6 : 14), "text-anchor": "end", style: "font-size:11px" }, lab));
+      svg.append(el("text", { x: R, y: y(v) + (v === own ? -6 : 14), "text-anchor": "end", style: "font-size:11px" }, lab));
     });
-    let d = ""; for (let t = 0; t <= xmax; t += 20) { const ww = t / (t + k); d += (t ? "L" : "M") + x(t).toFixed(1) + " " + y(ww * own + (1 - ww) * tile).toFixed(1); }
+    let d = ""; for (let t = 0; t <= xmax; t += 20) { const w = t / (t + k); d += (t ? "L" : "M") + x(t).toFixed(1) + " " + y(w * own + (1 - w) * tile).toFixed(1); }
     svg.append(el("path", { d, fill: "none", stroke: "var(--blue)", "stroke-width": 2 }));
-    svg.append(el("circle", { cx: x(M), cy: y(r), r: 6, fill: "var(--blue)", stroke: "var(--card)", "stroke-width": 2 }));
-    svg.append(el("text", { x: Math.min(x(M) + 10, R - 100), y: y(r) + (own >= tile ? 20 : -10), class: "ink", style: "font-size:12px;font-weight:600" }, "r_block = " + r.toFixed(2)));
-  }
-  ["sM", "sOwn", "sTile"].forEach(id => $(id).addEventListener("input", drawShrink));
-  drawShrink();
+    [200, 2000].forEach(M => { const w = M / (M + k), r = w * own + (1 - w) * tile; svg.append(el("circle", { cx: x(M), cy: y(r), r: 4.5, fill: "var(--blue)" })); svg.append(el("text", { x: x(M) + 8, y: y(r) + 16, class: "ink", style: "font-size:11.5px" }, `w = ${w.toFixed(2)}`)); });
+  })();
 
-  /* ---- worked example ---- */
+  /* ---- Appendix B: worked example ---- */
   function calc() {
     const k = 200, M = +$("cM").value, SS = +$("cSS").value, SM = +$("cSM").value, T = +$("cT").value, f = +$("cF").value;
     $("cMo").value = M; $("cSSo").value = SS; $("cSMo").value = SM; $("cTo").value = T.toFixed(2); $("cFo").value = (f >= 0 ? "+" : "") + f.toFixed(2);
     const r = (SS + k * T) / (SM + k), base = M * r, e = Math.exp(f), Sh = base * e;
     $("cR").textContent = r.toFixed(2); $("cB").textContent = Math.round(base).toLocaleString(); $("cE").textContent = "×" + e.toFixed(2); $("cS").textContent = Math.round(Sh).toLocaleString();
-    $("cTrace").textContent = "r_block  = (ΣS + k·r_tile) / (ΣM + k)\n" +
+    $("cTrace").textContent = "r_block  = (ΣS + k·r_tile) / (ΣM + k)                    (Eq. 3)\n" +
       `         = (${SS} + 200 × ${T.toFixed(2)}) / (${SM} + 200) = ${r.toFixed(3)}\n` +
       `baseline = M × r_block = ${M} × ${r.toFixed(3)} = ${base.toFixed(1)}\n` +
-      `Ŝ        = baseline × e^f = ${base.toFixed(1)} × ${e.toFixed(3)} = ${Sh.toFixed(1)}`;
+      `Ŝ        = baseline × e^f = ${base.toFixed(1)} × ${e.toFixed(3)} = ${Sh.toFixed(1)}       (Eq. 4)`;
   }
   ["cM", "cSS", "cSM", "cT", "cF"].forEach(id => $(id).addEventListener("input", calc));
   calc();
 
-  /* ---- leave one year out ---- */
+  /* ---- Figure 6: leave one year out ---- */
   (function () {
     const svg = $("loyo"), years = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021], L = 70, cw = 56, ch = 19, T = 22;
-    years.forEach((y, i) => svg.append(el("text", { x: L + i * cw + cw / 2, y: 14, "text-anchor": "middle", style: "font-size:11px" }, "'" + String(y).slice(2))));
+    years.forEach((y, i) => svg.append(el("text", { x: L + i * cw + cw / 2, y: 14, "text-anchor": "middle", style: "font-size:11px" }, String(y))));
     years.forEach((hold, r) => {
       svg.append(el("text", { x: L - 8, y: T + r * (ch + 3) + 14, "text-anchor": "end", style: "font-size:11px" }, "fit " + (r + 1)));
-      years.forEach((y, i) => { const h = y === hold; svg.append(el("rect", { x: L + i * cw + 1, y: T + r * (ch + 3), width: cw - 2, height: ch, rx: 3, fill: h ? "var(--ember)" : "var(--blue-soft)", stroke: h ? "var(--ember)" : "var(--blue)" })); });
+      years.forEach((y, i) => { const h = y === hold; svg.append(el("rect", { x: L + i * cw + 1, y: T + r * (ch + 3), width: cw - 2, height: ch, fill: h ? "var(--ember)" : "var(--blue-soft)", stroke: h ? "var(--ember)" : "var(--blue)" })); });
     });
   })();
 
-  /* ---- results (from experiments/v2/README.md) ---- */
-  // name, plain ratio, first rule, final, floor, yearly, bias, terra-only
-  const RES = [["Canada", 15.4, 11.3, 6.5, 2.5, 4.3, -2.3, 7.9], ["Amazon", 4.8, 2.8, 2.6, 1.7, 1.2, .5, 5.6], ["Mediterranean", 10.8, 7.9, 7.3, 4.0, 3.6, 2.2, 9.2],
-    ["US West", 13.7, 8.8, 4.4, 2.8, 2.6, -.6, 5.8], ["Siberia", 10.8, 8.5, 4.5, 1.8, 2.2, .6, 5.4], ["Southern Africa", 6.8, 2.8, 2.0, 1.1, 1.2, .1, 4.0],
-    ["SE Asia", 9.2, 4.8, 3.9, 1.8, 2.4, 1.5, 7.3], ["N Australia", 10.1, 6.7, 3.3, 2.3, 1.2, -.7, 5.6], ["World", 3.6, 2.1, 1.5, .7, .7, -.1, 2.7]];
-  const p1 = v => v.toFixed(1) + "%", sg = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1) + "%";
-  $("resTable").innerHTML = RES.map(([n, o, s, v, f, yr, b, t]) => `<tr><td>${n}</td><td class="n">${p1(o)}</td><td class="n">${p1(s)}</td><td class="n win">${p1(v)}</td><td class="n">${p1(f)}</td><td class="n">${p1(yr)}</td><td class="n">${sg(b)}</td><td class="n">${p1(t)}</td></tr>`).join("");
+  /* ---- Figure 7: results by region (values as in Table 4, from experiments/v2/README.md) ---- */
+  const RES = [["Canada", 11.3, 6.5, 2.5], ["Amazon", 2.8, 2.6, 1.7], ["Mediterranean", 7.9, 7.3, 4.0], ["US West", 8.8, 4.4, 2.8], ["Siberia", 8.5, 4.5, 1.8],
+    ["Southern Africa", 2.8, 2.0, 1.1], ["Southeast Asia", 4.8, 3.9, 1.8], ["Northern Australia", 6.7, 3.3, 2.3], ["World", 2.1, 1.5, .7]];
   (function () {
-    const svg = $("res"), L = 120, R = 690, T = 10, rowH = 44, bh = 13, xmax = 12, x = v => L + v / xmax * (R - L), Bt = T + RES.length * rowH;
-    for (let t = 0; t <= xmax; t += 2) { svg.append(el("line", { x1: x(t), x2: x(t), y1: T, y2: Bt, stroke: "var(--grid)" })); svg.append(el("text", { x: x(t), y: Bt + 18, "text-anchor": "middle", style: "font-size:11px" }, t + "%")); }
-    svg.append(el("line", { x1: x(5), x2: x(5), y1: T, y2: Bt, stroke: "var(--ink-2)", "stroke-dasharray": "4 4", "stroke-width": 1.2 }));
-    RES.forEach(([name, , s, v, f], i) => {
-      const y0 = T + i * rowH + 8, g = el("g", { tabindex: 0, "aria-label": `${name}: first rule ${s}%, final ${v}%, floor ${f}%` });
+    const svg = $("res"), L = 130, R = 690, T = 10, rowH = 44, bh = 13, xmax = 12, x = v => L + v / xmax * (R - L), Bt = T + RES.length * rowH;
+    for (let t = 0; t <= xmax; t += 2) { svg.append(el("line", { x1: x(t), x2: x(t), y1: T, y2: Bt, stroke: "var(--rule-2)" })); svg.append(el("text", { x: x(t), y: Bt + 18, "text-anchor": "middle", style: "font-size:11px" }, t + "%")); }
+    svg.append(el("line", { x1: x(5), x2: x(5), y1: T, y2: Bt, stroke: "var(--paper-2)", "stroke-dasharray": "4 4", "stroke-width": 1.2 }));
+    RES.forEach(([name, s, v, f], i) => {
+      const y0 = T + i * rowH + 8, g = el("g", { tabindex: 0, "aria-label": `${name}: previous rule ${s}%, this method ${v}%, floor ${f}%` });
       g.append(el("rect", { x: 0, y: y0 - 6, width: R, height: rowH, fill: "transparent" }));
       g.append(el("text", { x: L - 10, y: y0 + bh + 4, "text-anchor": "end", class: "ink", style: `font-size:12px;${name === "World" ? "font-weight:600" : ""}` }, name));
-      g.append(el("rect", { x: L, y: y0, width: Math.max(x(s) - L, 1), height: bh, rx: 3, fill: "var(--bar)" }));
-      g.append(el("rect", { x: L, y: y0 + bh + 2, width: Math.max(x(v) - L, 1), height: bh, rx: 3, fill: "var(--ember)" }));
-      g.append(el("line", { x1: x(f), x2: x(f), y1: y0 - 3, y2: y0 + 2 * bh + 5, stroke: "var(--ink)", "stroke-width": 3, "stroke-linecap": "round" }));
-      g.append(el("text", { x: x(s) + 6, y: y0 + bh - 2, style: "font-size:11px" }, s.toFixed(1) + "%"));
-      g.append(el("text", { x: x(v) + 6, y: y0 + 2 * bh, class: "ink", style: "font-size:11px" }, v.toFixed(1) + "%"));
-      const html = `<b>${name}</b><br>First rule ${s.toFixed(1)}%<br>Final ${v.toFixed(1)}%<br>Floor ${f.toFixed(1)}%`;
+      g.append(el("rect", { x: L, y: y0, width: Math.max(x(s) - L, 1), height: bh, fill: "var(--bar)" }));
+      g.append(el("rect", { x: L, y: y0 + bh + 2, width: Math.max(x(v) - L, 1), height: bh, fill: "var(--ember)" }));
+      g.append(el("line", { x1: x(f), x2: x(f), y1: y0 - 3, y2: y0 + 2 * bh + 5, stroke: "var(--paper-ink)", "stroke-width": 3 }));
+      g.append(el("text", { x: x(s) + 6, y: y0 + bh - 2, style: "font-size:11px" }, s.toFixed(1)));
+      g.append(el("text", { x: x(v) + 6, y: y0 + 2 * bh, class: "ink", style: "font-size:11px" }, v.toFixed(1)));
+      const html = `<b>${name}</b><br>Previous rule ${s.toFixed(1)}%<br>This method ${v.toFixed(1)}%<br>Noise floor ${f.toFixed(1)}%`;
       g.addEventListener("pointermove", e => showTip(html, e.clientX, e.clientY)); g.addEventListener("pointerleave", hideTip);
       g.addEventListener("focus", () => { const b = g.getBoundingClientRect(); showTip(html, b.left + b.width / 2, b.top); }); g.addEventListener("blur", hideTip);
       svg.append(g);
