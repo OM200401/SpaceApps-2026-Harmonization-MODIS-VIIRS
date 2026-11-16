@@ -1,6 +1,6 @@
 # Project page draft — all 8 fields (fill [BRACKETS] after real-data run)
 
-1. Project name: One Burning Calendar — Harmonized MODIS + VIIRS Fire Record (Team Murphy)
+1. Project name: Ignis Almanac — Harmonized MODIS + VIIRS Fire Record (Team Murphy)
 
 2. High-level summary: Two NASA satellites have watched Earth's fires for 25 years, but they don't count the same way — VIIRS (375 m, 2012+) sees far more small fires than MODIS (1 km, 2000+), so the raw record shows a fake jump in 2012. We calibrated the two sensors against each other over their 2012–2023 overlap, stratified by fire intensity and season, and fused them into one harmonized burning-activity calendar for Canada's boreal forests. In the harmonized record the sensor change disappears and real extremes stand out: May 2023, Canada's record fire season, burns at [X]× the 20-year May median.
 

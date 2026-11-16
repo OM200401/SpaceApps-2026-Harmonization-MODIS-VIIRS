@@ -1,4 +1,4 @@
-/* One Burning Calendar: data loading, harmonization display rules and page chrome shared by all pages.
+/* Ignis Almanac: data loading, harmonization display rules and page chrome shared by all pages.
    Exposes window.OBC. The data contract is docs/UI_DATA_CONTRACT.md (app/data/index.json + tiles). */
 (function () {
   const MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -218,7 +218,7 @@
     const el = document.getElementById("site-header"); if (!el) return;
     const link = (page, label) => `<a class="nav-link" data-page-link="${page}" href="${page}"${active === page ? ' aria-current="page"' : ""}>${label}</a>`;
     el.className = "site-header";
-    el.innerHTML = `<div class="bar"><a class="brand" data-page-link="index.html" href="index.html"><span class="brand-mark">${FLAME}</span>One Burning Calendar</a>
+    el.innerHTML = `<div class="bar"><a class="brand" data-page-link="index.html" href="index.html"><span class="brand-mark">${FLAME}</span>Ignis Almanac</a>
       <div class="header-slot">${slot || ""}</div>
       <div class="header-end"><span class="header-meta" id="data-through"></span>
       <nav aria-label="Main" style="display:flex;gap:2px">${link("index.html", "Explore")}${link("how-it-works.html", "Method")}</nav>

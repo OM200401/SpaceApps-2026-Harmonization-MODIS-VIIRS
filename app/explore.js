@@ -1,4 +1,4 @@
-/* One Burning Calendar: the main page.
+/* Ignis Almanac: the main page.
    The calendar fills the screen (Year and All years views); the Map button swaps it for the map.
    One selection (area, month) drives the calendar, the map and the three key numbers on the left.
    Data helpers live in shared.js (window.OBC). */

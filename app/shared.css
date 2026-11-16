@@ -1,4 +1,4 @@
-/* One Burning Calendar: shared styles for index.html (explore) and how-it-works.html (method).
+/* Ignis Almanac: shared styles for index.html (explore) and how-it-works.html (method).
    Dark is the default theme; the header toggle stores "light" or "dark" (data-theme on <html>). */
 :root{
   --ink:#eef0f2; --ink-2:#b6bcc5; --ink-3:#868d98;
