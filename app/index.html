@@ -1,304 +1,250 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>One Burning Calendar — fire activity map</title>
-<meta name="description" content="Harmonized MODIS + VIIRS fire activity: how unusual is this month for your area?">
+<title>One Burning Calendar — harmonized MODIS + VIIRS fire record</title>
+<meta name="description" content="A burning activity calendar from harmonized MODIS and VIIRS hotspots: pick an area, see every month since 2001, and how unusual it was.">
 <meta property="og:type" content="website"><meta property="og:site_name" content="One Burning Calendar">
 <meta property="og:title" content="One Burning Calendar: 25 years of fire, one consistent record"><meta property="og:description" content="Two NASA satellite fire records joined into one. See how unusual this month is for any area on Earth.">
 <meta property="og:url" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/"><meta property="og:image" content="https://om200401.github.io/SpaceApps-2026-Harmonization-MODIS-VIIRS/app/preview.png">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23e5531a%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("obc-theme")==="light"?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%23c2410c%27/%3E%3Cpath fill=%27%23fff%27 d=%27M12 3c1 3.2-1.4 4.6-1.4 6.9 0 1.3.9 2.3 2.1 2.3 1.5 0 2.2-1.3 2-2.8 1.8 1.5 3.2 3.7 3.2 6C17.9 18.9 15.3 21 12 21s-5.9-2.1-5.9-5.6C6.1 10.6 10.7 8 12 3z%27/%3E%3C/svg%3E">
-<script>try{var t=localStorage.getItem("obc-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="stylesheet" href="shared.css">
 <style>
-body{display:flex;flex-direction:column;min-height:100vh}
-.stage{position:relative;height:calc(100vh - 58px);min-height:520px;overflow:hidden}
-#leaflet-map{position:absolute;inset:0;z-index:0}
-#map-canvas{display:none;position:absolute;inset:0;width:100%;height:100%;z-index:0}
-.leaflet-container{font:inherit}
-/* Halo around place names so they stay readable on top of fire cells */
-.leaflet-labels-pane{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 2px #fff)}
-:root[data-theme="dark"] .leaflet-labels-pane{filter:drop-shadow(0 0 1px #000) drop-shadow(0 0 1.5px #000) drop-shadow(0 0 2px #000)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .leaflet-labels-pane{filter:drop-shadow(0 0 1px #000) drop-shadow(0 0 1.5px #000) drop-shadow(0 0 2px #000)}}
-.map-box{position:absolute;inset:0}
-.float{position:absolute;z-index:10}
-.area-ctl{top:16px;left:16px;padding:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:min(560px,calc(100% - 32px))}
-.area-ctl select{border:0;background:transparent;font-weight:600;font-size:15px;padding:6px 8px;max-width:240px}
-.area-ctl .coords{padding:0 6px}
-.area-ctl .coords[open]{flex-basis:100%}
-.area-ctl .coords[open]{padding-bottom:6px}
-.area-ctl{width:max-content}
-.coords-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
-.coords-row input{width:210px}
-.sep{width:1px;align-self:stretch;background:var(--line);margin:2px 0}
-button.chip{border-radius:999px;padding:6px 12px;font-size:13.5px}
-button.chip[aria-pressed="true"]{background:var(--ember);border-color:var(--ember);color:var(--on-ember)}
-.insight{top:16px;right:16px;width:300px;padding:18px 20px}
-.insight .lede{font-size:12.5px;color:var(--ink-2);margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid var(--line)}
-.insight .where{font-size:12.5px;color:var(--ink-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.insight .month{font-size:24px;font-weight:650;letter-spacing:-.01em;margin:2px 0 10px}
-.insight .ratio{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;margin-top:14px}
-.insight .ratio small{display:block;font-size:14px;font-weight:500;color:var(--ink-3);letter-spacing:0;margin-top:6px}
-.insight .counts{font-size:13px;color:var(--ink-2);margin-top:8px;font-variant-numeric:tabular-nums}
-.insight .btn-primary{width:100%;justify-content:center;margin-top:16px;padding:10px 14px;border-radius:999px}
-.insight .how{display:block;text-align:center;font-size:12.5px;margin-top:10px;color:var(--ink-3)}
-.legend-mini{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-3);margin-top:14px}
-.legend-mini .g{flex:1;height:6px;border-radius:99px}
-.timeline{left:16px;right:332px;bottom:16px;padding:10px 16px 10px 10px;display:flex;align-items:center;gap:12px}
-.timeline .spark-wrap{flex:1;min-width:0}
-.timeline .spark-box{position:relative;height:40px}
-.timeline input[type=range]{width:100%;display:block;margin:2px 0 0;height:16px}
-#play{width:42px;height:42px;border-radius:50%;padding:0;justify-content:center;background:var(--ember);border-color:var(--ember);color:var(--on-ember);font-size:14px;flex:none}
+/* One screen on desktop: the three key numbers on the left, the calendar (or the map) filling the rest. */
+body{display:flex;flex-direction:column;height:100vh;overflow:auto}
+.work{position:relative;flex:1 0 auto;height:calc(100vh - 57px);min-height:600px;display:grid;grid-template-columns:clamp(290px,23vw,340px) minmax(0,1fr);gap:12px;padding:12px}
+.eyebrow{font-family:var(--cond);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+
+/* Header controls */
+.header-slot select{font-weight:600;max-width:220px}
+.coords .pop{left:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:340px}
+.coords .pop input{flex:1;min-width:190px}
+.coords .pop small{flex-basis:100%;color:var(--ink-3);font-size:12px}
+.dl .pop{left:0;width:300px;display:flex;flex-direction:column;gap:4px}
+.dl .pop p{margin:0 0 6px;font-size:12px;color:var(--ink-3)}
+.dl .pop button{justify-content:space-between;width:100%;border:0;text-align:left}
+.dl .pop button small{color:var(--ink-3);font-family:var(--mono);font-size:11px}
+
+/* Key numbers */
+.metrics{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}
+.q{padding:12px 16px 12px;min-width:0;display:flex;flex-direction:column;flex:none}
+.q h2{font-family:var(--cond);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
+.q>div{display:flex;flex-direction:column}
+.q .hero{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.q .big{font-family:var(--mono);font-size:34px;font-weight:500;letter-spacing:-.03em;line-height:1}
+.q .line{font-size:12.5px;color:var(--ink-2);margin:6px 0 0}
+.q .line b{color:var(--ink);font-weight:600}
+.q svg{display:block;width:100%;margin-top:8px;overflow:visible}
+.q svg text{font-family:var(--sans);font-size:10.5px;fill:var(--ink-3)}
+.q .hit{cursor:pointer}
+.acc{font-size:11.5px;color:var(--ink-3);margin:6px 0 0}
+.acc a{color:var(--ink-2)}
+.ranks{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.ranks button{width:100%;display:grid;grid-template-columns:18px 38px minmax(0,1fr) 52px;align-items:center;gap:8px;border:0;background:none;padding:3px 4px;font-size:12.5px;border-radius:6px;text-align:left}
+.ranks button:hover{background:var(--tint)}
+.ranks .rk{color:var(--ink-3);font-size:11px}
+.ranks .tr{height:8px;border-radius:0 4px 4px 0;background:var(--bar);min-width:2px}
+.ranks .cur .tr{background:var(--ember)}
+.ranks .cur .yr{font-weight:600}
+.ranks .v{text-align:right;color:var(--ink-2)}
+.ranks .gap{font-size:11px;color:var(--ink-3);padding-left:30px;line-height:1}
+.dot{fill:var(--ember);stroke:var(--card);stroke-width:2}
+
+/* Stage: calendar by default, the map replaces it */
+.stage{grid-column:2;grid-row:1;position:relative;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.calview{flex:1;min-height:0;display:flex;flex-direction:column;padding:16px 18px 12px}
+.cal-top{display:flex;align-items:flex-start;gap:16px}
+.cal-top .titles{flex:1;min-width:0}
+.cal-top h1{font-family:var(--cond);font-size:24px;font-weight:600;letter-spacing:0;margin-top:2px}
+.cal-top .verdict{font-size:15.5px;line-height:1.4;color:var(--ink-2);margin:4px 0 0}
+.cal-top .verdict b{color:var(--ink);font-weight:600}
+.swap{flex:none;padding:9px 16px;border-radius:999px;font-weight:600}
+.swap svg{width:16px;height:16px}
+.cal-ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.navy{display:inline-flex;align-items:center;gap:4px}
+.navy button{width:32px;height:32px;padding:0;justify-content:center;border-radius:50%}
+.navy button:disabled{opacity:.35;cursor:default}
+.navy strong{font-family:var(--cond);font-size:16px;font-weight:600;min-width:120px;text-align:center}
+.range{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:13px;color:var(--ink-3)}
+.range select{padding:4px 6px;font-size:12.5px;font-family:var(--mono)}
+.jump{font-size:12.5px;color:var(--ink-2);margin:10px 0 0;padding:8px 10px;border-radius:var(--radius-sm);background:var(--tint);border-left:3px solid var(--ember)}
+.jump b{color:var(--ink)}
+#cal-body{flex:1;min-height:0;margin-top:12px;position:relative;outline:0;overflow:auto}
+.cal-foot{margin-top:8px;font-size:11.5px;color:var(--ink-3);display:flex;gap:6px 24px;flex-wrap:wrap;align-items:center}
+.scale{display:flex;align-items:center;gap:10px;flex:1 1 360px}
+.scale .lab{white-space:nowrap}
+.scale .bar{flex:1;max-width:280px}
+.scale .grad{height:8px;border-radius:99px}
+.scale .ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);margin-top:2px}
+.keys{display:flex;gap:4px 14px;flex-wrap:wrap}
+.keys span{display:inline-flex;align-items:center;gap:5px}
+.keys i{width:12px;height:12px;border-radius:3px;display:inline-block;background:var(--cell-empty)}
+.keys i.k-prov{outline:1.5px dashed var(--ink-3);outline-offset:-2px}
+.keys i.k-part{background:repeating-linear-gradient(45deg,var(--tint),var(--tint) 2px,var(--card) 2px,var(--card) 4px);border:1px solid var(--line)}
+.keys i.k-est{background:none;border-top:2px solid var(--ink-3);border-radius:0;height:0;width:16px}
+
+/* Shared cell look */
+.c{border-radius:4px;cursor:pointer;min-height:0;background:var(--cell-empty);position:relative}
+.c:hover{outline:1.5px solid var(--ink-2);outline-offset:0;z-index:1}
+.c.sel{outline:2px solid var(--ink);outline-offset:1px;z-index:2}
+.c:focus-visible{outline:2px solid var(--blue);outline-offset:1px;z-index:3}
+.c.prov{outline:1.5px dashed var(--ink-3);outline-offset:-3px}
+.c.prov.sel{outline:2px solid var(--ink);outline-offset:1px}
+.c.partial{background:repeating-linear-gradient(45deg,var(--tint),var(--tint) 3px,var(--card) 3px,var(--card) 6px);cursor:default}
+:root[data-contrast] .c{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 45%,transparent)}
+:root[data-contrast] .c.sel{outline-width:3px;outline-offset:2px}
+
+/* All years: years down, months across */
+.cal{height:100%;min-height:calc(18px + var(--n) * 14px + 34px);display:grid;grid-template-rows:18px repeat(var(--n),minmax(12px,1fr)) 34px;gap:2px}
+.cal-row{display:grid;grid-template-columns:36px repeat(12,minmax(0,1fr)) 92px;grid-template-rows:minmax(0,1fr);gap:2px;min-height:0;position:relative}
+.cal-row>*{min-height:0;line-height:1}
+.cal-head span{font-size:10.5px;color:var(--ink-3);text-align:center;font-weight:500;line-height:18px}
+.cal-head .m1{display:none}
+.cal .yl{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);display:flex;align-items:center;justify-content:flex-end;padding-right:4px}
+.cal .est .yl{font-style:italic}
+.cal .cur .yl{color:var(--ink);font-weight:600}
+.cal .c{border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;overflow:hidden}
+.cal .snpp::before{content:"";position:absolute;left:0;right:0;top:-2px;border-top:2px solid var(--ink-3);pointer-events:none}
+.cal .yt{display:flex;align-items:center;gap:6px;padding-left:4px;cursor:pointer;min-width:0}
+.cal .yt i{height:60%;max-height:10px;min-width:1px;border-radius:0 3px 3px 0;background:var(--bar);flex:none}
+.cal .yt b{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--ink-3)}
+.cal .cur .yt i{background:var(--ember)}
+.cal .cur .yt b{color:var(--ink)}
+.cal-typ{align-items:end}
+.cal-typ .yl{font-family:var(--sans);align-self:end;font-size:10px;line-height:1.1;text-align:right}
+.cal-typ .mb{height:100%;display:flex;align-items:flex-end;justify-content:center;padding-top:5px}
+.cal-typ .mb i{width:62%;min-height:1px;border-radius:3px 3px 0 0;background:var(--bar)}
+.cal-typ .mb.cur i{background:var(--ember)}
+
+/* Year and Month views: big tiles with their numbers written in */
+.tiles{height:100%;display:grid;gap:8px}
+.tiles.year{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(92px,1fr)}
+.tile{padding:10px 12px;display:flex;flex-direction:column;gap:2px;color:var(--ink);text-align:left;overflow:hidden;border-radius:8px}
+.tile .tn{font-family:var(--cond);font-size:15px;font-weight:600;line-height:1.1;display:flex;justify-content:space-between;gap:6px}
+.tile .tn em{font-style:normal;font-family:var(--sans);font-size:11px;font-weight:500;opacity:.85}
+.tile .tv{font-family:var(--mono);font-size:clamp(17px,2vw,26px);font-weight:500;letter-spacing:-.02em;line-height:1.1;margin-top:auto}
+.tile .tr{font-size:11.5px;opacity:.9;line-height:1.25}
+.tile.partial .tn{color:var(--ink-3)}
+
+/* Map view */
+.mapview{position:absolute;inset:0}
+#map{position:absolute;inset:0;border-radius:inherit;background:var(--canvas-bg)}
+.leaflet-container{font:inherit;background:var(--canvas-bg)}
+.leaflet-bar{border:1px solid var(--line-2)!important;box-shadow:none!important;border-radius:10px!important;overflow:hidden}
+.leaflet-bar a,.leaflet-bar a:hover{background:var(--card);color:var(--ink);border-bottom-color:var(--line)}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--card) 80%,transparent)!important;color:var(--ink-3);font-size:10px}
+.leaflet-control-attribution a{color:var(--ink-2)}
+.leaflet-labels-pane{filter:drop-shadow(0 0 1px #000) drop-shadow(0 0 2px #000)}
+:root[data-theme="light"] .leaflet-labels-pane{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff)}
+.float{position:absolute;z-index:500}
+.map-top{top:12px;right:12px;display:flex;gap:8px;align-items:center}
+.pick{display:flex;gap:2px;padding:3px;border-radius:999px}
+.pick select{border:0;background:transparent;font-weight:600;font-size:13.5px;padding:5px 8px;border-radius:999px;cursor:pointer}
+.pick select:hover{background:var(--tint)}
+.chip{border-radius:999px;padding:7px 14px;font-size:13px;background:var(--glass);backdrop-filter:blur(12px)}
+.when{right:60px;bottom:16px;padding:8px 14px 8px 8px;display:flex;align-items:center;gap:10px}
+#play{width:40px;height:40px;border-radius:50%;padding:0;justify-content:center;background:var(--ember);border-color:var(--ember);color:var(--on-ember);font-size:13px;flex:none}
 #play:hover{background:var(--ember-hover)}
-#scrub-label{min-width:74px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px}
-.toast{top:16px;left:50%;transform:translateX(-50%);padding:8px 14px;font-size:13px;color:var(--ink);white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis}
+.when .step{width:30px;height:30px;padding:0;justify-content:center;border-radius:50%;background:transparent}
+.when .mo{font-family:var(--cond);font-size:22px;font-weight:600;line-height:1.05;white-space:nowrap;min-width:140px}
+.when .sub{font-size:11.5px;color:var(--ink-3);display:flex;align-items:center;gap:6px;margin-top:3px;white-space:nowrap}
+.when .g{width:84px;height:6px;border-radius:99px;display:inline-block}
+.toast{top:12px;left:50%;transform:translateX(-50%);padding:7px 13px;font-size:13px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
 .toast:empty{display:none}
-.stage .leaflet-bottom.leaflet-right{bottom:112px;right:322px}
-.site-header .wrap{max-width:none}
-.stage .leaflet-control-zoom{border:0!important;box-shadow:var(--shadow)!important;border-radius:12px!important;overflow:hidden}
-.stage .leaflet-control-zoom a{width:34px;height:34px;line-height:34px;background:var(--glass)!important;backdrop-filter:blur(14px)}
-.stage .leaflet-control-attribution{border-radius:8px 0 0 0;font-size:10.5px}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .leaflet-overlay-pane canvas{filter:drop-shadow(0 0 3px rgba(255,140,50,.55))}}
-:root[data-theme="dark"] .leaflet-overlay-pane canvas{filter:drop-shadow(0 0 3px rgba(255,140,50,.55))}
-@media (max-width:860px){
- .stage{height:auto;min-height:0;overflow:visible;display:flex;flex-direction:column;gap:12px;padding:12px 16px 0}
- .map-box{position:relative;height:56vh;min-height:340px;border-radius:var(--radius);overflow:hidden;order:2}
- .float{position:static;transform:none;width:auto;max-width:none}
- .area-ctl{order:1}.timeline{order:3}.insight{order:4}
- .toast{position:absolute;top:10px;left:10px;right:10px;white-space:normal}
- .stage .leaflet-bottom.leaflet-right{bottom:0;right:0}
+
+/* In map view the key numbers float over the map as translucent cards */
+.view-map .stage{grid-column:1/-1}
+.view-map .metrics{position:absolute;top:24px;left:24px;bottom:24px;width:clamp(280px,22vw,320px);z-index:600;pointer-events:none;overflow:auto;scrollbar-width:none}
+.view-map .metrics>*{pointer-events:auto}
+.view-map .metrics .q{background:color-mix(in srgb,var(--card) 58%,transparent);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3);border-color:color-mix(in srgb,var(--line-2) 70%,transparent);box-shadow:var(--shadow)}
+.view-map .metrics .dot{stroke:transparent}
+:root[data-contrast] .view-map .metrics .q{background:color-mix(in srgb,var(--card) 85%,transparent)}
+
+/* Tooltip */
+#tip{position:fixed;z-index:2000;pointer-events:none;background:var(--card);border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow);padding:9px 12px;font-size:12.5px;max-width:270px;color:var(--ink-2)}
+#tip b{display:block;color:var(--ink);font-size:13px}
+#tip .tv{font-family:var(--mono);font-size:19px;color:var(--ink);display:block;line-height:1.25}
+#tip .tn{display:block;color:var(--ink-3);font-size:11.5px;margin-top:3px}
+
+@media (max-height:760px) and (min-width:1001px){.q .big{font-size:28px}.cal-top .verdict{font-size:14px}}
+@media (max-width:1000px){
+ body{height:auto}
+ .work{display:flex;flex-direction:column;height:auto;min-height:0}
+ .stage{order:1;min-height:auto}
+ .metrics{order:2;overflow:visible}
+ .calview{padding:14px 14px 12px}
+ .cal-top{flex-wrap:wrap}
+ .range{margin-left:0}
+ #cal-body{flex:none;overflow:visible}
+ .cal{grid-template-rows:18px repeat(var(--n),20px) 34px;height:auto}
+ .cal-row{grid-template-columns:34px repeat(12,minmax(0,1fr)) 64px}
+ .cal-head .m3{display:none}
+ .cal-head .m1{display:inline}
+ .cal .c{font-size:8.5px}
+ .tiles{height:auto}
+ .tiles.year{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:88px}
+ .view-map .stage{height:62vh;min-height:360px}
+ .mapview{position:absolute}
+ .view-map .metrics{position:static;width:auto;pointer-events:auto;overflow:visible}
+ .view-map .metrics .q{background:var(--card);backdrop-filter:none}
+ .site-header{position:static}
+ .site-header .bar{gap:8px}
+ .header-end{margin-left:0;flex:1;justify-content:flex-end}
+ .leaflet-control-zoom{display:none}
+ .when{left:12px;right:12px;bottom:12px}
+ .map-top{left:12px;flex-wrap:wrap;justify-content:flex-end}
+ .when .mo{min-width:0;font-size:19px}
+ .coords .pop,.dl .pop,.a11y-pop{width:min(320px,calc(100vw - 32px))}
 }
 </style></head><body>
 <header id="site-header"></header>
-<main class="stage">
- <h1 class="sr-only">Fire activity map</h1>
- <div class="map-box">
-  <div id="leaflet-map" role="region" aria-label="Fire map. Choose Draw, then drag a rectangle to select an area."></div>
-  <canvas id="map-canvas" aria-hidden="true"></canvas>
-  <p class="float toast glass" id="map-status" aria-live="polite"></p>
- </div>
- <div class="float area-ctl glass">
-  <select id="preset" aria-label="Area"></select>
-  <span class="sep" aria-hidden="true"></span>
-  <button class="chip" id="draw-region" aria-pressed="false">Draw area</button>
-  <button class="chip" id="clear-region" hidden>Reset</button>
-  <details class="more coords"><summary>Coordinates</summary>
-   <div class="coords-row"><input id="bbox" aria-label="Area as west, south, east, north" aria-describedby="bbox-error"><button id="apply">Apply</button><span id="bbox-error" class="field-error" role="alert"></span></div>
-  </details>
- </div>
- <aside class="float insight glass" aria-labelledby="sel-month">
-  <p class="lede">For fire managers: is this month unusual for your area?</p>
-  <div class="where" id="area-name"></div>
-  <h2 class="month" id="sel-month">—</h2>
-  <span class="pill status-none" id="sel-pill">Loading</span>
-  <div class="ratio"><span id="sel-ratio">—</span><small id="sel-ratio-l">vs typical</small></div>
-  <div class="counts" id="sel-counts"></div>
-  <p class="note" id="sel-note" hidden></p>
-  <div class="legend-mini" aria-hidden="true"><span>Less</span><span class="g" id="legend-grad"></span><span>More fire</span></div>
-  <a class="btn btn-primary" id="open-report" data-page-link="report.html" href="report.html">Open the burning calendar →</a>
-  <a class="how" data-page-link="how-it-works.html" href="how-it-works.html">How two satellites become one record</a>
+<main class="work view-cal" id="work">
+ <aside class="metrics" id="metrics" aria-label="Key numbers for the selected month">
+  <article class="q panel" aria-labelledby="q1-t"><h2 id="q1-t">Is this month unusual?</h2><div id="q1"><p class="line">Loading…</p></div></article>
+  <article class="q panel" aria-labelledby="q2-t"><h2 id="q2-t">When does it burn here?</h2><div id="q2"></div></article>
+  <article class="q panel" aria-labelledby="q3-t"><h2 id="q3-t">Which years were worst?</h2><div id="q3"></div></article>
  </aside>
- <div class="float timeline glass">
-  <button id="play" aria-pressed="false" aria-label="Play through months">▶</button>
-  <div class="spark-wrap">
-   <div class="spark-box"><canvas id="spark" role="img" aria-label="Monthly harmonized detections in the selected area, 2001 to present. Click a bar to select that month.">Monthly activity sparkline.</canvas></div>
-   <input type="range" id="scrub" step="1" aria-label="Month">
+
+ <section class="stage panel" id="stage">
+  <div class="calview" id="calview" aria-labelledby="area-name">
+   <div class="cal-top">
+    <div class="titles"><span class="eyebrow">Burning activity calendar</span>
+     <h1 id="area-name">—</h1>
+     <p class="verdict" id="verdict">Loading the fire record…</p></div>
+    <button class="btn-primary swap" id="to-map" title="Replace the calendar with the map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Map</button>
+   </div>
+   <div class="cal-ctl">
+    <div class="seg" id="cview" role="group" aria-label="Calendar view"><button data-v="year" title="The twelve months of the selected year">Year</button><button data-v="all" title="Every month of every year in the date range">All years</button></div>
+    <span class="navy" id="navy"><button id="nav-prev" aria-label="Previous year">‹</button><strong id="nav-label" aria-live="polite"></strong><button id="nav-next" aria-label="Next year">›</button></span>
+    <div class="seg" id="mode" role="group" aria-label="What the colours show"><button data-m="harmonized" title="MODIS converted to VIIRS units: one consistent record">Harmonized</button><button data-m="total" title="MODIS + VIIRS simply added together, uncorrected">Raw</button><button data-m="anomaly" title="Each month against its 2003–2020 median">× typical</button></div>
+    <span class="range"><select id="y0" aria-label="From year"></select>–<select id="y1" aria-label="To year"></select></span>
+   </div>
+   <p class="jump" id="jump" hidden></p>
+   <div id="cal-body" tabindex="-1"></div>
+   <div class="cal-foot"><div class="scale" id="scale" aria-hidden="true"></div><div class="keys" id="keys"></div></div>
   </div>
-  <strong id="scrub-label"></strong>
- </div>
+
+  <div class="mapview" id="mapview" hidden>
+   <div id="map" role="region" aria-label="Map of fire detections for the selected month. Choose Draw area, then drag a rectangle to select an area."></div>
+   <p class="float toast glass" id="toast" aria-live="polite"></p>
+   <div class="float map-top"><div class="pick glass" role="group" aria-label="Month shown on the map"><select id="map-m" aria-label="Month"></select><select id="map-y" aria-label="Year"></select></div>
+    <button id="draw" class="chip toggle" aria-pressed="false">Draw area</button>
+    <button class="btn-primary swap" id="to-cal" title="Back to the calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button></div>
+   <div class="float when glass">
+    <button id="play" aria-pressed="false" aria-label="Play through months">▶</button>
+    <button class="step" id="m-prev" aria-label="Previous month">‹</button>
+    <div><div class="mo" id="map-month">—</div>
+     <div class="sub"><span>Less</span><span class="g" id="map-grad"></span><span id="map-unit">More fire per cell</span></div></div>
+    <button class="step" id="m-next" aria-label="Next month">›</button>
+   </div>
+  </div>
+ </section>
 </main>
-<footer id="site-footer"></footer>
+<div id="tip" role="tooltip" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="shared.js"></script>
-<script>
-const O = window.OBC, $ = id => document.getElementById(id);
-O.renderHeader("index.html"); O.renderFooter();
-let S = O.getState(), BBOX = S.bbox, CELLS = [], CELL_DEG = .25, LOAD_ID = 0, LOADED = false, BY_T = new Map(), BY = new Map(), STATS = {}, T0 = O.tOf(O.FIRST_YEAR, 1), T = null, SPARK = null, TIMER = null;
-let LEAFLET = null, FALLBACK = false, SELECT_MODE = false;
-const isCustom = () => !O.presetFor(BBOX);
-let TOAST_T = null;
-function toast(msg, ms) { clearTimeout(TOAST_T); $("map-status").textContent = msg; if (ms) TOAST_T = setTimeout(() => $("map-status").textContent = "", ms); }
-// Map palette: inferno (perceptually uniform, colour-blind safe). Dark map: brighter = more fire. Light map: darker = more fire.
-const INFERNO = [[106,23,110],[147,38,103],[188,55,84],[221,81,58],[243,120,25],[252,165,10],[246,215,70],[252,255,164]];
-function fire(t) { t = Math.min(1, Math.max(0, t)); const x = t * (INFERNO.length - 1), i = Math.min(INFERNO.length - 2, Math.floor(x)), f = x - i, c = INFERNO[i].map((v, j) => Math.round(v + (INFERNO[i + 1][j] - v) * f)); return `rgb(${c})`; }
-const mapRamp = t => O.isDark() ? fire(.08 + .92 * t) : fire(.82 - .82 * t);
-const wide = () => window.matchMedia("(min-width:861px)").matches;
-function fitArea() { if (!LEAFLET || FALLBACK) return; LEAFLET.map.fitBounds([[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]], wide() ? { paddingTopLeft: [24, 80], paddingBottomRight: [340, 96] } : { padding: [12, 12] }); }
-
-// ---- area ----
-function setArea(next, { fit = true } = {}) {
-  BBOX = { west: +next.west.toFixed(4), south: +next.south.toFixed(4), east: +next.east.toFixed(4), north: +next.north.toFixed(4) };
-  $("bbox").value = O.formatBBox(BBOX); $("bbox-error").textContent = "";
-  O.presetOptions($("preset"), BBOX);
-  $("clear-region").hidden = O.formatBBox(BBOX) === O.PRESETS[0].bbox;
-  O.setState({ bbox: BBOX });
-  $("area-name").textContent = O.areaName(BBOX);
-  syncSelection();
-  if (fit) fitArea();
-  const id = ++LOAD_ID, slow = setTimeout(() => { if (id === LOAD_ID) toast("Loading fire data for this area…"); }, 250);
-  O.areaCells(BBOX).then(r => {
-    if (id !== LOAD_ID) return;  // a newer area was chosen while this one loaded
-    clearTimeout(slow); toast(r.level === "c" ? "Large area: shown with 1° cells." : "", r.level === "c" ? 3500 : 0);
-    LOADED = true; CELLS = r.cells; CELL_DEG = r.cellDeg; BY_T = new Map(); CELLS.forEach(c => { const k = O.tOf(c.year, c.month); (BY_T.get(k) || BY_T.set(k, []).get(k)).push(c); }); BY = O.seriesFor(CELLS); STATS = O.monthStats(BY);
-    drawSpark(); renderMonth();
-  }).catch(err => { if (id === LOAD_ID) { clearTimeout(slow); console.error(err); toast("Couldn't load fire data for this area. Try again."); } });
-}
-function applyField() { const b = O.parseBBox($("bbox").value); if (!b) { $("bbox-error").textContent = "Enter W,S,E,N as numbers, with W < E and S < N."; return; } setArea(b); }
-
-// ---- month ----
-const ym = t => ({ y: Math.floor(t / 12), m: t % 12 + 1 });
-function setMonth(t) {
-  T = Math.max(T0, Math.min(O.tOf(O.state.END.year, O.state.END.month), t));
-  $("scrub").value = T; const { y, m } = ym(T);
-  $("scrub-label").textContent = `${O.MO[m - 1]} ${y}`;
-  O.setState({ year: y, month: m });
-  renderMonth();
-}
-function renderMonth() {
-  if (T == null) return;
-  const { y, m } = ym(T), v = O.val(BY, y, m), med = STATS[m] ? STATS[m].p50 : 0;
-  $("sel-month").textContent = `${O.MONTH[m - 1]} ${y}`;
-  if (!LOADED) return;  // the month label is set; numbers follow once the area's tiles arrive
-  const empty = !CELLS.length;
-  const ratio = !empty && med > 0 ? v / med : null, st = empty ? { key: "none", label: "No data for this area" } : O.status(ratio);
-  $("sel-pill").className = "pill status-" + st.key; $("sel-pill").textContent = st.label;
-  $("sel-ratio").textContent = ratio == null ? "—" : ratio.toFixed(1) + "×";
-  $("sel-ratio-l").textContent = `vs a typical ${O.MONTH[m - 1]}`;
-  $("sel-counts").textContent = empty ? "" : `${O.isEst(y, m) ? "≈ " : ""}${O.fmt(v)} detections · typical ${O.fmt(med)}`;
-  const notes = [];
-  if (empty) notes.push("No vegetation fires were detected in this area since 2000.");
-  if (!empty && O.isEst(y, m)) notes.push("≈ Estimated from MODIS (before S-NPP VIIRS, Feb 2012).");
-  if (!empty && O.isProv(y, m)) notes.push("Provisional near-real-time data.");
-  $("sel-note").hidden = !notes.length; $("sel-note").textContent = notes.join(" ");
-  $("open-report").textContent = empty ? "Open the burning calendar →" : `${y} calendar for this area →`;
-  if (SPARK) { const C = O.colors(); SPARK.data.datasets[0].backgroundColor = SPARK.data.labels.map((_, i) => T0 + i === T ? C.ember : C.spark); SPARK.update("none"); }
-  drawCells();
-}
-
-// ---- sparkline ----
-function drawSpark() {
-  const endT = O.tOf(O.state.END.year, O.state.END.month), labels = [], data = [];
-  for (let t = T0; t <= endT; t++) { const { y, m } = ym(t); labels.push(`${O.MO[m - 1]} ${y}`); data.push(O.val(BY, y, m) || 0); }
-  if (!SPARK) {
-    SPARK = new Chart($("spark"), { type: "bar", data: { labels, datasets: [{ data, backgroundColor: O.colors().spark, barPercentage: 1, categoryPercentage: .85, borderRadius: 1 }] },
-      options: { responsive: true, maintainAspectRatio: false, animation: false, onClick: (_, els) => { if (els.length) { stop(); setMonth(T0 + els[0].index); } },
-        plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { label: c => O.fmt(c.raw) + " detections" } } }, scales: { x: { display: false }, y: { display: false } } } });
-  } else { SPARK.data.labels = labels; SPARK.data.datasets[0].data = data; }
-  SPARK.update("none");
-}
-
-// ---- play ----
-function stop() { clearInterval(TIMER); TIMER = null; $("play").setAttribute("aria-pressed", "false"); $("play").textContent = "▶"; $("play").setAttribute("aria-label", "Play through months"); }
-$("play").onclick = () => {
-  if (TIMER) return stop();
-  const endT = O.tOf(O.state.END.year, O.state.END.month);
-  if (T >= endT) setMonth(T0);
-  $("play").setAttribute("aria-pressed", "true"); $("play").textContent = "❚❚"; $("play").setAttribute("aria-label", "Pause");
-  TIMER = setInterval(() => { if (T >= endT) return stop(); setMonth(T + 1); }, 260);
-};
-$("scrub").addEventListener("input", e => { stop(); setMonth(+e.target.value); });
-
-// ---- map (Leaflet + region drawing from PR #29; canvas fallback if tiles fail) ----
-function setFallback(msg) { FALLBACK = true; $("leaflet-map").style.display = "none"; $("map-canvas").style.display = "block"; toast(msg); drawCells(); }
-// From #29: after falling back, probe the tile server a few times and bring the map back if it recovers.
-function tileFallbackNow(msg) {
-  setFallback(msg);
-  [6000, 14000, 30000].forEach(ms => setTimeout(() => {
-    if (!FALLBACK || !LEAFLET) return;
-    const img = new Image();
-    img.onload = () => {
-      if (!FALLBACK) return;
-      FALLBACK = false; $("leaflet-map").style.display = ""; $("map-canvas").style.display = "none";
-      LEAFLET.map.invalidateSize(); fitArea();
-      if (LEAFLET.tiles) LEAFLET.tiles.redraw();
-      drawCells(); toast("Map tiles are back.", 3000);
-    };
-    img.src = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/2/1/2?probe=" + Date.now();
-  }, ms));
-}
-function syncSelection() {
-  if (!LEAFLET || FALLBACK) return;
-  const b = [[BBOX.south, BBOX.west], [BBOX.north, BBOX.east]];
-  if (LEAFLET.selection) LEAFLET.selection.setBounds(b); else LEAFLET.selection = L.rectangle(b, { renderer: LEAFLET.renderer, color: O.colors().ember, weight: 2, fill: false, interactive: false }).addTo(LEAFLET.map);
-  LEAFLET.selection.bringToFront();
-}
-// Light map: cividis light-to-dark, so busier cells are darker. Dark map: the same scale reversed, so busier cells are brighter.
-function cellColor(share) { return mapRamp(Math.pow(share, .4)); }
-function cellsThisMonth() { return T == null ? [] : BY_T.get(T) || []; }
-function drawCells() {
-  const sel = cellsThisMonth(), max = sel.reduce((a, c) => Math.max(a, c.harmonized_count), 1), { y, m } = T == null ? { y: 0, m: 1 } : ym(T);
-  if (LEAFLET && !FALLBACK) {
-    const vb = LEAFLET.map.getBounds(); LEAFLET.cells.clearLayers();
-    const h = CELL_DEG / 2, vis = sel.filter(c => vb.contains([c.cell_lat + h, c.cell_lon + h]));
-    vis.forEach(c => L.rectangle([[c.cell_lat, c.cell_lon], [c.cell_lat + CELL_DEG, c.cell_lon + CELL_DEG]], { renderer: LEAFLET.renderer, stroke: false, fillColor: cellColor(c.harmonized_count / max), fillOpacity: LEAFLET.map.getZoom() >= 7 ? .7 : .9, interactive: false }).addTo(LEAFLET.cells));
-    syncSelection();
-  } else if (FALLBACK) {
-    const cv = $("map-canvas"); cv.width = cv.clientWidth || 1040; cv.height = cv.clientHeight || 520;
-    const x = cv.getContext("2d"), { west: w, south: s, east: e, north: n } = BBOX;
-    x.fillStyle = O.colors().canvasBg; x.fillRect(0, 0, cv.width, cv.height);
-    sel.forEach(c => { const px = (c.cell_lon - w) / (e - w) * cv.width, py = (1 - (c.cell_lat - s) / (n - s)) * cv.height, pw = Math.max(3, CELL_DEG / (e - w) * cv.width), ph = Math.max(3, CELL_DEG / (n - s) * cv.height); x.fillStyle = cellColor(c.harmonized_count / max); x.fillRect(px, py - ph, pw, ph); });
-  }
-}
-const tileURL = () => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${O.isDark() ? "Dark" : "Light"}_Gray_Base/MapServer/tile/{z}/{y}/{x}`;
-// Place names come from a separate Esri layer, drawn above the fire cells so they stay readable.
-const labelURL = () => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${O.isDark() ? "Dark" : "Light"}_Gray_Reference/MapServer/tile/{z}/{y}/{x}`;
-function initLeaflet() {
-  if (!window.L) return setFallback("The interactive map couldn't load, so a simple grid view is shown instead.");
-  const map = L.map("leaflet-map", { zoomControl: false, worldCopyJump: true, zoomSnap: .25, maxZoom: 16 });
-  L.control.zoom({ position: "bottomright" }).addTo(map);
-  LEAFLET = { map, cells: L.layerGroup().addTo(map), renderer: L.canvas({ padding: .2 }), selection: null };
-  const tiles = L.tileLayer(tileURL(), { maxZoom: 16, attribution: 'Basemap &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' }).addTo(map);
-  map.createPane("labels"); map.getPane("labels").style.zIndex = 650; map.getPane("labels").style.pointerEvents = "none";
-  LEAFLET.labels = L.tileLayer(labelURL(), { maxZoom: 16, pane: "labels" }).addTo(map);
-  fitArea();
-  let ok = false; const errs = new Set();
-  LEAFLET.tiles = tiles;
-  const timer = setTimeout(() => { if (!ok && !FALLBACK) tileFallbackNow("Map tiles didn't load in time, so a simple grid view is shown instead."); }, 10000);
-  tiles.on("tileload", () => { ok = true; clearTimeout(timer); });
-  tiles.on("tileerror", e => { const c = e.coords || {}; errs.add(`${c.x}/${c.y}/${c.z}`); if (!ok && errs.size >= 6 && !FALLBACK) { clearTimeout(timer); tileFallbackNow("Map tiles couldn't load, so a simple grid view is shown instead."); } });
-  map.on("moveend", drawCells);
-  // Draw a box: pointer events, so mouse, pen and touch all work. Shift+drag box zoom also selects.
-  let start = null, draft = null, upHandled = false; const box = map.getContainer();
-  const exit = cancel => { SELECT_MODE = false; start = null; map.dragging.enable(); box.style.cursor = ""; if (draft) { draft.remove(); draft = null; } $("draw-region").setAttribute("aria-pressed", "false"); $("draw-region").textContent = "Draw area"; if (cancel) toast("Drawing cancelled.", 2500); else toast(""); };
-  L.DomEvent.on(box, "pointerdown", e => { if (!SELECT_MODE) return; L.DomEvent.stop(e); upHandled = false; start = map.mouseEventToLatLng(e); draft = L.rectangle([start, start], { renderer: LEAFLET.renderer, color: O.colors().ember, weight: 2, fillOpacity: .08, interactive: false }).addTo(map); });
-  L.DomEvent.on(box, "pointermove", e => { if (SELECT_MODE && start && draft) { L.DomEvent.stop(e); draft.setBounds(L.latLngBounds(start, map.mouseEventToLatLng(e))); } });
-  L.DomEvent.on(box, "pointerup", e => { if (!SELECT_MODE) return; upHandled = true; L.DomEvent.stop(e); if (start) { const b = L.latLngBounds(start, map.mouseEventToLatLng(e)); if (b.getWest() < b.getEast() && b.getSouth() < b.getNorth()) setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); } exit(false); });
-  // From #29: releasing outside the map cancels a drawing in progress.
-  L.DomEvent.on(document, "pointerup", e => { if (SELECT_MODE && start && !upHandled) exit(true); upHandled = false; });
-  L.DomEvent.on(document, "keydown", e => { if (SELECT_MODE && e.key === "Escape") exit(true); });
-  map.on("boxzoomend", e => { const b = e.boxZoomBounds; if (b.getWest() < b.getEast() && b.getSouth() < b.getNorth()) setArea({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, { fit: false }); });
-  LEAFLET.exitDraw = exit;
-}
-$("draw-region").onclick = () => {
-  if (!LEAFLET || FALLBACK) { toast("The interactive map isn't available. Use Coordinates instead.", 4000); return; }
-  if (SELECT_MODE) return LEAFLET.exitDraw(true);
-  SELECT_MODE = true; LEAFLET.map.dragging.disable(); LEAFLET.map.getContainer().style.cursor = "crosshair";
-  $("draw-region").setAttribute("aria-pressed", "true"); $("draw-region").textContent = "Cancel";
-  toast("Drag on the map to draw an area · Esc cancels");
-};
-const cancelDrawing = () => { if (SELECT_MODE && LEAFLET && LEAFLET.exitDraw) LEAFLET.exitDraw(true); };
-$("clear-region").onclick = () => { cancelDrawing(); setArea(O.parseBBox(O.PRESETS[0].bbox)); };
-$("preset").onchange = e => { cancelDrawing(); setArea(O.parseBBox(e.target.value)); };
-$("apply").onclick = applyField;
-$("bbox").addEventListener("keydown", e => { if (e.key === "Enter") applyField(); });
-
-// ---- theme: recolour the canvas-drawn pieces ----
-function paintLegend() { $("legend-grad").style.background = `linear-gradient(to right,${[0, .25, .5, .75, 1].map(mapRamp).join(",")})`; }
-O.onTheme(() => { if (LEAFLET) { LEAFLET.tiles.setUrl(tileURL()); LEAFLET.labels.setUrl(labelURL()); if (LEAFLET.selection) LEAFLET.selection.setStyle({ color: O.colors().ember }); } paintLegend(); renderMonth(); });
-paintLegend();
-
-// ---- start ----
-O.loadData().then(() => {
-  O.setDataThrough();
-  const endT = O.tOf(O.state.END.year, O.state.END.month);
-  $("scrub").min = T0; $("scrub").max = endT;
-  initLeaflet(); setArea(BBOX, { fit: false });
-  setMonth(S.year && S.month ? O.tOf(S.year, S.month) : endT);
-}).catch(err => {
-  console.error(err);
-  toast("Couldn't load the fire data. Try reloading the page.");
-  $("sel-pill").textContent = "Data unavailable";
-});
-</script>
+<script src="explore.js"></script>
 </body></html>
