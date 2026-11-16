@@ -101,6 +101,9 @@ details.more[open]>summary::before{transform:rotate(90deg)}
 .legend-row span{display:inline-flex;align-items:center;gap:6px}
 .swatch{width:12px;height:10px;border-radius:2px;display:inline-block}
 
+/* Tooltip for controls (data-tip), shown on hover and keyboard focus */
+.hint{position:fixed;z-index:3000;pointer-events:none;max-width:260px;background:var(--ink);color:var(--bg);font-size:12.5px;line-height:1.35;font-weight:500;padding:6px 10px;border-radius:8px;box-shadow:var(--shadow)}
+
 /* Footer */
 .site-footer{border-top:1px solid var(--line);margin-top:40px;padding:16px 0 24px;font-size:12.5px;color:var(--ink-3)}
 .site-footer a{color:var(--ink-2)}

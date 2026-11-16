@@ -203,7 +203,7 @@
     const b = document.getElementById("theme-toggle"); if (!b) return;
     const dark = isDark();
     b.innerHTML = dark ? '<span class="ico" aria-hidden="true">☀</span>' : '<span class="ico" aria-hidden="true">☾</span>';
-    b.title = dark ? "Light theme" : "Dark theme";
+    b.dataset.tip = dark ? "Switch to light theme" : "Switch to dark theme";
     b.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
     b.setAttribute("aria-pressed", String(dark));
   }
@@ -222,13 +222,13 @@
       <div class="header-slot">${slot || ""}</div>
       <div class="header-end"><span class="header-meta" id="data-through"></span>
       <nav aria-label="Main" style="display:flex;gap:2px">${link("index.html", "Explore")}${link("how-it-works.html", "Method")}</nav>
-      <details class="menu" id="a11y-menu"><summary class="icon-btn" title="Colour and accessibility" aria-label="Colour and accessibility settings"><span aria-hidden="true">◐</span></summary>
+      <details class="menu" id="a11y-menu"><summary class="icon-btn" data-tip="Colour palette and accessibility settings" aria-label="Colour and accessibility settings"><span aria-hidden="true">◐</span></summary>
        <div class="pop panel a11y-pop" role="group" aria-label="Colour and accessibility">
-        <label class="fld">Colour palette<select id="a11y-palette">${Object.entries(PALETTES).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("")}</select></label>
+        <label class="fld" data-tip="Cividis and Viridis are colour-blind safe. Greyscale works in print">Colour palette<select id="a11y-palette">${Object.entries(PALETTES).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join("")}</select></label>
         <div class="ramp-preview" id="a11y-preview" aria-hidden="true"></div>
-        <label class="chk"><input type="checkbox" id="a11y-numbers"> Numbers in calendar cells</label>
-        <label class="chk"><input type="checkbox" id="a11y-symbols"> Shapes on status (▲ above, ▼ below)</label>
-        <label class="chk"><input type="checkbox" id="a11y-contrast"> Strong outlines and text</label>
+        <label class="chk" data-tip="Write each count inside its calendar cell, so colour is not the only cue"><input type="checkbox" id="a11y-numbers"> Numbers in calendar cells</label>
+        <label class="chk" data-tip="Mark above- and below-normal labels with a shape, so colour is not the only cue"><input type="checkbox" id="a11y-symbols"> Shapes on status (▲ above, ▼ below)</label>
+        <label class="chk" data-tip="Thicker outlines and stronger text, for low vision or bright screens"><input type="checkbox" id="a11y-contrast"> Strong outlines and text</label>
        </div></details>
       <button class="theme-toggle" id="theme-toggle" type="button"></button></div></div>`;
     document.getElementById("theme-toggle").onclick = () => setTheme(isDark() ? "light" : "dark");
@@ -239,7 +239,34 @@
     onTheme(prev); prev();
     document.addEventListener("click", e => { document.querySelectorAll("details.menu[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
     document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll("details.menu[open]").forEach(d => { d.open = false; d.querySelector("summary").focus(); }); });
-    updateThemeToggle(); updateNavLinks();
+    updateThemeToggle(); updateNavLinks(); initTips();
+  }
+  // Tooltips: an element with data-tip shows that text on mouse hover and on keyboard focus (a title attribute only works with a mouse).
+  function initTips() {
+    if (document.getElementById("hint")) return;
+    const t = document.createElement("div"); t.id = "hint"; t.className = "hint"; t.setAttribute("role", "tooltip"); t.hidden = true; document.body.appendChild(t);
+    let cur = null, owned = false;
+    const hide = () => { if (cur && owned) cur.removeAttribute("aria-describedby"); cur = null; t.hidden = true; };
+    const show = el => {
+      hide();
+      if (el.tagName === "SUMMARY" && el.parentElement.open) return;   // its menu is open: the tip would cover it
+      cur = el; t.textContent = el.dataset.tip; t.hidden = false;
+      owned = !el.hasAttribute("aria-describedby"); if (owned) el.setAttribute("aria-describedby", "hint");
+      const r = el.getBoundingClientRect(), w = t.offsetWidth, h = t.offsetHeight;
+      let top = r.bottom + 8; if (top + h > innerHeight - 8) top = r.top - h - 8;
+      let left = r.left + r.width / 2 - w / 2;
+      const pop = el.closest(".pop");   // inside a menu, sit beside it so the tip does not cover the next option
+      if (pop) { const p = pop.getBoundingClientRect(), side = p.left - w - 8 >= 8 ? p.left - w - 8 : p.right + w + 8 <= innerWidth - 8 ? p.right + 8 : null; if (side != null) { left = side; top = r.top + r.height / 2 - h / 2; } }
+      t.style.left = Math.max(8, Math.min(innerWidth - w - 8, left)) + "px"; t.style.top = Math.max(8, top) + "px";
+    };
+    const find = e => e.target.closest ? e.target.closest("[data-tip]") : null;
+    const canHover = matchMedia("(hover:hover)");
+    document.addEventListener("mouseover", e => { if (!canHover.matches) return; const el = find(e); if (!el) hide(); else if (el !== cur) show(el); });
+    document.addEventListener("focusin", e => { const el = find(e); if (el && e.target.matches(":focus-visible")) show(el); else hide(); });
+    document.addEventListener("focusout", hide);
+    document.addEventListener("mousedown", hide, true);
+    addEventListener("scroll", hide, true);
+    document.addEventListener("keydown", e => { if (e.key === "Escape") hide(); });
   }
   function setDataThrough() { const el = document.getElementById("data-through"); if (el && state.END.year) el.textContent = `NASA FIRMS MODIS + VIIRS · data through ${MONTH[state.END.month - 1]} ${state.END.year}`; }
   function renderFooter() {

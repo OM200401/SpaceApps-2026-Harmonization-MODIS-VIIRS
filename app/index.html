@@ -214,13 +214,13 @@ body{display:flex;flex-direction:column;height:100vh;overflow:auto}
     <div class="titles"><span class="eyebrow">Burning activity calendar</span>
      <h1 id="area-name">—</h1>
      <p class="verdict" id="verdict">Loading the fire record…</p></div>
-    <button class="btn-primary swap" id="to-map" title="Replace the calendar with the map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Map</button>
+    <button class="btn-primary swap" id="to-map" data-tip="Show this area on a map for the selected month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Map</button>
    </div>
    <div class="cal-ctl">
-    <div class="seg" id="cview" role="group" aria-label="Calendar view"><button data-v="year" title="The twelve months of the selected year">Year</button><button data-v="all" title="Every month of every year in the date range">All years</button></div>
-    <span class="navy" id="navy"><button id="nav-prev" aria-label="Previous year">‹</button><strong id="nav-label" aria-live="polite"></strong><button id="nav-next" aria-label="Next year">›</button></span>
-    <div class="seg" id="mode" role="group" aria-label="What the colours show"><button data-m="harmonized" title="MODIS converted to VIIRS units: one consistent record">Harmonized</button><button data-m="total" title="MODIS + VIIRS simply added together, uncorrected">Raw</button><button data-m="anomaly" title="Each month against its 2003–2020 median">× typical</button></div>
-    <span class="range"><select id="y0" aria-label="From year"></select>–<select id="y1" aria-label="To year"></select></span>
+    <div class="seg" id="cview" role="group" aria-label="Calendar view"><button data-v="year" data-tip="The twelve months of the selected year, with the counts written in">Year</button><button data-v="all" data-tip="Every month of every year in the date range, one row per year">All years</button></div>
+    <span class="navy" id="navy"><button id="nav-prev" aria-label="Previous year" data-tip="Previous year">‹</button><strong id="nav-label" aria-live="polite"></strong><button id="nav-next" aria-label="Next year" data-tip="Next year">›</button></span>
+    <div class="seg" id="mode" role="group" aria-label="What the colours show"><button data-m="harmonized" data-tip="One consistent record on a single scale: MODIS counts before 2012 are converted to match VIIRS">Harmonized</button><button data-m="total" data-tip="MODIS and VIIRS simply added together, uncorrected. Counts jump in 2012 when VIIRS starts">Raw</button><button data-m="anomaly" data-tip="Each month compared with its usual level (the 2003–2020 median). 2.0× means twice the usual">× typical</button></div>
+    <span class="range"><select id="y0" aria-label="From year" data-tip="First year of the date range"></select>–<select id="y1" aria-label="To year" data-tip="Last year of the date range"></select></span>
    </div>
    <p class="jump" id="jump" hidden></p>
    <div id="cal-body" tabindex="-1"></div>
@@ -230,15 +230,15 @@ body{display:flex;flex-direction:column;height:100vh;overflow:auto}
   <div class="mapview" id="mapview" hidden>
    <div id="map" role="region" aria-label="Map of fire detections for the selected month. Choose Draw area, then drag a rectangle to select an area."></div>
    <p class="float toast glass" id="toast" aria-live="polite"></p>
-   <div class="float map-top"><div class="pick glass" role="group" aria-label="Month shown on the map"><select id="map-m" aria-label="Month"></select><select id="map-y" aria-label="Year"></select></div>
-    <button id="draw" class="chip toggle" aria-pressed="false">Draw area</button>
-    <button class="btn-primary swap" id="to-cal" title="Back to the calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button></div>
+   <div class="float map-top"><div class="pick glass" role="group" aria-label="Month shown on the map"><select id="map-m" aria-label="Month" data-tip="Month shown on the map"></select><select id="map-y" aria-label="Year" data-tip="Year shown on the map"></select></div>
+    <button id="draw" class="chip toggle" aria-pressed="false" data-tip="Drag a rectangle on the map to choose your own area">Draw area</button>
+    <button class="btn-primary swap" id="to-cal" data-tip="Back to the burning calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button></div>
    <div class="float when glass">
-    <button id="play" aria-pressed="false" aria-label="Play through months">▶</button>
-    <button class="step" id="m-prev" aria-label="Previous month">‹</button>
+    <button id="play" aria-pressed="false" aria-label="Play through months" data-tip="Play through the months as an animation">▶</button>
+    <button class="step" id="m-prev" aria-label="Previous month" data-tip="Previous month">‹</button>
     <div><div class="mo" id="map-month">—</div>
      <div class="sub"><span>Less</span><span class="g" id="map-grad"></span><span id="map-unit">More fire per cell</span></div></div>
-    <button class="step" id="m-next" aria-label="Next month">›</button>
+    <button class="step" id="m-next" aria-label="Next month" data-tip="Next month">›</button>
    </div>
   </div>
  </section>

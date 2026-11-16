@@ -4,11 +4,11 @@
    Data helpers live in shared.js (window.OBC). */
 (function () {
   const O = window.OBC, $ = id => document.getElementById(id);
-  O.renderHeader("index.html", `<select id="preset" aria-label="Area"></select>
-    <details class="menu coords" id="coords"><summary class="btnlike">Coordinates</summary><div class="pop panel">
+  O.renderHeader("index.html", `<select id="preset" aria-label="Area" data-tip="Pick a region. For your own area use Coordinates, or Draw area on the map"></select>
+    <details class="menu coords" id="coords"><summary class="btnlike" data-tip="Type your own area as west, south, east, north in degrees">Coordinates</summary><div class="pop panel">
       <input id="bbox" aria-label="Area as west, south, east, north" aria-describedby="bbox-error"><button id="apply">Apply</button>
       <small>West, south, east, north in degrees.</small><span id="bbox-error" class="field-error" role="alert"></span></div></details>
-    <details class="menu dl" id="dl"><summary class="btnlike" title="Download the hotspots found in this search as CSV">↓ Hotspots CSV</summary><div class="pop panel" role="group" aria-label="Download hotspots as CSV">
+    <details class="menu dl" id="dl"><summary class="btnlike" data-tip="Download hotspot counts for this area as CSV: one row per grid cell and month">↓ Hotspot counts CSV</summary><div class="pop panel" role="group" aria-label="Download hotspot counts as CSV">
       <p>One row per grid cell and month with at least one hotspot: location, MODIS, VIIRS, raw and harmonized counts, estimate and provisional flags.</p>
       <button data-dl="month">Selected month <small id="dl-month"></small></button>
       <button data-dl="year">Selected year <small id="dl-year"></small></button>
@@ -414,7 +414,7 @@
   }
   $("dl").addEventListener("click", e => {
     const b = e.target.closest("[data-dl]"); if (!b || !A.loaded || A.y == null) return;
-    const { cells, tag } = DL[b.dataset.dl](); O.downloadCSV(cells, `hotspots-${areaId()}-${tag}.csv`); $("dl").open = false;
+    const { cells, tag } = DL[b.dataset.dl](); O.downloadCSV(cells, `hotspot-counts-${areaId()}-${tag}.csv`); $("dl").open = false;
   });
 
   // ---- theme and accessibility settings: recolour everything ----
